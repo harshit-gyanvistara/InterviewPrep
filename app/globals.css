@@ -1,0 +1,232 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root {
+  --bg-a: #b4b8e6;
+  --bg-b: #a7b3e8;
+  --panel: rgba(255, 255, 255, 0.82);
+  --panel-solid: #ffffff;
+  --card: #ffffff;
+  --soft: #f3f4fb;
+  --ink: #16161a;
+  --muted: #6b6f7b;
+  --line: rgba(20, 20, 40, 0.08);
+  --accent: #16161a;
+  --accent-ink: #ffffff;
+  --hl: #d9e8fb;
+  --danger: #ef5350;
+  --ok: #22a06b;
+}
+
+[data-theme="dark"] {
+  --bg-a: #1b1c2e;
+  --bg-b: #23264a;
+  --panel: rgba(28, 29, 44, 0.9);
+  --panel-solid: #1c1d2c;
+  --card: #262838;
+  --soft: #2d3044;
+  --ink: #f1f1f6;
+  --muted: #a0a4b8;
+  --line: rgba(255, 255, 255, 0.09);
+  --accent: #f1f1f6;
+  --accent-ink: #16161a;
+  --hl: #34406a;
+}
+
+@theme inline {
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-soft: var(--soft);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-hl: var(--hl);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+  /* The app shell (components/Shell.tsx) owns scrolling via its <main>; the page/body never scroll,
+     so the header and nav stay fixed instead of drifting off with the content. */
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+html {
+  /* Native-app touch feel: no lingering grey tap flash, no double-tap-to-zoom delay on taps. */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg-a), var(--bg-b));
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  overscroll-behavior-y: contain;
+}
+
+/* Themed scrollbar for every scrollable region in the app (main content, transcripts, Cortex panes, the notes drawer). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+.glass {
+  background: var(--panel);
+  backdrop-filter: blur(18px);
+  border: 1px solid var(--line);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: transform 0.12s, opacity 0.12s, background 0.12s;
+  cursor: pointer;
+}
+.btn:active {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-ghost {
+  background: var(--soft);
+  color: var(--ink);
+}
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.input {
+  width: 100%;
+  border-radius: 1rem;
+  background: var(--soft);
+  padding: 0.7rem 1rem;
+  font-size: 0.9rem;
+  color: var(--ink);
+  outline: none;
+  border: 1px solid transparent;
+}
+.input:focus {
+  border-color: var(--accent);
+}
+
+.wave span {
+  display: inline-block;
+  width: 3px;
+  margin: 0 1.5px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: wave 1s ease-in-out infinite;
+}
+@keyframes wave {
+  0%, 100% { height: 6px; }
+  50% { height: 22px; }
+}
+
+.pulse-ring {
+  animation: ring 1.6s ease-out infinite;
+}
+@keyframes ring {
+  0% { box-shadow: 0 0 0 0 rgba(34, 160, 107, 0.5); }
+  100% { box-shadow: 0 0 0 16px rgba(34, 160, 107, 0); }
+}
+
+/* Cortex editor content (Tiptap) */
+.cortex-prose {
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+.cortex-prose > * + * {
+  margin-top: 0.75em;
+}
+.cortex-prose h1 { font-size: 1.6em; font-weight: 600; line-height: 1.3; }
+.cortex-prose h2 { font-size: 1.3em; font-weight: 600; line-height: 1.3; }
+.cortex-prose h3 { font-size: 1.1em; font-weight: 600; line-height: 1.3; }
+.cortex-prose ul, .cortex-prose ol { padding-left: 1.4em; }
+.cortex-prose ul { list-style: disc; }
+.cortex-prose ol { list-style: decimal; }
+.cortex-prose blockquote {
+  border-left: 3px solid var(--line);
+  padding-left: 0.9em;
+  color: var(--muted);
+}
+.cortex-prose pre {
+  background: var(--soft);
+  border-radius: 0.75rem;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  font-family: var(--font-geist-mono, ui-monospace), monospace;
+  font-size: 0.85em;
+}
+.cortex-prose code {
+  background: var(--soft);
+  border-radius: 0.3em;
+  padding: 0.15em 0.4em;
+  font-family: var(--font-geist-mono, ui-monospace), monospace;
+  font-size: 0.85em;
+}
+.cortex-prose pre code {
+  background: none;
+  padding: 0;
+}
+.cortex-prose hr {
+  border: none;
+  border-top: 1px solid var(--line);
+}
+.cortex-prose a { color: var(--accent); text-decoration: underline; }
+.cortex-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+.cortex-prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5em;
+}
+.cortex-prose ul[data-type="taskList"] li > label {
+  margin-top: 0.2em;
+}
+.cortex-prose ul[data-type="taskList"] li[data-checked="true"] > div > p {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.cortex-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted);
+  pointer-events: none;
+  height: 0;
+}
