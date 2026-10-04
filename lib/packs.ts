@@ -1,12 +1,15 @@
+import { DOMAINS, resolveDomain, type DomainProfile } from "./domains";
 import type { Pack, Persona, Profile } from "./types";
 
 /**
- * Built-in round library. Kept small and mostly role-agnostic — the interviewer prompt
- * (see prompts.ts) already tailors every round to the candidate's own target role, resume
+ * Built-in round library (code copy: seeds the Supabase `packs` table and is the fallback without
+ * it; the live library comes from lib/catalog). Kept small and mostly role-agnostic — the interviewer prompt
+ * (liveAgent/live_agent/prompts.py) already tailors every round to the candidate's own target role, resume
  * and job description, so these are shapes ("a behavioural round", "an HR screen"), not
- * job titles. The two CS-specific rounds are only shown to candidates who look technical
- * (see isTechnical below); every other profession is served by the universal rounds plus
- * whatever gets generated from their job description (see /api/pack/generate).
+ * job titles. Field-specific rounds (CS, medicine) list the field ids they are shown for in
+ * `domains` (see lib/domains and visibleBuiltInPacks below); every other profession is served
+ * by the universal rounds plus whatever gets generated from their job description (see
+ * /api/pack/generate). Field packs also save a Pro-model pack generation per candidate.
  */
 export const PACKS: Pack[] = [
   {
@@ -111,7 +114,7 @@ export const PACKS: Pack[] = [
     company: "Product / service company",
     role: "Software / IT roles",
     roundType: "technical",
-    domains: "technical",
+    domains: ["software"],
     description: "DSA concepts, OOP, DBMS, OS, networking and a discussion of your project's design.",
     durationMin: 20,
     topics: [
@@ -131,32 +134,102 @@ export const PACKS: Pack[] = [
     company: "Product company",
     role: "Software / IT roles",
     roundType: "coding",
-    domains: "technical",
+    domains: ["software"],
     description: "One or two DSA problems. Think aloud, write code in the editor, discuss complexity and edge cases.",
     durationMin: 30,
     topics: ["Warm-up array/string problem", "Medium problem (hash map, two pointers, or tree/graph traversal)", "Complexity analysis", "Edge cases and testing"],
     rubric: ["Problem solving", "Code quality", "Complexity analysis", "Testing and edge cases", "Communication while coding"],
     style: "State the problem clearly, let the candidate think aloud, give hints only after they are stuck. Read the code they paste in the editor and ask about it.",
   },
+  {
+    id: "med-clinical-viva",
+    title: "Clinical Viva & Case Discussion",
+    company: "Medical college / hospital",
+    role: "Medical student, intern or resident",
+    roundType: "technical",
+    domains: ["medical"],
+    description: "An examiner gives you a clinical vignette and pushes you from history to differentials, investigations and management.",
+    durationMin: 20,
+    topics: [
+      "A short clinical vignette: take a focused history out loud",
+      "Interpret the key examination findings and vitals",
+      "Rank the differential diagnoses and justify the top one",
+      "Choose first-line investigations and explain why",
+      "Initial management, red flags and when to escalate",
+      "A common emergency approached with ABCDE",
+    ],
+    rubric: ["Clinical reasoning", "Medical knowledge", "Patient safety", "Structure", "Communication"],
+    style: "Act as a senior examiner: give a short vignette, reveal findings only when asked, and keep asking 'what next?' and 'why?'.",
+  },
+  {
+    id: "med-mmi-ethics",
+    title: "MMI Ethics & Communication Stations",
+    company: "Medical college / hospital",
+    role: "Medical student, intern or resident",
+    roundType: "behavioural",
+    domains: ["medical"],
+    description: "Short Multiple Mini Interview stations on ethics, consent, confidentiality and difficult conversations.",
+    durationMin: 15,
+    topics: [
+      "Consent and capacity: a patient who refuses treatment",
+      "Confidentiality versus a risk to others",
+      "A colleague who seems impaired at work",
+      "Breaking bad news to a patient or family",
+      "Owning up to a medication error",
+      "Resource allocation: one bed, two patients",
+    ],
+    rubric: ["Ethical reasoning", "Empathy", "Professionalism", "Structure", "Communication"],
+    style: "Run each topic as a short station: read the scenario, let the candidate reason it through, then add one twist.",
+  },
+  {
+    id: "med-pg-selection",
+    title: "PG / Residency Selection Interview",
+    company: "Medical college / hospital",
+    role: "Postgraduate or residency applicant",
+    roundType: "hr",
+    domains: ["medical"],
+    description: "A selection panel on your specialty choice, clinical experience, research and how you handle pressure.",
+    durationMin: 20,
+    topics: [
+      "Why this specialty, and what you know about its day-to-day reality",
+      "A case or rotation that shaped you",
+      "Research, audit or quality improvement you contributed to",
+      "Working in a team under pressure, with a real example",
+      "Handling long hours, mistakes and burnout",
+      "Where you see yourself after residency",
+    ],
+    rubric: ["Motivation and insight", "Specifics and evidence", "Teamwork", "Resilience", "Communication"],
+    style: "Formal selection-panel tone. Probe for concrete examples and what the candidate personally did.",
+  },
 ];
 
 export const BASELINE_PACK_ID = "behavioural";
 
-/** Heuristic: does this profile look like a software/technical role? Drives whether the CS-specific rounds show up. */
-export function isTechnical(profile: Pick<Profile, "targetRole" | "jobDescription">): boolean {
-  const text = `${profile.targetRole} ${profile.jobDescription}`.toLowerCase();
-  return /software|developer|programmer|\bsde\b|full.?stack|backend|front.?end|web dev|data structures|algorithm|devops|\bml\b|machine learning|data scientist|data engineer|qa engineer|sde\d|coding|\bapi\b|embedded|firmware|android|ios app/i.test(
-    text,
-  );
-}
+type DomainInput = Pick<Profile, "targetRole" | "jobDescription" | "domain">;
 
-/** The built-in packs relevant to this profile (universal ones always, technical ones only for technical profiles). */
-export function visibleBuiltInPacks(profile: Pick<Profile, "targetRole" | "jobDescription">): Pack[] {
-  const tech = isTechnical(profile);
-  return PACKS.filter((p) => p.domains === "all" || tech);
+/** Does this profile's field (picked, or guessed from role/JD) allow programming rounds? */
+export const isTechnical = (profile: DomainInput, domains: DomainProfile[] = DOMAINS): boolean => resolveDomain(profile, undefined, domains).allowsCoding;
+
+/**
+ * The built-in packs relevant to this profile: universal ones always, field ones only for their field.
+ * `catalog` is the live one from the database (useCatalog / getCatalog); defaults to the code copy.
+ */
+export function visibleBuiltInPacks(
+  profile: DomainInput,
+  catalog: { domains: DomainProfile[]; packs: Pack[] } = { domains: DOMAINS, packs: PACKS },
+  orgDomainId?: string,
+): Pack[] {
+  const domain = resolveDomain(profile, orgDomainId, catalog.domains).id;
+  return catalog.packs.filter((p) => p.domains === "all" || p.domains.includes(domain));
 }
 
 export const getPack = (id: string) => PACKS.find((p) => p.id === id);
+
+/** The minimum a pack needs before an interview can run on it (data from the browser or the database). */
+export function isValidPack(p: unknown): p is Pack {
+  const x = p as Pack | null;
+  return !!x && typeof x.title === "string" && typeof x.roundType === "string" && Array.isArray(x.topics) && x.topics.length > 0 && Array.isArray(x.rubric) && x.rubric.length > 0;
+}
 
 const dedupe = (items: string[], limit: number) => {
   const seen = new Set<string>();

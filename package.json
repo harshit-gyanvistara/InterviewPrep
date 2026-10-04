@@ -6,10 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "tsx --env-file=.env.local scripts/seed-catalog.ts",
+    "typecheck": "tsc --noEmit",
+    "agent:setup": "node scripts/agent.mjs setup",
+    "agent": "node scripts/agent.mjs serve",
+    "agent:test": "node scripts/agent.mjs test",
+    "agent:types": "node scripts/agent.mjs openapi && openapi-typescript liveAgent/openapi.json -o lib/liveAgent.types.ts --default-non-nullable false"
   },
   "dependencies": {
-    "@google/genai": "^2.24.0",
+    "@supabase/supabase-js": "^2.117.2",
     "@tiptap/extension-link": "^3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",
     "@tiptap/extension-task-item": "^3.31.3",
@@ -30,7 +36,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

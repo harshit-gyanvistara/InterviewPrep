@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { db, uid } from "@/lib/db";
+import { db, uid, useCatalog } from "@/lib/db";
+import { inferDomain } from "@/lib/domains";
 import type { Profile } from "@/lib/types";
 
 export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Profile; onSaved?: () => void; cta?: string }) {
@@ -10,10 +11,12 @@ export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Prof
   const [targetCompanies, setTargetCompanies] = useState(initial?.targetCompanies ?? "");
   const [jobDescription, setJobDescription] = useState(initial?.jobDescription ?? "");
   const [experience, setExperience] = useState<Profile["experience"]>(initial?.experience ?? "fresher");
+  const [domain, setDomain] = useState(initial?.domain ?? "");
   const [resume, setResume] = useState(initial?.resume ?? "");
   const [interviewDate, setInterviewDate] = useState(initial?.interviewDate ?? "");
   const [weeklyGoal, setWeeklyGoal] = useState(initial?.weeklyGoal ?? 3);
   const [saving, setSaving] = useState(false);
+  const { catalog } = useCatalog();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +29,7 @@ export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Prof
       targetCompanies: targetCompanies.trim(),
       jobDescription: jobDescription.trim(),
       experience,
+      domain: domain || undefined,
       resume: resume.trim(),
       interviewDate: interviewDate || undefined,
       weeklyGoal,
@@ -57,6 +61,13 @@ export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Prof
             <option value="fresher">Fresher / final year</option>
             <option value="0-1y">0–1 year</option>
             <option value="1-3y">1–3 years</option>
+          </select>
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          <span className="text-muted">Field</span>
+          <select className="input" value={domain} onChange={(e) => setDomain(e.target.value)}>
+            <option value="">Detect from my role{targetRole.trim() ? ` (${inferDomain({ targetRole, jobDescription }, catalog.domains).label})` : ""}</option>
+            {catalog.domains.map((d) => (<option key={d.id} value={d.id}>{d.label}</option>))}
           </select>
         </label>
         <label className="grid gap-1.5 text-sm">

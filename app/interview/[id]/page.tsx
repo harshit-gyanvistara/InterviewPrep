@@ -178,10 +178,10 @@ export default function InterviewRoom() {
 
   // opening question (guarded against StrictMode double-run)
   useEffect(() => {
-    if (!session || !profile || session.status !== "active" || startedRef.current) return;
+    if (!session || !profile || !pack || session.status !== "active" || startedRef.current) return;
     startedRef.current = true;
     if (session.messages.length === 0) setTimeout(() => requestTurn([]), 0);
-  }, [session, profile, requestTurn]);
+  }, [session, profile, pack, requestTurn]);
 
   // ---- timer
   useEffect(() => {

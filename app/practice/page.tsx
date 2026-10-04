@@ -28,7 +28,7 @@ function Practice() {
   const { data: profile, loading } = useProfile();
   const { data: reports = [] } = useReports();
   const { settings } = useSettings();
-  const { custom: customPacks, loading: packsLoading } = useAllPacks();
+  const { custom: customPacks, catalog, loading: packsLoading } = useAllPacks();
   const confirm = useConfirm();
 
   const [mode, setMode] = useState<"single" | "quick">("single");
@@ -41,7 +41,7 @@ function Practice() {
 
   if (loading || packsLoading || !profile) return null;
 
-  const builtIn = visibleBuiltInPacks(profile);
+  const builtIn = visibleBuiltInPacks(profile, catalog);
   const packs: Pack[] = [...customPacks, ...builtIn];
   const mixablePacks = packs.filter((p) => p.source !== "quick"); // don't let people mix a mix
   const rec = recommendPack(reports, packs);

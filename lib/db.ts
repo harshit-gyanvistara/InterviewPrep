@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, type Binder, type CortexPage, type Note, type NoteLink, type Pack, type Profile, type Report, type Roadmap, type Session, type Settings, type Story } from "./types";
-import { PACKS } from "./packs";
+import { DEFAULT_CATALOG, type Catalog } from "./catalog";
 
 /**
  * Storage layer. Everything goes through `db`, which is async and collection-based,
@@ -154,11 +154,41 @@ export const saveSettings = (patch: Partial<Settings>, current: Settings) => db.
 export const useCustomPacks = () =>
   useQuery(async () => (await db.customPacks.list()).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)), []);
 
+let catalogRequest: Promise<Catalog> | null = null;
+let catalogLoaded: Catalog | null = null;
+
+/**
+ * The fields and built-in pack library from the server (Supabase via /api/catalog), fetched once
+ * per page load. Starts from the code defaults so pages render immediately, and keeps them if the
+ * request fails.
+ */
+export function useCatalog() {
+  const [catalog, setCatalog] = useState<Catalog>(catalogLoaded ?? DEFAULT_CATALOG);
+  const [loading, setLoading] = useState(!catalogLoaded);
+  useEffect(() => {
+    let live = true;
+    catalogRequest ??= fetch("/api/catalog")
+      .then((r) => (r.ok ? (r.json() as Promise<Catalog>) : DEFAULT_CATALOG))
+      .catch(() => DEFAULT_CATALOG)
+      .then((c) => (catalogLoaded = c));
+    catalogRequest.then((c) => {
+      if (!live) return;
+      setCatalog(c);
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+  return { catalog, loading };
+}
+
 /** All packs available to this browser: the built-in library plus anything generated from a job description. */
 export function useAllPacks() {
   const { data: custom = [], loading } = useCustomPacks();
-  const all = [...PACKS, ...custom];
-  return { all, custom, byId: (id: string) => all.find((p) => p.id === id), loading };
+  const { catalog, loading: catalogLoading } = useCatalog();
+  const all = [...catalog.packs, ...custom];
+  return { all, custom, catalog, byId: (id: string) => all.find((p) => p.id === id), loading: loading || catalogLoading };
 }
 
 /** All notes, pinned first then most recently updated. */

@@ -1,5 +1,6 @@
 export type Persona = "friendly" | "neutral" | "tough";
-export type RoundType = "behavioural" | "technical" | "coding" | "hr";
+export const ROUND_TYPES = ["behavioural", "technical", "coding", "hr"] as const;
+export type RoundType = (typeof ROUND_TYPES)[number];
 
 export interface Profile {
   id: string;
@@ -8,6 +9,8 @@ export interface Profile {
   targetCompanies: string;
   jobDescription: string;
   experience: "student" | "fresher" | "0-1y" | "1-3y";
+  /** Field id from lib/domains (e.g. "medical"). Absent or "" = guess from target role and job description. */
+  domain?: string;
   resume: string;
   interviewDate?: string; // YYYY-MM-DD
   weeklyGoal: number;
@@ -69,8 +72,8 @@ export interface Pack {
   topics: string[];
   rubric: string[];
   style: string;
-  /** "all" = shown for every profile. Otherwise only shown when the profile looks technical. */
-  domains: "all" | "technical";
+  /** "all" = shown for every profile. Otherwise the ids of the fields (lib/domains) it is shown for. */
+  domains: "all" | string[];
   /** "jd" = generated from a job description. "quick" = assembled by the Quick Mock builder from one or more rounds. Absent for the built-in library. */
   source?: "jd" | "quick";
   createdAt?: number;

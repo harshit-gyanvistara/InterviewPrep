@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { DeviceCheck } from "@/components/DeviceCheck";
-import { db, uid, useProfile } from "@/lib/db";
+import { db, uid, useCatalog, useProfile } from "@/lib/db";
+import { inferDomain } from "@/lib/domains";
 import type { Profile } from "@/lib/types";
 
 const STEPS = ["About you", "Your goal", "Resume", "Device check", "Ready"];
@@ -13,6 +14,7 @@ const STEPS = ["About you", "Your goal", "Resume", "Device check", "Ready"];
 export default function Onboarding() {
   const router = useRouter();
   const { data: existing, loading } = useProfile();
+  const { catalog } = useCatalog();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
@@ -36,6 +38,7 @@ export default function Onboarding() {
       targetCompanies: v("targetCompanies", "").trim(),
       jobDescription: v("jobDescription", "").trim(),
       experience: v("experience", "fresher"),
+      domain: v("domain", "") || undefined,
       resume: v("resume", "").trim(),
       interviewDate: v("interviewDate", "") || undefined,
       weeklyGoal: v("weeklyGoal", 3),
@@ -85,6 +88,13 @@ export default function Onboarding() {
             <label className="grid gap-1.5 text-sm">
               <span className="text-muted">Target role</span>
               <input className="input" value={targetRole} onChange={(e) => set("targetRole", e.target.value)} placeholder="e.g. Business Analyst, Nurse, Software Engineer, Copywriter" />
+            </label>
+            <label className="grid gap-1.5 text-sm">
+              <span className="text-muted">Field (shapes the rounds and how your interviewer asks)</span>
+              <select className="input" value={v("domain", "") ?? ""} onChange={(e) => set("domain", e.target.value)}>
+                <option value="">Detect from my role{targetRole.trim() ? ` (${inferDomain({ targetRole, jobDescription: v("jobDescription", "") }, catalog.domains).label})` : ""}</option>
+                {catalog.domains.map((d) => (<option key={d.id} value={d.id}>{d.label}</option>))}
+              </select>
             </label>
             <label className="grid gap-1.5 text-sm">
               <span className="text-muted">Target companies (optional)</span>

@@ -14,11 +14,11 @@ Companion to [PITCH.md](PITCH.md) (vision), [DEV_PLAN.md](DEV_PLAN.md) (target a
 | Styling | Tailwind CSS v4 |
 | Rich text | Tiptap (`@tiptap/react` + starter-kit, task-list, underline, link, placeholder extensions) — used by Cortex and Notes |
 | Icons | lucide-react |
-| AI | `@google/genai` SDK — Gemini text models only (no Live API, no voice model) |
+| AI | Separate Python service **liveAgent** ([liveAgent/](liveAgent/README.md): FastAPI + Pydantic + `google-genai`) — Gemini text models only (no Live API, no voice model). The Next.js routes proxy to it via `lib/liveAgent.ts` |
 | Speech (browser) | Web Speech API (`SpeechRecognition`/`speechSynthesis`) via `lib/useSpeech.ts` — client-side only, no server STT/TTS |
 | Storage | `window.localStorage`, wrapped in an async `db` object (`lib/db.ts`) |
 | Auth | None — single implicit user per browser |
-| Hosting target | Not configured in-repo (no Dockerfile/IaC); runs via `next dev` / `next start` |
+| Hosting target | Not configured in-repo; runs via `next dev` / `next start` plus `npm run agent`. liveAgent has a Dockerfile (Cloud Run style), no IaC |
 
 Everything in DEV_PLAN.md's architecture diagram (LiveKit, Postgres, Redis, BullMQ, Judge0, Clerk, Razorpay/Stripe, job queues) is **not present**. The `code` editor field in a session is a plain `<textarea>`-style string field, not Monaco, and there is no sandboxed code execution.
 
@@ -40,8 +40,9 @@ Browser (interview room, client component)
   ▼
 POST /app/api/interview/turn  (stateless)
   body: { config, profile, pack, messages, elapsedSec, code }
-  │ builds system prompt via lib/prompts.ts::interviewerSystem()
-  │ calls generateJson() → Gemini MODELS.chat, responseSchema {reply, endInterview}
+  │ resolves field + persona, forwards to liveAgent POST /v1/interview/turn
+  │   liveAgent: system prompt via prompts.py::interviewer_system()
+  │   generate_json() → Gemini MODELS.chat, response_schema TurnResult {reply, endInterview}
   ▼
 Browser receives { reply, endInterview }
   │ appends Message{role:"interviewer"}
@@ -50,30 +51,32 @@ Browser receives { reply, endInterview }
   ▼
 POST /app/api/interview/report  (on end)
   body: { config, profile, pack, messages, code }
-  │ builds transcript text, system prompt via lib/prompts.ts::scoringSystem()
-  │ calls generateJson() → Gemini MODELS.scoring, large structured schema
+  │ resolves field + interviewer name, forwards to liveAgent POST /v1/interview/report
+  │   liveAgent: transcript text, system prompt via prompts.py::scoring_system()
+  │   generate_json() → Gemini MODELS.scoring, response_schema ReportResult
   ▼
 Browser persists Report to db.reports, Session.status = "done"
 ```
 
-The API routes are **stateless** — every call re-sends the full `profile`, `pack`, and recent `messages` from the browser's local state; the server holds no session memory between turns. This is what makes "refresh mid-interview resumes" work for free: the transcript lives in `localStorage`, not server memory.
+The API routes (and liveAgent behind them) are **stateless** — every call re-sends the full `profile`, `pack`, and recent `messages` from the browser's local state; the server holds no session memory between turns. This is what makes "refresh mid-interview resumes" work for free: the transcript lives in `localStorage`, not server memory.
 
 ## 4. The interview engine (what exists instead of an orchestrator)
 
-DEV_PLAN.md describes a state-machine orchestrator (`intro → warmup → question loop → wrap-up`) driving a Live session via function calls. The current implementation has no explicit state machine — it's a single large system prompt (`lib/prompts.ts::interviewerSystem`) re-sent on every turn, containing:
+DEV_PLAN.md describes a state-machine orchestrator (`intro → warmup → question loop → wrap-up`) driving a Live session via function calls. The current implementation has no explicit state machine. It's a single system prompt (`liveAgent/live_agent/prompts.py::interviewer_system`) that stays identical for the whole session, so Gemini can serve it from its prompt cache on every turn. It contains:
+- field norms for the candidate's field (`lib/domains`, e.g. how medical vivas and MMI stations run)
 - persona tone (`lib/packs.ts::PERSONAS` — friendly/neutral/tough, each with a name and a tone description)
 - the pack's topic list, rubric, and style instruction
-- elapsed/remaining time, with an instruction to wrap up when <90s remain
 - an optional question budget for Quick Mock sessions (`SessionConfig.questionCount`)
 - the candidate's resume/JD/profile, for grounding follow-ups
-- the current code-editor contents, for coding rounds
+
+What changes per turn (elapsed/remaining time with a wrap-up flag under 90s, questions asked so far, and the code-editor contents for coding rounds) is sent as a `[STATE]` note on the newest candidate message (`interviewState`), never in the system prompt.
 
 The model self-regulates pacing and when to end (`endInterview: boolean` in its structured output) rather than an external state machine deciding. There is no explicit follow-up policy, curveball logic, or interruption mechanism beyond what's described in the prompt text — "probe weak answers, raise difficulty on strong ones" is instruction, not code.
 
 ## 5. Interview packs (content config)
 
 Packs (`lib/types.ts::Pack`) are the "interview pack" concept from DEV_PLAN.md, implemented as plain data, not versioned/admin-managed config:
-- **Built-in library**: 7 hardcoded packs in `lib/packs.ts` (Behavioural, HR Screen, Ownership & Leadership, Case Study, Group Discussion, CS Fundamentals, Live Coding). The two CS-specific ones are filtered to profiles that look technical via a regex heuristic (`isTechnical`), not an explicit role field.
+- **Built-in library**: 10 hardcoded packs in `lib/packs.ts` (Behavioural, HR Screen, Ownership & Leadership, Case Study, Group Discussion, CS Fundamentals, Live Coding, Clinical Viva, MMI Ethics, PG/Residency Selection). Field packs list the field ids they are shown for; the field is the one the user picked in their profile, or one guessed from role and JD (`lib/domains::resolveDomain`).
 - **Generated packs** (`source: "jd"`): `POST /api/pack/generate` asks Gemini to produce 2–3 rounds tailored to the profile's target role + job description, so any profession (not just software) gets relevant rounds. Persisted to `db.customPacks`.
 - **Quick Mock packs** (`source: "quick"`): assembled client-side in `lib/packs.ts::buildMixedPack` by merging topics/rubric from 1+ selected existing packs — no AI call, pure data merge.
 

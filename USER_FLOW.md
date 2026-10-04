@@ -14,7 +14,7 @@ The dashboard's job is to always answer one question: *"What should I do next?"*
    ▼
 /onboarding  (5 steps, resumable, skippable where noted)
    1 About you        name, experience level
-   2 Your goal        target role, target companies, interview date (optional), weekly goal
+   2 Your goal        target role, field (auto-detected from role, or pick one), target companies, interview date (optional), weekly goal
    3 Resume           paste text (skippable, can add later)
    4 Device check     mic, speaker, camera, speech-recognition support (non-blocking)
    5 Ready            summary + "Take your baseline mock" (recommended) or "Go to dashboard"
@@ -81,7 +81,7 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 
 ## 7. Features by area (what is built now)
 **Onboarding:** wizard with validation, device check, baseline recommendation.
-**Practice:** a role-agnostic built-in library (Behavioural, HR Screen, Ownership & Leadership, Case Study, Group Discussion, plus two CS-specific rounds shown only for technical roles) and rounds generated from the user's own job description for any profession, 3 personas, duration, pressure mode, recommended badge.
+**Practice:** a role-agnostic built-in library (Behavioural, HR Screen, Ownership & Leadership, Case Study, Group Discussion, plus field rounds shown only for that field: two CS rounds for software, and Clinical Viva, MMI Ethics and PG/Residency Selection for medicine) and rounds generated from the user's own job description for any profession, 3 personas, duration, pressure mode, recommended badge.
 **Lobby:** briefing, per-round tips, mic/speaker/camera check, join.
 **Room:** AI interviewer (spoken + captions), voice or text answers, camera tile, timer, code editor (coding round), transcript, end-confirm, auto-end, retry on errors.
 **Report:** score, verdict, rubric with quoted evidence, top fixes, per-answer review with stronger answer, filler-word signals, next steps.
@@ -92,7 +92,7 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 ## 8. Settings
 | Section | Options | Default |
 |---|---|---|
-| Profile | name, target role, target companies, experience, resume, interview date, weekly goal | — / 3 per week |
+| Profile | name, target role, field, target companies, experience, resume, interview date, weekly goal | — / auto-detect / 3 per week |
 | Interview | default persona, default duration, pressure mode default, show timer, confirm before ending | neutral / pack default / off / on / on |
 | Voice & audio | spoken interviewer on/off, auto-listen after interviewer speaks, interviewer voice, speech speed, recognition language (en-IN, en-US, en-GB), live captions on/off, camera on at join | on / on / auto / 1.0 / en-IN / on / off |
 | Appearance | light / dark | light |
