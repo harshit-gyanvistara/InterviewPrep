@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { parseBody } from "@/lib/route";
+import { AssistBodySchema } from "@/lib/schemas";
 
 /**
  * Shared AI writing assist for both the quick Notes drawer and the Cortex notebook editor.
@@ -9,7 +11,7 @@ import { callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
  */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Agent["AssistRequest"];
+    const body = await parseBody(req, AssistBodySchema);
     const out = await callAgent<Agent["AssistResult"]>("/v1/assist", {
       mode: body.mode,
       text: body.text,

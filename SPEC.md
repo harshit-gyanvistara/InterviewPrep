@@ -235,7 +235,7 @@ Builds the system instruction for `/api/interview/report`. Encodes the full scor
 Renders `Message[]` as `"<Name>: <text>"` lines, used as the user turn for the scoring call (truncated to 40,000 chars by the route).
 
 ### 4.5 `isValidPack(p)`
-Now in `lib/packs.ts`. Core uses it in `/api/interview/turn`, `/api/interview/report` and the catalog loader (checks `title`, `roundType`, non-empty `topics`/`rubric` arrays). liveAgent validates every request body against its Pydantic models as well (`Pack` requires non-empty `topics` and `rubric`), so malformed bodies get a `400` before any prompt is built.
+Now in `lib/packs.ts`. Core uses it in the catalog loader (checks `title`, `roundType`, non-empty `topics`/`rubric` arrays). Request bodies are validated by the Zod `PackSchema` instead (§5.0). liveAgent also validates every request body against its Pydantic models (`Pack` requires non-empty `topics` and `rubric`).
 
 ---
 
@@ -245,12 +245,21 @@ All routes are Next.js App Router Route Handlers under `app/api/`, all `POST` ex
 
 The AI routes (5.1–5.6) are thin proxies: Core resolves the field (and for interviews the persona), then forwards to the matching liveAgent endpoint (`/v1/interview/turn`, `/v1/interview/report`, `/v1/packs/generate`, `/v1/roadmap`, `/v1/assist`, `/v1/health/models`). The behaviour described below runs in liveAgent; browser-facing URLs and response shapes are unchanged. Report scoring and pack generation set `maxDuration = 120` (Pro model).
 
+### 5.0 Request validation
+
+Every `POST` route reads its body with `parseBody(req, Schema)` (`lib/route.ts`) using the Zod schemas in `lib/schemas.ts` (`TurnBodySchema`, `ReportBodySchema`, `PackGenerateBodySchema`, `RoadmapBodySchema`, `AssistBodySchema`). Nothing reaches liveAgent unless the body passes.
+
+- Body over `LIMITS.bodyBytes` (1 MB) → **413** `"Request is too large."`; not JSON → **400** `"Request body must be valid JSON."`.
+- Schema mismatch → **400** `{ error, issues: { path, message }[] }`. `error` is the first issue, as `"Invalid request: <path>: <message>"`, or the rule's own user-facing message for custom rules (e.g. `"Missing target role."`).
+- Unknown keys are stripped (the browser sends whole `Profile`/`Pack`/`Message` objects; only the fields liveAgent uses are forwarded). Missing optional strings default to `""`, `messages` to `[]`, `elapsedSec` to `0`.
+- Field caps (`LIMITS`) are abuse guards well above normal use: short strings 500 chars, pack description/style 10,000, resume/JD 50,000, one message 10,000, 400 messages, code 50,000, 50 topics/rubric items, 20 roadmap digests. `persona` must be a `PERSONAS` key, `roundType` one of `ROUND_TYPES`, `durationMin` in `(0, 240]`.
+
 ### 5.1 `POST /api/interview/turn`
 Request:
 ```ts
 { config: SessionConfig; profile: Profile; pack: Pack; messages: Message[]; elapsedSec: number; code?: string }
 ```
-Behavior: validates `pack`/`profile` present (400 if not); resolves the field from the profile; counts prior interviewer turns for the STATE note; calls `generateJson` with `MODELS.chat`, `temperature: config.persona === "tough" ? 0.8 : 0.7`, the static `interviewerSystem`, and `toTurns(recentWindow(messages), interviewState(...))`: at most 60 messages, older context dropped (not summarized).
+Behavior: body validated by `TurnBodySchema` (§5.0); resolves the field from the profile; counts prior interviewer turns for the STATE note; calls `generateJson` with `MODELS.chat`, `temperature: config.persona === "tough" ? 0.8 : 0.7`, the static `interviewerSystem`, and `toTurns(recentWindow(messages), interviewState(...))`: at most 60 messages, older context dropped (not summarized).
 Response: `{ reply: string; endInterview: boolean }` or `{ error: string }` with non-200 status.
 
 ### 5.2 `POST /api/interview/report`
@@ -258,7 +267,7 @@ Request:
 ```ts
 { config: SessionConfig; profile: Profile; pack: Pack; messages: Message[]; code?: string }
 ```
-Behavior: validates pack/profile; **422** if zero candidate turns ("No candidate answers to evaluate"); builds transcript (appends final code under a `[FINAL CODE IN EDITOR]` marker, truncated 6000 chars) capped at 40,000 chars total; calls `generateJson` with `MODELS.scoring`, `temperature: 0.2`; clamps `overall` to `[0, 100]` and rounds it after the response.
+Behavior: body validated by `ReportBodySchema` (§5.0); **422** if zero candidate turns ("No candidate answers to evaluate"); builds transcript (appends final code under a `[FINAL CODE IN EDITOR]` marker, truncated 6000 chars) capped at 40,000 chars total; calls `generateJson` with `MODELS.scoring`, `temperature: 0.2`; clamps `overall` to `[0, 100]` and rounds it after the response.
 Response: `Pick<Report, "overall"|"verdict"|"summary"|"strengths"|"topFixes"> & { dimensions: DimensionScore[]; answerReviews: AnswerReview[] }` — note this is **not** a full `Report`: the caller must still attach `id`, `sessionId`, `packId`, `createdAt`, and `signals` (computed locally) before persisting.
 
 ### 5.3 `POST /api/pack/generate`
@@ -268,7 +277,7 @@ Response: `{ packs: GeneratedPack[] }` (capped to first 3), each missing `id`/`s
 
 ### 5.4 `POST /api/roadmap`
 Request: `{ profile: Profile; weeks: number; digests: ReportDigest[] }` where `ReportDigest = { pack: string; overall: number; weakDimensions: string[]; topFixes: string[] }`.
-Behavior: clamps `weeks` to `[1, 12]`; adds the resolved field's `roadmapHints` to the prompt; sends up to the first 15 digests as the user turn (JSON-stringified); if `digests` is empty, prompt instructs the model to build a baseline plan and recommend a baseline mock first.
+Behavior: `weeks` must be an integer in `[1, 12]` (400 otherwise; optional, liveAgent defaults it to 4); at most 20 digests; adds the resolved field's `roadmapHints` to the prompt; sends up to the first 15 digests as the user turn (JSON-stringified); if `digests` is empty, prompt instructs the model to build a baseline plan and recommend a baseline mock first.
 Response: `{ summary: string; items: { week: number; title: string; detail: string; focus: string }[] }` — caller wraps into a full `Roadmap` (adds `id`, `createdAt`, per-item `id`/`done: false`).
 
 ### 5.5 `POST /api/ai/assist`
@@ -319,7 +328,7 @@ Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatal
 - **Truncation limits are hardcoded per call site**, not centralized: resume 6000 chars (interviewer prompt) / 4000 chars (pack-gen prompt), JD 4000–8000 chars depending on route, transcript 40,000 chars, code 6000 chars, message history 60 turns. Any future refactor touching prompt construction should grep for these magic numbers rather than assume one shared constant.
 - **Request validation** happens in liveAgent (Pydantic models in `live_agent/models.py`). Core's routes only do the presence checks they need to resolve the field and persona.
 - **No rate limiting, no user auth, no per-user quotas** on any Core route — any caller with network access to the dev/prod server can invoke Gemini through these endpoints at will. (liveAgent itself only accepts calls carrying Core's shared token.)
-- **Error contract** is uniform: every route catches, maps `ApiError` to its `.status`, defaults to `500`, and responds `{ error: string }`.
+- **Error contract** is uniform: every route catches, maps `ApiError` to its `.status`, defaults to `500`, and responds `{ error: string }`, plus `issues` on validation failures (§5.0).
 - **Model routing** matches DEV_PLAN.md's "cheap model for chatter, strong model for scoring" principle: `MODELS.chat` (flash-tier) is used for interviewer turns, roadmap generation, and AI assist; `MODELS.scoring` (pro-tier) is used for report scoring and pack generation (both benefit from stronger reasoning over more context).
 
 ---

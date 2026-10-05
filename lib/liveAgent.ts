@@ -14,6 +14,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Per-field validation errors (see parseBody in lib/route.ts). */
+    public issues?: { path: string; message: string }[],
   ) {
     super(message);
   }
@@ -55,8 +57,9 @@ export const agentDomain = (d: DomainProfile): Agent["DomainIn"] => ({
 
 export const agentPersona = (p: Persona): Agent["PersonaIn"] => ({ name: PERSONAS[p].name, tone: PERSONAS[p].tone });
 
-/** The `{ error }` + status shape every /api route returns on failure. */
+/** The `{ error, issues? }` + status shape every /api route returns on failure. */
 export function errorResponse(e: unknown) {
   const status = e instanceof ApiError ? e.status : 500;
-  return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status });
+  const issues = e instanceof ApiError ? e.issues : undefined;
+  return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error", ...(issues && { issues }) }, { status });
 }

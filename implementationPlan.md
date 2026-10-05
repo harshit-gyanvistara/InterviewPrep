@@ -54,7 +54,7 @@ Offerly is a single-user, browser-local AI mock-interview app. A candidate onboa
 
 Two properties to internalise, because most of the plan follows from them:
 
-1. **The server is stateless.** Every API call re-sends everything it needs. This made "refresh mid-interview resumes" free, but it also means the server trusts whatever the browser sends (no ownership, no validation beyond `isValidPack`).
+1. **The server is stateless.** Every API call re-sends everything it needs. This made "refresh mid-interview resumes" free, but it also means the server trusts whatever the browser sends (no ownership; bodies are shape-checked by Zod since M1.1, but their content is still the browser's word).
 2. **Storage is already behind an async, collection-based adapter** (`lib/db.ts` `Collection<T>` with `list/get/put/remove`). Moving to a real database is designed to be a swap of `localCollection`, not a rewrite of pages.
 
 ### 1.3 Code map (repo root)
@@ -123,7 +123,7 @@ SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/liveAgen
 | # | Area | Today | Target (DEV_PLAN) | Severity | Fixed in |
 |---|---|---|---|---|---|
 | G1 | API abuse | No auth, rate limit or quota on any `/api/*` route; anyone who can reach the server spends our Gemini budget | Per-user quotas, rate limits, usage ledger | **High** (blocks any public deploy) | M1 |
-| G2 | Input validation | Ad-hoc presence checks + `isValidPack`; no schema validation | Zod schemas shared by client and server | High | M1 |
+| G2 | Input validation | Zod schemas on every route body, 400 with field errors, 1 MB body cap (M1.1 done) | Zod schemas shared by client and server | Done (server side) | M1 |
 | G3 | Tests / CI | Unit tests for pure logic + liveAgent pytest, CI on every PR (M0 done); no contract/E2E/evals yet | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
 | G4 | Identity & data | Single implicit user, `localStorage`, lost on clearing site data | Accounts, Postgres, cross-device | High | M2 |
 | G5 | Observability & cost | `console.error` only; no token/cost tracking | OpenTelemetry, Sentry, `usage_ledger` per session | Medium | M1 (ledger), M2 (persist) |
@@ -191,7 +191,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 
 | Task | Detail |
 |---|---|
-| M1.1 Zod schemas (D4) | `lib/schemas.ts` for every route body; return 400 with field errors; delete ad-hoc checks once covered |
+| M1.1 Zod schemas (D4) | **Done.** `lib/schemas.ts` (client-safe) + `parseBody` in `lib/route.ts`; 400 `{ error, issues }`, 413 over 1 MB; ad-hoc checks removed; SPEC.md §5.0. Not yet: client-side use of the schemas |
 | M1.2 Rate limiting | Per-IP limit on all `/api/*` (e.g. Upstash Ratelimit or a Next.js middleware/proxy, check Next 16 docs for the current name); stricter on `/report` and `/pack/generate` (Pro model) |
 | M1.3 Centralise limits | Move truncation numbers into `lib/limits.ts`; tests assert prompts respect them |
 | M1.4 Usage capture | `generate_json` (liveAgent) returns Gemini usage metadata; log `{route, model, inputTokens, outputTokens, ms}` (structured logs now, `usage_ledger` table in M2) |
@@ -312,7 +312,6 @@ M2-Org, M3, M4 and M5 all depend on M2 (server-side sessions) and are independen
 |---|---|---|
 | Tests for `lib/domains` (`inferDomain`, `resolveDomain`, bad regex in DB) | `lib/domains/index.ts` | M0.3 follow-up |
 | Centralise truncation limits | `lib/limits.ts`, liveAgent | M1.3 |
-| Zod schema for `/api/ai/assist` (smallest route) | `lib/schemas.ts`, route | M1.1 |
 
 ### Definition of done for any PR
 

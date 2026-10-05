@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
-import { ApiError, agentDomain, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
-import { PERSONAS, isValidPack } from "@/lib/packs";
-import type { Message, Pack, Profile, SessionConfig } from "@/lib/types";
+import { agentDomain, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { PERSONAS } from "@/lib/packs";
+import { parseBody } from "@/lib/route";
+import { ReportBodySchema } from "@/lib/schemas";
 
 // Scoring runs on the Pro model and can take a while.
 export const maxDuration = 120;
@@ -11,14 +12,7 @@ export const maxDuration = 120;
 /** Scores the finished interview against the pack's rubric. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      config: SessionConfig;
-      profile: Profile;
-      pack: Pack;
-      messages: Message[];
-      code?: string;
-    };
-    if (!isValidPack(body.pack) || !body.profile || !PERSONAS[body.config?.persona]) throw new ApiError(400, "Invalid report request.");
+    const body = await parseBody(req, ReportBodySchema);
 
     const { domains } = await getCatalog();
     const out = await callAgent<Agent["ReportResult"]>(
@@ -29,8 +23,8 @@ export async function POST(req: Request) {
         pack: body.pack,
         domain: agentDomain(resolveDomain(body.profile, undefined, domains)),
         interviewerName: PERSONAS[body.config.persona].name,
-        messages: body.messages ?? [],
-        code: body.code ?? "",
+        messages: body.messages,
+        code: body.code,
       } satisfies Agent["ReportRequest"],
       { timeoutMs: 115_000 },
     );
