@@ -1,12 +1,12 @@
 # TECHNICAL SPEC v1 — Current implementation
 
-Precise reference for the code in [web/](web/) as of this writing. For narrative context see [IMPLEMENTATION.md](IMPLEMENTATION.md); for UX flow see [USER_FLOW.md](USER_FLOW.md); for where this is headed see [DEV_PLAN.md](DEV_PLAN.md). Source of truth is always the code — this spec should be updated whenever `lib/types.ts` or an API route's request/response shape changes.
+Precise reference for the code in this repo (the Next.js app lives at the repo root: `app/`, `lib/`, `components/`; the AI service is in `liveAgent/`) as of this writing. For narrative context see [IMPLEMENTATION.md](IMPLEMENTATION.md); for UX flow see [USER_FLOW.md](USER_FLOW.md); for where this is headed see [DEV_PLAN.md](DEV_PLAN.md). Source of truth is always the code — this spec should be updated whenever `lib/types.ts` or an API route's request/response shape changes.
 
 ---
 
 ## 1. Data model
 
-All types are defined in [web/lib/types.ts](web/lib/types.ts). All persistence goes through [web/lib/db.ts](web/lib/db.ts), one `localStorage` array per collection, keyed `interviewprep:v1:<collection>`.
+All types are defined in [lib/types.ts](lib/types.ts). All persistence goes through [lib/db.ts](lib/db.ts), one `localStorage` array per collection, keyed `interviewprep:v1:<collection>`.
 
 ### 1.1 Profile (`db.profiles` — single record, `[0]` used everywhere)
 ```ts

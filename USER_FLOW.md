@@ -1,6 +1,6 @@
 # USER FLOW, APP FLOW & SETTINGS SPEC v1
 
-Source of truth for the web app in [web/](web/). Every screen below maps to a route.
+Source of truth for the web app (the Next.js app at the repo root, under [app/](app/)). Every screen below maps to a route.
 
 ## 1. The core loop
 **Prepare → Practice → Review → Improve → (repeat) → Land.**

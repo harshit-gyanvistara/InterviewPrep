@@ -16,7 +16,7 @@ npm run dev          # terminal 2: http://localhost:3000
 ```
 Optional model overrides in `liveAgent/.env`: `GEMINI_CHAT_MODEL`, `GEMINI_SCORING_MODEL` (verify IDs in Google AI Studio). Settings → Data & AI → AI connection test checks the whole chain.
 
-Other scripts: `npm run agent:test` (liveAgent's pytest suite), `npm run agent:types` (after changing liveAgent's models or routes: rewrites `liveAgent/openapi.json` and `lib/liveAgent.types.ts`).
+Other scripts: `npm test` (Vitest unit tests; `npm run test:watch`, `npm run coverage`), `npm run lint`, `npm run typecheck`, `npm run agent:test` (liveAgent's pytest suite), `npm run agent:types` (after changing liveAgent's models or routes: rewrites `liveAgent/openapi.json` and `lib/liveAgent.types.ts`).
 
 ### Supabase (optional)
 1. Create a project at supabase.com. Put its URL and **secret** key in `.env.local` (`SUPABASE_URL`, `SUPABASE_SECRET_KEY`).

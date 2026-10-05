@@ -12,7 +12,10 @@
     "agent:setup": "node scripts/agent.mjs setup",
     "agent": "node scripts/agent.mjs serve",
     "agent:test": "node scripts/agent.mjs test",
-    "agent:types": "node scripts/agent.mjs openapi && openapi-typescript liveAgent/openapi.json -o lib/liveAgent.types.ts --default-non-nullable false"
+    "agent:types": "node scripts/agent.mjs openapi && openapi-typescript liveAgent/openapi.json -o lib/liveAgent.types.ts --default-non-nullable false",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
@@ -31,14 +34,16 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^5.0.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   }
 }

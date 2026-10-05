@@ -1,6 +1,6 @@
 # IMPLEMENTATION v1 — What's actually built
 
-Companion to [PITCH.md](PITCH.md) (vision), [DEV_PLAN.md](DEV_PLAN.md) (target architecture/roadmap) and [USER_FLOW.md](USER_FLOW.md) (UX flow). This document describes the **current** code in [web/](web/) as it exists today, not the target architecture. For the full data model and API contracts, see [SPEC.md](SPEC.md).
+Companion to [PITCH.md](PITCH.md) (vision), [DEV_PLAN.md](DEV_PLAN.md) (target architecture/roadmap) and [USER_FLOW.md](USER_FLOW.md) (UX flow). This document describes the **current** code in this repo (Next.js app at the repo root, AI service in [liveAgent/](liveAgent/)) as it exists today, not the target architecture. For the full data model and API contracts, see [SPEC.md](SPEC.md).
 
 **Status: client-side prototype.** There is no auth, no database, and no realtime voice infra yet — this is a single-user, browser-local app that proves out the interview-engine prompts, scoring, and UX end to end using Gemini's text API, ahead of building the production stack described in DEV_PLAN.md.
 
@@ -104,7 +104,7 @@ Practical implications of this choice:
 
 ## 9. App surface (routes)
 
-See [USER_FLOW.md](USER_FLOW.md) §4 for the full screen inventory and flow. In brief, routes under `web/app/`:
+See [USER_FLOW.md](USER_FLOW.md) §4 for the full screen inventory and flow. In brief, routes under `app/`:
 `/welcome`, `/onboarding`, `/` (dashboard), `/practice`, `/interview/[id]`, `/report/[id]`, `/progress`, `/prepare`, `/settings`, plus two standalone tools not in the original pitch: `/notes` (quick sticky notes with AI assist) and `/cortex` (a binder/page notebook with a Tiptap rich-text editor, also AI-assisted via the shared `/api/ai/assist` endpoint).
 
 ## 10. API routes (all stateless, all Gemini-backed)

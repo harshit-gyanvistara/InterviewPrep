@@ -14,7 +14,7 @@ How this fits with the other docs:
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
 | [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md)) | Before working on that initiative |
 
-> **Doc drift warning.** SPEC.md, IMPLEMENTATION.md, USER_FLOW.md and README.md all say the app lives in `web/`. It does not: the Next.js app is at the **repo root** (`app/`, `lib/`, `components/`). Fixing those links is task M0.1 below.
+> The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
@@ -22,7 +22,7 @@ How this fits with the other docs:
 
 ### 1.1 One-paragraph summary
 
-Offerly is a single-user, browser-local AI mock-interview app. A candidate onboards (role, companies, resume), picks an interview "pack", and talks to an AI interviewer by voice (browser Web Speech API) or text. Each candidate turn is sent to a **stateless** Next.js route that calls Gemini for the interviewer's next line. When the interview ends, a second Gemini call scores the full transcript against a rubric and produces a structured report. All data lives in `localStorage`. There is no auth, no database, no tests, no CI, and no realtime media infrastructure.
+Offerly is a single-user, browser-local AI mock-interview app. A candidate onboards (role, companies, resume), picks an interview "pack", and talks to an AI interviewer by voice (browser Web Speech API) or text. Each candidate turn is sent to a **stateless** Next.js route that calls Gemini for the interviewer's next line. When the interview ends, a second Gemini call scores the full transcript against a rubric and produces a structured report. All data lives in `localStorage`. There is no auth, no user database and no realtime media infrastructure. Unit tests (Vitest, pytest) and CI landed in M0.
 
 ### 1.2 Architecture diagram
 
@@ -99,7 +99,7 @@ cp liveAgent/.env.example liveAgent/.env      # GEMINI_API_KEY + the same LIVE_A
 npm run agent:setup                           # once: Python venv for liveAgent
 npm run agent                                 # terminal 1: AI service on :8000
 npm run dev                                   # terminal 2: http://localhost:3000
-npm run lint && npx tsc --noEmit && npm run agent:test
+npm run lint && npm run typecheck && npm test && npm run agent:test
 ```
 
 Settings → Data & AI → "AI connection test" calls `/api/health` and confirms the key and both models work.
@@ -118,13 +118,13 @@ Settings → Data & AI → "AI connection test" calls `/api/health` and confirms
 
 ## Part 2 — Gap analysis: spec vs. target
 
-SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/gemini.ts`, the routes and fetch call sites). The gaps below are versus DEV_PLAN.md (the target) and versus basic production readiness.
+SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/liveAgent.ts`, the routes and fetch call sites). The gaps below are versus DEV_PLAN.md (the target) and versus basic production readiness.
 
 | # | Area | Today | Target (DEV_PLAN) | Severity | Fixed in |
 |---|---|---|---|---|---|
 | G1 | API abuse | No auth, rate limit or quota on any `/api/*` route; anyone who can reach the server spends our Gemini budget | Per-user quotas, rate limits, usage ledger | **High** (blocks any public deploy) | M1 |
 | G2 | Input validation | Ad-hoc presence checks + `isValidPack`; no schema validation | Zod schemas shared by client and server | High | M1 |
-| G3 | Tests / CI | None | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
+| G3 | Tests / CI | Unit tests for pure logic + liveAgent pytest, CI on every PR (M0 done); no contract/E2E/evals yet | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
 | G4 | Identity & data | Single implicit user, `localStorage`, lost on clearing site data | Accounts, Postgres, cross-device | High | M2 |
 | G5 | Observability & cost | `console.error` only; no token/cost tracking | OpenTelemetry, Sentry, `usage_ledger` per session | Medium | M1 (ledger), M2 (persist) |
 | G6 | Interview engine | One big prompt; model decides pacing and ending | Explicit orchestrator state machine + follow-up policy | Medium | M4 |
@@ -135,7 +135,7 @@ SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/gemini.t
 | G11 | Long interviews | History beyond 60 messages silently dropped | Running summary / context compression | Low | M4 |
 | G12 | Business | No billing, tiers, email | Razorpay/Stripe, Free/Pro, lifecycle email | Phase-dependent | M6 |
 | G13 | Privacy | Data stays in browser (good), but no consent/retention policy for when it moves server-side | DPDP/GDPR consent, retention, delete-on-request | High once M2 ships | M2 |
-| G14 | Docs | Wrong `web/` paths; README says `cd web` | Accurate docs | Low (but confuses every newcomer) | M0 |
+| G14 | Docs | ~~Wrong `web/` paths~~ fixed in M0 | Accurate docs | Done | M0 |
 | G15 | Organisations | Single user only; no way for a college or company to give Offerly to many users | Orgs, roles, cohorts, assignments, seats, org quotas, admin analytics ([plan](plans/organisations.md)) | High (main revenue channel per PITCH) | M2 (schema), M2-Org |
 
 **Important design reading of the gap:** DEV_PLAN.md proposes a monorepo with a separate Node API, a Python LiveKit agent, Redis, BullMQ, etc. The prototype took the opposite path (zero infra) and it works. This plan **evolves the existing Next.js app incrementally** and only introduces new services when a milestone needs them (voice needs an agent worker; coding needs a sandbox). See decision D1.
@@ -170,20 +170,20 @@ Each decision should become a short ADR in `docs/adr/` when the milestone that n
 
 Milestones are sequential at the top level; work inside a milestone can be parallel. Each has an exit gate; do not start the next milestone's user-facing work until the gate passes. Sizes are rough for a team of 2–3 engineers.
 
-### M0 — Make the repo team-ready (≈ 1 week)
+### M0 — Make the repo team-ready (≈ 1 week) — **done 2026-10-05**
 
 Goal: a new engineer can clone, run, and get a green CI check on their first PR.
 
 | Task | Detail |
 |---|---|
-| M0.1 Fix docs | Replace `web/` paths in SPEC.md, IMPLEMENTATION.md, USER_FLOW.md; remove `cd web` from README; fix the `web/.env.local` hint in `lib/gemini.ts` error message |
-| M0.2 `.env.example` | `GEMINI_API_KEY`, `GEMINI_CHAT_MODEL`, `GEMINI_SCORING_MODEL` |
-| M0.3 Test runner | Add Vitest; first tests for pure functions: `lib/recommend.ts` (`recommendPack`, `streakDays`, `daysUntil`), `lib/analysis.ts::computeSignals`, `lib/packs.ts` (`isTechnical`, `buildMixedPack`), `lib/prompts.ts::toTurns` |
-| M0.4 CI | GitHub Actions: `npm ci`, `lint`, `tsc --noEmit`, `vitest run`, `next build` on every PR |
-| M0.5 Scripts | `npm run typecheck`, `npm test` in `package.json` |
-| M0.6 PR template + CONTRIBUTING | Link this plan; checklist "updated SPEC.md if types/routes changed" |
+| M0.1 Fix docs | **Done.** `web/` paths replaced in SPEC.md, IMPLEMENTATION.md, USER_FLOW.md, README (`lib/gemini.ts` no longer exists; Gemini moved to liveAgent) |
+| M0.2 `.env.example` | **Done.** Root (`LIVE_AGENT_URL`, `LIVE_AGENT_TOKEN`, Supabase) and `liveAgent/.env.example` (`GEMINI_API_KEY`, model overrides) |
+| M0.3 Test runner | **Done.** Vitest (`vitest.config.mts`, Node env); `lib/recommend.test.ts`, `lib/analysis.test.ts`, `lib/packs.test.ts`. Prompt building (formerly `lib/prompts.ts::toTurns`) is covered by liveAgent's golden tests |
+| M0.4 CI | **Done.** `.github/workflows/ci.yml`: lint, typecheck, Vitest with coverage gate, `next build` (no secrets), liveAgent pytest, and drift checks for `openapi.json` / `lib/liveAgent.types.ts` |
+| M0.5 Scripts | **Done.** `typecheck`, `test`, `test:watch`, `coverage` |
+| M0.6 PR template + CONTRIBUTING | **Done.** `.github/pull_request_template.md`, `CONTRIBUTING.md` |
 
-**Exit:** CI green on `main`; ≥ 80% line coverage on `lib/recommend.ts`, `lib/analysis.ts`, `lib/packs.ts`.
+**Exit:** CI green on `main`; ≥ 80% line coverage on `lib/recommend.ts`, `lib/analysis.ts`, `lib/packs.ts` (100% at completion; enforced by the coverage threshold). Remaining: confirm the first CI run on GitHub is green.
 
 ### M1 — Harden the API (≈ 1–2 weeks)
 
@@ -310,11 +310,8 @@ M2-Org, M3, M4 and M5 all depend on M2 (server-side sessions) and are independen
 
 | Task | Files | Milestone |
 |---|---|---|
-| Fix `web/` paths in docs | `*.md` | M0.1 |
-| Add `.env.example` | root | M0.2 |
-| Add Vitest + tests for `computeSignals` | `lib/analysis.ts` | M0.3 |
-| Tests for `recommendPack` rules (USER_FLOW §6) | `lib/recommend.ts` | M0.3 |
-| GitHub Actions CI | `.github/workflows/ci.yml` | M0.4 |
+| Tests for `lib/domains` (`inferDomain`, `resolveDomain`, bad regex in DB) | `lib/domains/index.ts` | M0.3 follow-up |
+| Centralise truncation limits | `lib/limits.ts`, liveAgent | M1.3 |
 | Zod schema for `/api/ai/assist` (smallest route) | `lib/schemas.ts`, route | M1.1 |
 
 ### Definition of done for any PR
