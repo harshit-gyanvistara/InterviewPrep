@@ -54,7 +54,7 @@ describe("parseBody", () => {
 
 describe("errorResponse", () => {
   it("includes issues only when there are some", async () => {
-    const withIssues = errorResponse(new ApiError(400, "bad", [{ path: "a", message: "m" }]));
+    const withIssues = errorResponse(new ApiError(400, "bad", { issues: [{ path: "a", message: "m" }] }));
     expect(withIssues.status).toBe(400);
     expect(await withIssues.json()).toEqual({ error: "bad", issues: [{ path: "a", message: "m" }] });
 

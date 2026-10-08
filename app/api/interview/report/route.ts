@@ -3,6 +3,7 @@ import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { agentDomain, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
 import { PERSONAS } from "@/lib/packs";
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/route";
 import { ReportBodySchema } from "@/lib/schemas";
 
@@ -12,6 +13,7 @@ export const maxDuration = 120;
 /** Scores the finished interview against the pack's rubric. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
+    await enforceRateLimit(req, "interview.report");
     const body = await parseBody(req, ReportBodySchema);
 
     const { domains } = await getCatalog();

@@ -30,5 +30,5 @@ export async function parseBody<S extends z.ZodType>(req: Request, schema: S): P
   const first = parsed.error.issues[0];
   // Custom rules carry a message written for the user; built-in ones need the field name for context.
   const message = first.code === "custom" ? first.message : `Invalid request: ${issues[0].path || "body"}: ${first.message}`;
-  throw new ApiError(400, message, issues);
+  throw new ApiError(400, message, { issues });
 }

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { agentDomain, agentPersona, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/route";
 import { TurnBodySchema } from "@/lib/schemas";
 
 /** The interviewer's next line. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
+    await enforceRateLimit(req, "interview.turn");
     const body = await parseBody(req, TurnBodySchema);
 
     const { domains } = await getCatalog();

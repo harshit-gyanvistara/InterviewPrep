@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { agentDomain, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/route";
 import { PackGenerateBodySchema } from "@/lib/schemas";
 
@@ -16,6 +17,7 @@ export const maxDuration = 120;
  */
 export async function POST(req: Request) {
   try {
+    await enforceRateLimit(req, "pack.generate");
     const { profile: p } = await parseBody(req, PackGenerateBodySchema);
 
     const domain = resolveDomain(p, undefined, (await getCatalog()).domains);

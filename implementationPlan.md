@@ -122,7 +122,7 @@ SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/liveAgen
 
 | # | Area | Today | Target (DEV_PLAN) | Severity | Fixed in |
 |---|---|---|---|---|---|
-| G1 | API abuse | No auth, rate limit or quota on any `/api/*` route; anyone who can reach the server spends our Gemini budget | Per-user quotas, rate limits, usage ledger | **High** (blocks any public deploy) | M1 |
+| G1 | API abuse | Per-IP rate limits on every AI route (M1.2 done); no auth or per-user quota yet | Per-user quotas, rate limits, usage ledger | Medium until M2 adds per-user quotas | M1, M2 |
 | G2 | Input validation | Zod schemas on every route body, 400 with field errors, 1 MB body cap (M1.1 done) | Zod schemas shared by client and server | Done (server side) | M1 |
 | G3 | Tests / CI | Unit tests for pure logic + liveAgent pytest, CI on every PR (M0 done); no contract/E2E/evals yet | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
 | G4 | Identity & data | Single implicit user, `localStorage`, lost on clearing site data | Accounts, Postgres, cross-device | High | M2 |
@@ -192,7 +192,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 | Task | Detail |
 |---|---|
 | M1.1 Zod schemas (D4) | **Done.** `lib/schemas.ts` (client-safe) + `parseBody` in `lib/route.ts`; 400 `{ error, issues }`, 413 over 1 MB; ad-hoc checks removed; SPEC.md §5.0. Not yet: client-side use of the schemas |
-| M1.2 Rate limiting | Per-IP limit on all `/api/*` (e.g. Upstash Ratelimit or a Next.js middleware/proxy, check Next 16 docs for the current name); stricter on `/report` and `/pack/generate` (Pro model) |
+| M1.2 Rate limiting | **Done.** `lib/rateLimit.ts`: `enforceRateLimit(req, bucket)` at the top of each AI route (not in `proxy.ts`, Next 16's renamed middleware, whose docs advise against shared state). Limits in `RATE_LIMITS`, Pro-model routes 5 per 10 min. Upstash Redis via REST when `UPSTASH_REDIS_REST_URL/TOKEN` are set (no client library), in-memory otherwise; fails open. SPEC.md §5.0. Set the Upstash vars before M1.7 deploys |
 | M1.3 Centralise limits | Move truncation numbers into `lib/limits.ts`; tests assert prompts respect them |
 | M1.4 Usage capture | `generate_json` (liveAgent) returns Gemini usage metadata; log `{route, model, inputTokens, outputTokens, ms}` (structured logs now, `usage_ledger` table in M2) |
 | M1.5 Error tracking | Sentry (or equivalent) for routes and client |

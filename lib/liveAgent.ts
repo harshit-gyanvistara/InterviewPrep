@@ -11,13 +11,19 @@ import type { Persona } from "./types";
 export type Agent = components["schemas"];
 
 export class ApiError extends Error {
+  /** Per-field validation errors (see parseBody in lib/route.ts). */
+  issues?: { path: string; message: string }[];
+  /** Sent as the Retry-After header (see lib/rateLimit.ts). */
+  retryAfterSec?: number;
+
   constructor(
     public status: number,
     message: string,
-    /** Per-field validation errors (see parseBody in lib/route.ts). */
-    public issues?: { path: string; message: string }[],
+    opts: { issues?: ApiError["issues"]; retryAfterSec?: number } = {},
   ) {
     super(message);
+    this.issues = opts.issues;
+    this.retryAfterSec = opts.retryAfterSec;
   }
 }
 
@@ -57,9 +63,13 @@ export const agentDomain = (d: DomainProfile): Agent["DomainIn"] => ({
 
 export const agentPersona = (p: Persona): Agent["PersonaIn"] => ({ name: PERSONAS[p].name, tone: PERSONAS[p].tone });
 
-/** The `{ error, issues? }` + status shape every /api route returns on failure. */
+/** The `{ error, issues? }` + status shape every /api route returns on failure (plus Retry-After on 429). */
 export function errorResponse(e: unknown) {
   const status = e instanceof ApiError ? e.status : 500;
   const issues = e instanceof ApiError ? e.issues : undefined;
-  return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error", ...(issues && { issues }) }, { status });
+  const retryAfter = e instanceof ApiError ? e.retryAfterSec : undefined;
+  return NextResponse.json(
+    { error: e instanceof Error ? e.message : "Unknown error", ...(issues && { issues }) },
+    { status, headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined },
+  );
 }

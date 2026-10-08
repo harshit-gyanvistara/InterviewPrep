@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/route";
 import { AssistBodySchema } from "@/lib/schemas";
 
@@ -11,6 +12,7 @@ import { AssistBodySchema } from "@/lib/schemas";
  */
 export async function POST(req: Request) {
   try {
+    await enforceRateLimit(req, "ai.assist");
     const body = await parseBody(req, AssistBodySchema);
     const out = await callAgent<Agent["AssistResult"]>("/v1/assist", {
       mode: body.mode,

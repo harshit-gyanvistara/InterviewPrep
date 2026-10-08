@@ -245,9 +245,11 @@ All routes are Next.js App Router Route Handlers under `app/api/`, all `POST` ex
 
 The AI routes (5.1–5.6) are thin proxies: Core resolves the field (and for interviews the persona), then forwards to the matching liveAgent endpoint (`/v1/interview/turn`, `/v1/interview/report`, `/v1/packs/generate`, `/v1/roadmap`, `/v1/assist`, `/v1/health/models`). The behaviour described below runs in liveAgent; browser-facing URLs and response shapes are unchanged. Report scoring and pack generation set `maxDuration = 120` (Pro model).
 
-### 5.0 Request validation
+### 5.0 Rate limiting and request validation
 
-Every `POST` route reads its body with `parseBody(req, Schema)` (`lib/route.ts`) using the Zod schemas in `lib/schemas.ts` (`TurnBodySchema`, `ReportBodySchema`, `PackGenerateBodySchema`, `RoadmapBodySchema`, `AssistBodySchema`). Nothing reaches liveAgent unless the body passes.
+**Rate limits** (`lib/rateLimit.ts`). Every AI route (5.1–5.6) first calls `enforceRateLimit(req, bucket)`, keyed by client IP (first `x-forwarded-for` entry, else `x-real-ip`, else one shared `"unknown"` bucket). Fixed windows per IP, set in `RATE_LIMITS`: `interview.turn` 20/min, `ai.assist` 20/min, `health` 5/min, `interview.report`, `pack.generate` and `roadmap` 5 per 10 min. Over the limit → **429** `{ error: "Too many requests. Try again in N seconds|minutes." }` with a `Retry-After` header; requests count even if their body is then rejected. Counts are kept in Upstash Redis (REST API, key `offerly:rl:<bucket>:<ip>`) when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, otherwise in process memory. If Upstash errors, the request is allowed and a `ratelimit.error` line is logged (fail open); blocked requests log `ratelimit.blocked`. `/api/catalog` is not limited (no AI, cached).
+
+**Validation.** Every `POST` route then reads its body with `parseBody(req, Schema)` (`lib/route.ts`) using the Zod schemas in `lib/schemas.ts` (`TurnBodySchema`, `ReportBodySchema`, `PackGenerateBodySchema`, `RoadmapBodySchema`, `AssistBodySchema`). Nothing reaches liveAgent unless the body passes.
 
 - Body over `LIMITS.bodyBytes` (1 MB) → **413** `"Request is too large."`; not JSON → **400** `"Request body must be valid JSON."`.
 - Schema mismatch → **400** `{ error, issues: { path, message }[] }`. `error` is the first issue, as `"Invalid request: <path>: <message>"`, or the rule's own user-facing message for custom rules (e.g. `"Missing target role."`).
@@ -328,7 +330,7 @@ Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatal
 - **Truncation limits are hardcoded per call site**, not centralized: resume 6000 chars (interviewer prompt) / 4000 chars (pack-gen prompt), JD 4000–8000 chars depending on route, transcript 40,000 chars, code 6000 chars, message history 60 turns. Any future refactor touching prompt construction should grep for these magic numbers rather than assume one shared constant.
 - **Request validation** happens in liveAgent (Pydantic models in `live_agent/models.py`). Core's routes only do the presence checks they need to resolve the field and persona.
 - **No rate limiting, no user auth, no per-user quotas** on any Core route — any caller with network access to the dev/prod server can invoke Gemini through these endpoints at will. (liveAgent itself only accepts calls carrying Core's shared token.)
-- **Error contract** is uniform: every route catches, maps `ApiError` to its `.status`, defaults to `500`, and responds `{ error: string }`, plus `issues` on validation failures (§5.0).
+- **Error contract** is uniform: every route catches, maps `ApiError` to its `.status`, defaults to `500`, and responds `{ error: string }`, plus `issues` on validation failures and a `Retry-After` header on 429 (§5.0).
 - **Model routing** matches DEV_PLAN.md's "cheap model for chatter, strong model for scoring" principle: `MODELS.chat` (flash-tier) is used for interviewer turns, roadmap generation, and AI assist; `MODELS.scoring` (pro-tier) is used for report scoring and pack generation (both benefit from stronger reasoning over more context).
 
 ---
