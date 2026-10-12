@@ -19,7 +19,7 @@ export default function ReportPage() {
   const { openPanel } = useNotesPanel();
   const { data: profile } = useProfile();
   const { data: allReports = [] } = useReports();
-  const { custom: customPacks, byId } = useAllPacks();
+  const { custom: customPacks, catalog, byId } = useAllPacks();
   const { data, loading } = useQuery(async () => {
     const session = await db.sessions.get(id);
     const report = (await db.reports.list()).find((r) => r.sessionId === id);
@@ -40,7 +40,7 @@ export default function ReportPage() {
     );
 
   const pack = byId(report.packId);
-  const packs = profile ? [...customPacks, ...visibleBuiltInPacks(profile)] : customPacks;
+  const packs = profile ? [...customPacks, ...visibleBuiltInPacks(profile, catalog)] : customPacks;
   const rec = packs.length ? recommendPack(allReports, packs) : undefined;
 
   const startSession = async (packId: string, cfg = session.config) => {

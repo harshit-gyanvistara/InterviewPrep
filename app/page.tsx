@@ -14,13 +14,13 @@ export default function Dashboard() {
   const { data: profile, loading } = useProfile();
   const { data: reports = [] } = useReports();
   const { data: sessions = [] } = useSessions();
-  const { custom: customPacks, byId, loading: packsLoading } = useAllPacks();
+  const { custom: customPacks, catalog, byId, loading: packsLoading } = useAllPacks();
   const { data: notes = [] } = useNoteList();
   const { openPanel } = useNotesPanel();
 
   if (loading || packsLoading || !profile) return null;
 
-  const packs = [...customPacks, ...visibleBuiltInPacks(profile)];
+  const packs = [...customPacks, ...visibleBuiltInPacks(profile, catalog)];
   const done = sessions.filter((s) => s.status === "done");
   const inProgress = sessions.find((s) => s.status === "active" && s.messages.length > 0);
   const lobby = sessions.find((s) => s.status === "lobby");

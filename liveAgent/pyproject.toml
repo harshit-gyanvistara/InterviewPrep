@@ -1,0 +1,24 @@
+[project]
+name = "live-agent"
+version = "0.1.0"
+description = "Offerly AI service: interviewer, scorer, pack/roadmap generation and writing assist on Gemini."
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "google-genai>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx2"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["live_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

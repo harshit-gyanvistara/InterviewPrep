@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Next.js app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run coverage
+      - name: liveAgent types match openapi.json
+        run: |
+          npx openapi-typescript liveAgent/openapi.json -o lib/liveAgent.types.ts --default-non-nullable false
+          git diff --exit-code lib/liveAgent.types.ts || (echo "::error::lib/liveAgent.types.ts is stale. Run: npm run agent:types" && exit 1)
+      # No secrets: the build must work without Supabase or liveAgent configured.
+      - run: npm run build
+
+  live-agent:
+    name: liveAgent (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: liveAgent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: liveAgent/pyproject.toml
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest
+      - name: openapi.json matches the code
+        run: |
+          python scripts/export_openapi.py
+          git diff --exit-code openapi.json || (echo "::error::liveAgent/openapi.json is stale. Run: npm run agent:types" && exit 1)

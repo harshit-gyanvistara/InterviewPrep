@@ -1,0 +1,1413 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "liveAgent",
+    "description": "Offerly AI service. Called only by Core.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/interview/turn": {
+      "post": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Turn",
+        "operationId": "turn_v1_interview_turn_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TurnResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/interview/report": {
+      "post": {
+        "tags": [
+          "interview"
+        ],
+        "summary": "Report",
+        "operationId": "report_v1_interview_report_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/packs/generate": {
+      "post": {
+        "tags": [
+          "packs"
+        ],
+        "summary": "Generate",
+        "description": "Builds a small set of interview rounds tailored to the candidate's exact target role and job\ndescription, so the app works for any profession rather than a fixed list of tech rounds.",
+        "operationId": "generate_v1_packs_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackGenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PacksResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/roadmap": {
+      "post": {
+        "tags": [
+          "roadmap"
+        ],
+        "summary": "Roadmap",
+        "operationId": "roadmap_v1_roadmap_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoadmapRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoadmapResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/assist": {
+      "post": {
+        "tags": [
+          "assist"
+        ],
+        "summary": "Assist",
+        "description": "Writing assist for the Notes drawer and the Cortex notebook. \"improve\" tidies existing content;\n\"generate\" drafts new content. Always returns HTML limited to tags both editors render.",
+        "operationId": "assist_v1_assist_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/health/models": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Models Health",
+        "description": "Connection test behind Settings -> Data & AI: pings the chat and scoring models.",
+        "operationId": "models_health_v1_health_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsHealth"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelsHealth"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Healthz",
+        "description": "Liveness for the platform (no auth, no Gemini call).",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "boolean"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnswerReview": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answerSummary": {
+            "type": "string",
+            "title": "Answersummary"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback"
+          },
+          "betterAnswer": {
+            "type": "string",
+            "title": "Betteranswer"
+          },
+          "expectedAnswer": {
+            "type": "string",
+            "title": "Expectedanswer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answerSummary",
+          "score",
+          "feedback",
+          "betterAnswer",
+          "expectedAnswer"
+        ],
+        "title": "AnswerReview"
+      },
+      "AssistRequest": {
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "improve",
+              "generate"
+            ],
+            "title": "Mode"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "instruction": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction"
+          },
+          "contextTitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contexttitle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "title": "AssistRequest"
+      },
+      "AssistResult": {
+        "properties": {
+          "html": {
+            "type": "string",
+            "title": "Html"
+          }
+        },
+        "type": "object",
+        "required": [
+          "html"
+        ],
+        "title": "AssistResult"
+      },
+      "DimensionScore": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "score",
+          "evidence",
+          "feedback"
+        ],
+        "title": "DimensionScore"
+      },
+      "DomainIn": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "interviewerContext": {
+            "type": "string",
+            "title": "Interviewercontext",
+            "default": ""
+          },
+          "scoringContext": {
+            "type": "string",
+            "title": "Scoringcontext",
+            "default": ""
+          },
+          "roundHints": {
+            "type": "string",
+            "title": "Roundhints",
+            "default": ""
+          },
+          "roadmapHints": {
+            "type": "string",
+            "title": "Roadmaphints",
+            "default": ""
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "DomainIn",
+        "description": "The field profile (lib/domains in Core), resolved by Core from the catalog."
+      },
+      "ErrorBody": {
+        "properties": {
+          "error": {
+            "type": "string",
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorBody"
+      },
+      "GeneratedPack": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "roundType": {
+            "type": "string",
+            "enum": [
+              "behavioural",
+              "technical",
+              "coding",
+              "hr"
+            ],
+            "title": "Roundtype"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "durationMin": {
+            "type": "number",
+            "title": "Durationmin"
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topics"
+          },
+          "rubric": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Rubric"
+          },
+          "style": {
+            "type": "string",
+            "title": "Style"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "company",
+          "role",
+          "roundType",
+          "description",
+          "durationMin",
+          "topics",
+          "rubric",
+          "style"
+        ],
+        "title": "GeneratedPack"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Message": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "interviewer",
+              "candidate"
+            ],
+            "title": "Role"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "text"
+        ],
+        "title": "Message"
+      },
+      "ModelCheck": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "ms": {
+            "type": "integer",
+            "title": "Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model",
+          "ok",
+          "ms"
+        ],
+        "title": "ModelCheck"
+      },
+      "ModelsHealth": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "hasKey": {
+            "type": "boolean",
+            "title": "Haskey"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "chat": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelCheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "scoring": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelCheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "hasKey"
+        ],
+        "title": "ModelsHealth"
+      },
+      "Pack": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "company": {
+            "type": "string",
+            "title": "Company",
+            "default": ""
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "default": ""
+          },
+          "roundType": {
+            "type": "string",
+            "enum": [
+              "behavioural",
+              "technical",
+              "coding",
+              "hr"
+            ],
+            "title": "Roundtype"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "topics": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Topics"
+          },
+          "rubric": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Rubric"
+          },
+          "style": {
+            "type": "string",
+            "title": "Style",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "roundType",
+          "topics",
+          "rubric"
+        ],
+        "title": "Pack"
+      },
+      "PackGenerateRequest": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainIn"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "domain"
+        ],
+        "title": "PackGenerateRequest"
+      },
+      "PacksResult": {
+        "properties": {
+          "packs": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedPack"
+            },
+            "type": "array",
+            "title": "Packs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "packs"
+        ],
+        "title": "PacksResult"
+      },
+      "PersonaIn": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "tone": {
+            "type": "string",
+            "title": "Tone"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "tone"
+        ],
+        "title": "PersonaIn",
+        "description": "The interviewer persona, resolved by Core from its PERSONAS table."
+      },
+      "Profile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "default": ""
+          },
+          "targetRole": {
+            "type": "string",
+            "title": "Targetrole",
+            "default": ""
+          },
+          "targetCompanies": {
+            "type": "string",
+            "title": "Targetcompanies",
+            "default": ""
+          },
+          "jobDescription": {
+            "type": "string",
+            "title": "Jobdescription",
+            "default": ""
+          },
+          "experience": {
+            "type": "string",
+            "title": "Experience",
+            "default": ""
+          },
+          "resume": {
+            "type": "string",
+            "title": "Resume",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "Profile"
+      },
+      "ReportRequest": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/SessionConfig"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "pack": {
+            "$ref": "#/components/schemas/Pack"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainIn"
+          },
+          "interviewerName": {
+            "type": "string",
+            "title": "Interviewername"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          },
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "config",
+          "profile",
+          "pack",
+          "domain",
+          "interviewerName"
+        ],
+        "title": "ReportRequest"
+      },
+      "ReportResult": {
+        "properties": {
+          "overall": {
+            "type": "number",
+            "title": "Overall"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "Strong Hire",
+              "Hire",
+              "Borderline",
+              "Not Yet"
+            ],
+            "title": "Verdict"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "strengths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Strengths"
+          },
+          "topFixes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Topfixes"
+          },
+          "dimensions": {
+            "items": {
+              "$ref": "#/components/schemas/DimensionScore"
+            },
+            "type": "array",
+            "title": "Dimensions"
+          },
+          "answerReviews": {
+            "items": {
+              "$ref": "#/components/schemas/AnswerReview"
+            },
+            "type": "array",
+            "title": "Answerreviews"
+          }
+        },
+        "type": "object",
+        "required": [
+          "overall",
+          "verdict",
+          "summary",
+          "strengths",
+          "topFixes",
+          "dimensions",
+          "answerReviews"
+        ],
+        "title": "ReportResult"
+      },
+      "RoadmapItem": {
+        "properties": {
+          "week": {
+            "type": "number",
+            "title": "Week"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "focus": {
+            "type": "string",
+            "title": "Focus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "week",
+          "title",
+          "detail",
+          "focus"
+        ],
+        "title": "RoadmapItem"
+      },
+      "RoadmapRequest": {
+        "properties": {
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainIn"
+          },
+          "weeks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weeks"
+          },
+          "digests": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Digests",
+            "default": []
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile",
+          "domain"
+        ],
+        "title": "RoadmapRequest"
+      },
+      "RoadmapResult": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RoadmapItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "items"
+        ],
+        "title": "RoadmapResult"
+      },
+      "SessionConfig": {
+        "properties": {
+          "persona": {
+            "type": "string",
+            "enum": [
+              "friendly",
+              "neutral",
+              "tough"
+            ],
+            "title": "Persona"
+          },
+          "durationMin": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Durationmin"
+          },
+          "pressure": {
+            "type": "boolean",
+            "title": "Pressure",
+            "default": false
+          },
+          "questionCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Questioncount"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona",
+          "durationMin"
+        ],
+        "title": "SessionConfig"
+      },
+      "TurnRequest": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/SessionConfig"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/Profile"
+          },
+          "pack": {
+            "$ref": "#/components/schemas/Pack"
+          },
+          "persona": {
+            "$ref": "#/components/schemas/PersonaIn"
+          },
+          "domain": {
+            "$ref": "#/components/schemas/DomainIn"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            },
+            "type": "array",
+            "title": "Messages",
+            "default": []
+          },
+          "elapsedSec": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Elapsedsec",
+            "default": 0
+          },
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "config",
+          "profile",
+          "pack",
+          "persona",
+          "domain"
+        ],
+        "title": "TurnRequest"
+      },
+      "TurnResult": {
+        "properties": {
+          "reply": {
+            "type": "string",
+            "title": "Reply"
+          },
+          "endInterview": {
+            "type": "boolean",
+            "title": "Endinterview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reply",
+          "endInterview"
+        ],
+        "title": "TurnResult"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
