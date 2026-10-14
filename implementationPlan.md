@@ -125,7 +125,7 @@ SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/liveAgen
 | G1 | API abuse | Per-IP rate limits on every AI route (M1.2 done); no auth or per-user quota yet | Per-user quotas, rate limits, usage ledger | Medium until M2 adds per-user quotas | M1, M2 |
 | G2 | Input validation | Zod schemas on every route body, 400 with field errors, 1 MB body cap (M1.1 done) | Zod schemas shared by client and server | Done (server side) | M1 |
 | G3 | Tests / CI | Unit tests for pure logic + liveAgent pytest, CI on every PR (M0 done); no contract/E2E/evals yet | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
-| G4 | Identity & data | Single implicit user, `localStorage`, lost on clearing site data | Accounts, Postgres, cross-device | High | M2 |
+| G4 | Identity & data | Accounts (email code, Google on web) and the profile on the server; sessions, reports and notes still in `localStorage` per user | Accounts, Postgres, cross-device | High until M2.2–M2.5 | M2 |
 | G5 | Observability & cost | `console.error` only; no token/cost tracking | OpenTelemetry, Sentry, `usage_ledger` per session | Medium | M1 (ledger), M2 (persist) |
 | G6 | Interview engine | One big prompt; model decides pacing and ending | Explicit orchestrator state machine + follow-up policy | Medium | M4 |
 | G7 | Scoring trust | One Pro call, no calibration, no regression tests | Versioned rubrics, human-rated calibration set, ≥0.7 correlation | Medium | M4 |
@@ -207,7 +207,7 @@ Goal: real users, data across devices, foundation for billing and B2B.
 
 | Task | Detail |
 |---|---|
-| M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding. First slice (sign-in, `users`/`profiles`/`consents`, per-user rate limits, profile on the server) in [plans/auth.md](plans/auth.md); needs M1.6 and M1.7 first |
+| M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding. **First slice done (2026-10-14)**, see [plans/auth.md](plans/auth.md): email-code sign-in (Google on the web), `proxy.ts` + `lib/auth.ts`, every AI route 401 without a session and rate-limited per user, `users`/`profiles`/`consents` with RLS, profile on the server via `/api/db/profile`, per-user `localStorage` prefix with one-time takeover of earlier data, delete account. Remaining before real users: M1.7 deploy, SMTP, Supabase email templates |
 | M2.2 Schema (D2) | Tables: `users`, `profiles`, `settings`, `sessions` (messages as JSONB to start), `reports`, `custom_packs`, `roadmaps`, `stories`, `notes`, `binders`, `cortex_pages`, `usage_ledger`. Every row has `user_id` |
 | M2.3 Versioning fields (G8) | `sessions.pack_snapshot` (the exact pack JSON used), `prompt_version`, `rubric_version`, `model_ids` |
 | M2.4 CRUD routes | `/api/db/[collection]` (or per-resource routes) with ownership checks on every read/write |

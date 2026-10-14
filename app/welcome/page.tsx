@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { BarChart3, Compass, Mic, Sparkles } from "lucide-react";
+import { StartCta } from "./StartCta";
 
 const PILLARS = [
   { icon: Compass, title: "Prepare", text: "Tell us your role, companies and interview date. Get a week-by-week plan built from your weak spots." },
@@ -28,10 +28,7 @@ export default function Welcome() {
         <p className="mx-auto mt-5 max-w-xl text-muted">
           Mock interviews with an AI interviewer that talks, listens, interrupts and follows up — then tells you exactly what to fix.
         </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link href="/onboarding" className="btn btn-primary !px-7 !py-3">Start free</Link>
-        </div>
-        <p className="mt-3 text-xs text-muted">No account needed. Your data stays in this browser.</p>
+        <StartCta />
       </section>
 
       <section className="grid gap-4 sm:grid-cols-3">

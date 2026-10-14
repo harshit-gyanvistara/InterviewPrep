@@ -16,27 +16,33 @@ export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Prof
   const [interviewDate, setInterviewDate] = useState(initial?.interviewDate ?? "");
   const [weeklyGoal, setWeeklyGoal] = useState(initial?.weeklyGoal ?? 3);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { catalog } = useCatalog();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await db.profiles.put({
-      id: initial?.id ?? uid(),
-      createdAt: initial?.createdAt ?? Date.now(),
-      name: name.trim(),
-      targetRole: targetRole.trim(),
-      targetCompanies: targetCompanies.trim(),
-      jobDescription: jobDescription.trim(),
-      experience,
-      domain: domain || undefined,
-      resume: resume.trim(),
-      interviewDate: interviewDate || undefined,
-      weeklyGoal,
-      onboarded: true,
-    });
+    setError(null);
+    try {
+      await db.profiles.put({
+        id: initial?.id ?? uid(),
+        createdAt: initial?.createdAt ?? Date.now(),
+        name: name.trim(),
+        targetRole: targetRole.trim(),
+        targetCompanies: targetCompanies.trim(),
+        jobDescription: jobDescription.trim(),
+        experience,
+        domain: domain || undefined,
+        resume: resume.trim(),
+        interviewDate: interviewDate || undefined,
+        weeklyGoal,
+        onboarded: true,
+      });
+      onSaved?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't save your profile.");
+    }
     setSaving(false);
-    onSaved?.();
   };
 
   return (
@@ -103,6 +109,7 @@ export function ProfileForm({ initial, onSaved, cta = "Save" }: { initial?: Prof
         <button className="btn btn-primary" disabled={saving || !name.trim()}>
           {cta}
         </button>
+        {error && <p className="mt-3 text-sm text-danger">{error}</p>}
       </div>
     </form>
   );

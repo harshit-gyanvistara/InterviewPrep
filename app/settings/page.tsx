@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, PageTitle } from "@/components/Shell";
 import { ProfileForm } from "@/components/ProfileForm";
-import { db, saveSettings, useProfile, useSettings } from "@/lib/db";
+import { db, resetSession, saveSettings, useAuth, useProfile, useSettings } from "@/lib/db";
 import { PERSONAS } from "@/lib/packs";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { useConfirm } from "@/lib/dialogContext";
@@ -129,9 +129,62 @@ function AppearanceTab() {
 interface Health { ok: boolean; hasKey: boolean; error?: string; chat?: HealthRow; scoring?: HealthRow }
 interface HealthRow { model: string; ok: boolean; ms: number; error?: string }
 
+/** Signed-in email, sign out, delete account. Only shown when accounts are on. */
+function AccountCard() {
+  const router = useRouter();
+  const { data: auth } = useAuth();
+  const confirm = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (auth?.mode !== "supabase" || !auth.user) return null;
+
+  const signOut = async () => {
+    setBusy(true);
+    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
+    resetSession();
+    router.replace("/welcome");
+  };
+
+  const deleteAccount = async () => {
+    const ok = await confirm({
+      title: "Delete your account?",
+      message: "This deletes your account and profile from our servers and all your practice data from this browser. This cannot be undone.",
+      confirmLabel: "Delete account",
+      danger: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    const r = await fetch("/api/account", { method: "DELETE" }).catch(() => null);
+    if (!r?.ok) {
+      setBusy(false);
+      setError(((await r?.json().catch(() => null)) as { error?: string } | null)?.error ?? "Couldn't reach the server. Try again.");
+      return;
+    }
+    // The server data is gone; clear this browser's copy (the profile call fails quietly now).
+    await db.clearAll().catch(() => {});
+    resetSession();
+    router.replace("/welcome");
+  };
+
+  return (
+    <Card>
+      <h2 className="mb-1 text-lg font-medium">Account</h2>
+      <p className="mb-4 text-sm text-muted">Signed in as <b className="text-ink">{auth.user.email ?? "unknown email"}</b>.</p>
+      <div className="flex flex-wrap gap-3">
+        <button className="btn btn-ghost" onClick={signOut} disabled={busy}>Sign out</button>
+        <button className="btn btn-danger" onClick={deleteAccount} disabled={busy}>Delete account</button>
+      </div>
+      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
+    </Card>
+  );
+}
+
 function DataTab() {
   const router = useRouter();
   const confirm = useConfirm();
+  const { data: auth } = useAuth();
+  const accounts = auth?.mode === "supabase";
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [health, setHealth] = useState<Health | null>(null);
@@ -159,13 +212,18 @@ function DataTab() {
   const wipe = async () => {
     const ok = await confirm({
       title: "Delete all data?",
-      message: "This deletes your profile, all sessions, reports, stories, notes and roadmaps from this browser. This cannot be undone.",
+      message: accounts
+        ? "This deletes your profile, and all sessions, reports, stories, notes and roadmaps in this browser. Your account stays. This cannot be undone."
+        : "This deletes your profile, all sessions, reports, stories, notes and roadmaps from this browser. This cannot be undone.",
       confirmLabel: "Delete everything",
       danger: true,
     });
-    if (ok) {
+    if (!ok) return;
+    try {
       await db.clearAll();
-      router.push("/welcome");
+      router.push(accounts ? "/onboarding" : "/welcome");
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Couldn't delete your data.");
     }
   };
 
@@ -181,6 +239,7 @@ function DataTab() {
 
   return (
     <div className="grid gap-5">
+      <AccountCard />
       <Card>
         <h2 className="mb-1 text-lg font-medium">AI connection</h2>
         <p className="mb-4 text-sm text-muted">Checks your Gemini key and the two models the app uses.</p>
@@ -198,7 +257,12 @@ function DataTab() {
       </Card>
       <Card>
         <h2 className="mb-1 text-lg font-medium">Your data</h2>
-        <p className="mb-4 text-sm text-muted">Everything lives in this browser&apos;s local storage. During a session, the transcript and your profile text are sent to Google&apos;s Gemini API to run the interview and scoring. Recordings are never stored.</p>
+        <p className="mb-4 text-sm text-muted">
+          {accounts
+            ? "Your profile is saved to your account. Sessions, reports, notes and the rest live in this browser for now."
+            : "Everything lives in this browser’s local storage."}{" "}
+          During a session, the transcript and your profile text are sent to Google&apos;s Gemini API to run the interview and scoring. Recordings are never stored.
+        </p>
         <div className="flex flex-wrap gap-3">
           <button className="btn btn-ghost" onClick={exportData}>Export JSON</button>
           <button className="btn btn-ghost" onClick={() => fileRef.current?.click()}>Import JSON</button>

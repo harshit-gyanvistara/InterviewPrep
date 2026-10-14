@@ -1,6 +1,13 @@
 # Plan: Accounts and sign-in (M2.1 first slice)
 
-**Status: proposed (2026-10-14).** Implements [implementationPlan.md](../implementationPlan.md) M2.1 with decision D3 (Supabase Auth).
+**Status: built (2026-10-14)**, not yet deployed. Implements [implementationPlan.md](../implementationPlan.md) M2.1 with decision D3 (Supabase Auth). M1.6 is done; M1.7 (deploy), SMTP and the Supabase email templates are still to do before real users.
+
+What changed from the proposal while building it:
+- **No Supabase client in the browser.** Sign-in goes through Core routes (`/api/auth/otp`, `/api/auth/verify`, `/auth/google`, `/auth/callback`, `/api/auth/sign-out`), so there are no `NEXT_PUBLIC_*` keys and the code-sending endpoint is rate-limited per IP. Env vars are `SUPABASE_PUBLISHABLE_KEY` (server-side) plus the existing `SUPABASE_URL`.
+- **`AUTH_MODE=off` in production fails closed** (503 on every route that needs a user, and on `/api/auth/me`) rather than refusing to start: Next has no clean "refuse to start" hook, and failing closed is testable.
+- **Terms consent is clickwrap** ("By continuing you agree…" on the sign-in page), recorded at `verify` and the Google callback.
+- **Sign-in and sign-out don't reload the page**: `resetSession()` in `lib/db.ts` clears the cached session and server profile.
+- **Not run against a real Supabase project yet.** Unit and route tests fake the Supabase client; `supabase/tests/rls.test.ts` needs Docker (`npx supabase start`) and runs in CI's `database` job.
 
 ## Context
 Today there are no accounts. Every AI route is open to anyone who can reach the server, protected only by per-IP rate limits ([lib/rateLimit.ts](../lib/rateLimit.ts), M1.2). All user data sits in `localStorage` behind the `Collection<T>` seam in [lib/db.ts](../lib/db.ts). The route guard in [components/Shell.tsx](../components/Shell.tsx) only checks whether the local profile has been onboarded.
@@ -30,7 +37,7 @@ Not in this slice: orgs, server-side sessions and reports, billing, phone OTP, G
 | A3 | Detecting the app | The shell sets `applicationNameForUserAgent="OfferlyApp/<version>"` on the WebView. The web app checks for it in one helper, `isInApp()` | One check, no client-side guessing. Also useful later for other app-only behaviour |
 | A4 | Session handling | `@supabase/ssr` cookie sessions. `proxy.ts` (Next 16's renamed middleware) refreshes the token and does **optimistic** redirects only. Real checks happen in `lib/auth.ts` next to the data, as the Next docs recommend (`node_modules/next/dist/docs/01-app/02-guides/authentication.md`, "Data Access Layer") | Proxy runs on every request, including prefetches; it must not be the only line of defence |
 | A5 | Who enforces data ownership | Route handlers use a **user-scoped** Supabase client (publishable key + the user's cookie), so row-level security (RLS) on `auth.uid()` enforces ownership. The secret-key client (`getSupabaseAdmin`) stays for the catalog and admin jobs | A missing `where user_id = ...` in a route can't leak another user's data |
-| A6 | Running without Supabase | `AUTH_MODE=off` gives every request a fixed local user, so contributors and CI's `next build` work without secrets (same spirit as the catalog's code defaults). **Refuse to start with `off` when `NODE_ENV=production`** | Keeps the zero-setup local workflow without risking an open production deploy |
+| A6 | Running without Supabase | `AUTH_MODE=off` gives every request a fixed local user, so contributors and CI's `next build` work without secrets (same spirit as the catalog's code defaults). **With `off` under `NODE_ENV=production`, every route that needs a user fails closed (503)** | Keeps the zero-setup local workflow without risking an open production deploy |
 | A7 | Existing local data | Namespace `localStorage` keys by user id. On first sign-in in a browser, adopt the un-namespaced data into that user's namespace. Uploading it to the server is M2.7 (D9) | Two people sharing a browser no longer see each other's data, and early users don't lose history |
 
 ## Data model (first auth migration)
@@ -68,7 +75,7 @@ Every AI route (`/api/interview/turn`, `/report`, `/api/pack/generate`, `/api/ro
 7. **Docs.** SPEC.md (auth, 401, new routes, tables), USER_FLOW.md (welcome → sign-in → onboarding), README / CONTRIBUTING (`AUTH_MODE=off` for local work), mobile README (sign-in in the app).
 
 ## Tests
-- Unit: `requireUser` in each `AUTH_MODE`; `AUTH_MODE=off` throws in production; rate-limit key is the user id when signed in.
+- Unit: `requireUser` in each `AUTH_MODE`; `AUTH_MODE=off` fails closed in production; rate-limit key is the user id when signed in.
 - Contract: every AI route returns 401 without a session and behaves as before with one (`getUser` mocked).
 - Isolation: against a local Supabase (`supabase start`), user A cannot read or write user B's `users`, `profiles` or `consents` rows through the publishable key. Run in CI.
 - Manual before merge of step 5: sign in on desktop web and in the Android dev build with the same email; onboard on one, see the profile on the other.
@@ -77,7 +84,7 @@ Every AI route (`/api/interview/turn`, `/report`, `/api/pack/generate`, `/api/ro
 - Same email on web and in the Android app shows the same profile.
 - Every AI route returns 401 without a session (tested in CI).
 - Cross-user RLS tests pass in CI.
-- A production build with `AUTH_MODE=off` refuses to start.
+- A production server with `AUTH_MODE=off` answers 503 on every route that needs a user (tested).
 
 ## Open questions (decide later; none block this slice)
 - **SMTP provider** for OTP emails, and the sender domain.

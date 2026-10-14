@@ -12,6 +12,9 @@ The dashboard's job is to always answer one question: *"What should I do next?"*
 /welcome (landing)
    │  CTA "Start free"
    ▼
+/sign-in  email → 6-digit code from the email → signed in   (or "Continue with Google", web only)
+   │      first sign-in creates the account; continuing = agreeing to /terms and /privacy
+   ▼
 /onboarding  (5 steps, resumable, skippable where noted)
    1 About you        name, experience level
    2 Your goal        target role, field (auto-detected from role, or pick one), target companies, interview date (optional), weekly goal
@@ -48,7 +51,9 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 | Route | Purpose | Gate |
 |---|---|---|
 | /welcome | Landing, value prop, how it works | Public; onboarded users redirect to / |
-| /onboarding | 5-step wizard | Public; onboarded users may revisit to edit |
+| /sign-in | Email code (and Google on the web) | Public; onboarded users redirect to / |
+| /terms, /privacy | Draft terms and privacy text | Public |
+| /onboarding | 5-step wizard | Signed in; onboarded users may revisit to edit |
 | / | Dashboard, next best action | Requires onboarding |
 | /practice | Configure a mock | Requires onboarding |
 | /interview/[id] | Lobby → Room → Scoring | Requires session |
@@ -57,7 +62,7 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 | /prepare | Roadmap + Story bank | Requires onboarding |
 | /settings | Profile, Interview, Voice & audio, Appearance, Data & AI | Requires onboarding |
 
-**Route guard:** no profile with `onboarded: true` → redirect to /welcome (except /welcome and /onboarding).
+**Route guard:** signed out → /welcome (public pages excepted; the server redirects page loads too). Signed in without an onboarded profile → /onboarding. With accounts turned off (`AUTH_MODE=off`, local development) there is no sign-in and the old rule applies: not onboarded → /welcome.
 
 ## 5. Session state machine
 `lobby → active → scoring → done`
@@ -96,7 +101,7 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 | Interview | default persona, default duration, pressure mode default, show timer, confirm before ending | neutral / pack default / off / on / on |
 | Voice & audio | spoken interviewer on/off, auto-listen after interviewer speaks, interviewer voice, speech speed, recognition language (en-IN, en-US, en-GB), live captions on/off, camera on at join | on / on / auto / 1.0 / en-IN / on / off |
 | Appearance | light / dark | light |
-| Data & AI | export JSON, import JSON, delete all data, AI connection test (shows model and latency) | — |
+| Data & AI | account (signed-in email, sign out, delete account), export JSON, import JSON, delete all data, AI connection test (shows model and latency) | — |
 
 ## 9. Edge cases handled
 - Browser without speech recognition → text answers, clear notice.
@@ -106,6 +111,9 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 - Empty interview → discarded, not scored.
 - Duplicate opening turn guarded (StrictMode).
 - Local storage failure → app renders, writes logged.
+- Server unreachable when loading the account or profile → "Couldn't reach Offerly" card with Try again (never guesses and sends an onboarded user to onboarding).
+- First sign-in on a browser used before accounts → that data becomes the account's; a second account on the same browser starts empty.
+- Inside the mobile app → no Google button (Google blocks sign-in in WebViews); email code works.
 
 ## 10. Not built yet (next)
-Real accounts and database, Gemini Live voice, human mocks, peer mocks, job tracker, college dashboard, email reminders.
+Server storage for sessions, reports and notes (the profile is already on the server), Gemini Live voice, human mocks, peer mocks, job tracker, college dashboard, email reminders.

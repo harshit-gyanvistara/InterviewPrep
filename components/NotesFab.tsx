@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { StickyNote } from "lucide-react";
+import { isBarePage } from "@/lib/pages";
 import { useNotesPanel } from "@/lib/notesContext";
 
 /**
@@ -11,7 +12,7 @@ import { useNotesPanel } from "@/lib/notesContext";
 export function NotesFab() {
   const { openPanel, state } = useNotesPanel();
   const path = usePathname();
-  const bare = path === "/welcome" || path === "/onboarding";
+  const bare = isBarePage(path);
   const inInterview = path.startsWith("/interview/");
   if (state.open || bare) return null;
 

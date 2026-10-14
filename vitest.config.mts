@@ -13,7 +13,7 @@ export default defineConfig({
     exclude: ["node_modules/**", ".next/**", "liveAgent/**", "mobile/**"],
     coverage: {
       provider: "v8",
-      include: ["lib/recommend.ts", "lib/analysis.ts", "lib/packs.ts", "lib/schemas.ts", "lib/route.ts", "lib/rateLimit.ts"],
+      include: ["lib/recommend.ts", "lib/analysis.ts", "lib/packs.ts", "lib/schemas.ts", "lib/route.ts", "lib/rateLimit.ts", "lib/auth.ts", "lib/pages.ts"],
       thresholds: { lines: 80 },
     },
   },

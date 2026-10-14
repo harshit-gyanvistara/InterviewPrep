@@ -6,7 +6,7 @@ Precise reference for the code in this repo (the Next.js app lives at the repo r
 
 ## 1. Data model
 
-All types are defined in [lib/types.ts](lib/types.ts). All persistence goes through [lib/db.ts](lib/db.ts), one `localStorage` array per collection, keyed `interviewprep:v1:<collection>`.
+All types are defined in [lib/types.ts](lib/types.ts). All persistence goes through [lib/db.ts](lib/db.ts) (§2). With accounts on (§9), the profile is stored on the server and every other collection is one `localStorage` array keyed `interviewprep:v1:u:<userId>:<collection>`; with `AUTH_MODE=off` every collection, the profile included, is keyed `interviewprep:v1:<collection>`.
 
 ### 1.1 Profile (`db.profiles` — single record, `[0]` used everywhere)
 ```ts
@@ -25,7 +25,7 @@ interface Profile {
   createdAt: number;
 }
 ```
-There is no concept of multiple profiles or multiple users; `useProfile()` always reads index 0.
+One profile per user; `useProfile()` always reads index 0. With accounts on it is stored in `profiles.data` (§9) through `/api/db/profile` (§5.12) and validated on write by `StoredProfileSchema` (`lib/schemas.ts`), which keeps unknown fields.
 
 ### 1.2 Settings (`db.settings` — single record, id `"settings"`)
 ```ts
@@ -171,12 +171,15 @@ interface CortexPage {
 
 ## 2. Storage & reactivity (`lib/db.ts`)
 
-- `localCollection<T>(key)` implements `{ list, get, put, remove }` over a JSON array in `localStorage`.
+- `getAuth()` fetches `GET /api/auth/me` (§5.8) once and caches it until `resetSession()` (called after sign-in, sign-out and account deletion). If the request fails it resolves to `{ mode: "supabase", user: null, error }`; the Shell then shows a retry card instead of redirecting. `useAuth()` exposes it as a query.
+- `localCollection<T>(key)` implements `{ list, get, put, remove }` over a JSON array in `localStorage`, under the signed-in user's key prefix (§1). Signed out with accounts on, it reads `[]` and ignores writes (only public pages render then).
+- `db.profiles` is `byAuth(remoteSingleton("profile"), localCollection("profiles"))`: the server copy when signed in with an account, `localStorage` with `AUTH_MODE=off`. `remoteSingleton` caches after the first read and throws the route's `error` on failure.
+- **Takeover of pre-accounts data** (`adoptLocalData`, once per browser, marker key `interviewprep:v1:adopted-by`): on the first signed-in load, unprefixed collections move under that user's prefix (never overwriting existing prefixed data) and the old local profile is uploaded if the account has none on the server. A second account signing in on the same browser starts empty.
 - Every `put`/`remove` calls `write()`, which re-serializes the whole array and dispatches a `window` `"interviewprep:change"` event.
-- `useQuery(fn, deps)` runs `fn` on mount, re-runs on every change event, and exposes `{ data, loading }`. All collection hooks (`useProfile`, `useSessions`, `useReports`, `useStories`, `useSettings`, `useCustomPacks`, `useNoteList`, `useBinders`, `useCortexPages`, `useCortexPage`) are built on this primitive — there is no separate global store (no Redux/Zustand/Context for data, only for a couple of UI concerns like `dialogContext.tsx` and `notesContext.tsx`).
+- `useQuery(fn, deps)` runs `fn` on mount, re-runs on every change event, and exposes `{ data, loading, error }`. All collection hooks (`useProfile`, `useSessions`, `useReports`, `useStories`, `useSettings`, `useCustomPacks`, `useNoteList`, `useBinders`, `useCortexPages`, `useCortexPage`) are built on this primitive — there is no separate global store (no Redux/Zustand/Context for data, only for a couple of UI concerns like `dialogContext.tsx` and `notesContext.tsx`).
 - `useCatalog()` fetches `GET /api/catalog` once per page load (module-level promise), starting from and falling back to `DEFAULT_CATALOG` (the code copies).
 - `useAllPacks()` merges the catalog's built-in packs with `db.customPacks` into one lookup (`byId`) and also returns `catalog`; `loading` covers both.
-- `db.exportAll()` / `db.importAll()` / `db.clearAll()` back Settings → Data & AI's export/import/delete-all.
+- `db.exportAll()` / `db.importAll()` / `db.clearAll()` back Settings → Data & AI's export/import/delete-all. They act on the signed-in user's data only; with accounts on, `clearAll` also deletes the server profile (the account itself stays).
 - Failure mode: `write()` catches and logs `localStorage` quota/availability errors but does not surface them to the UI beyond a console log (per USER_FLOW.md §9: "Local storage failure → app renders, writes logged").
 
 ---
@@ -247,7 +250,9 @@ The AI routes (5.1–5.6) are thin proxies: Core resolves the field (and for int
 
 ### 5.0 Rate limiting and request validation
 
-**Rate limits** (`lib/rateLimit.ts`). Every AI route (5.1–5.6) first calls `enforceRateLimit(req, bucket)`, keyed by client IP (first `x-forwarded-for` entry, else `x-real-ip`, else one shared `"unknown"` bucket). Fixed windows per IP, set in `RATE_LIMITS`: `interview.turn` 20/min, `ai.assist` 20/min, `health` 5/min, `interview.report`, `pack.generate` and `roadmap` 5 per 10 min. Over the limit → **429** `{ error: "Too many requests. Try again in N seconds|minutes." }` with a `Retry-After` header; requests count even if their body is then rejected. Counts are kept in Upstash Redis (REST API, key `offerly:rl:<bucket>:<ip>`) when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, otherwise in process memory. If Upstash errors, the request is allowed and a `ratelimit.error` line is logged (fail open); blocked requests log `ratelimit.blocked`. `/api/catalog` is not limited (no AI, cached).
+**Sign-in** (`lib/auth.ts`, §9). Every AI route (5.1–5.6) starts with `authorize(req, bucket)` (`lib/route.ts`): `requireUser()` → **401** `{ error: "Sign in to continue." }` without a valid session (health keeps its own `{ ok: false, hasKey: false, error }` shape), then the rate limit below. With `AUTH_MODE=off` every request is the local user, except under `NODE_ENV=production`, where every route that needs a user returns **503** `"Sign-in is not configured on this server."` (fail closed).
+
+**Rate limits** (`lib/rateLimit.ts`). `enforceRateLimit(req, bucket, { userId })` counts per signed-in user (`user:<id>`), or per client IP (`ip:<ip>`: first `x-forwarded-for` entry, else `x-real-ip`, else one shared `"unknown"` bucket) with `AUTH_MODE=off` and on the sign-in routes. Fixed windows set in `RATE_LIMITS`: `interview.turn` 20/min, `ai.assist` 20/min, `health` 5/min, `interview.report`, `pack.generate` and `roadmap` 5 per 10 min, `auth.otp` 5 and `auth.verify` 10 per 10 min per IP. Over the limit → **429** `{ error: "Too many requests. Try again in N seconds|minutes." }` with a `Retry-After` header; requests count even if their body is then rejected. Counts are kept in Upstash Redis (REST API, key `offerly:rl:<bucket>:user:<id>` or `…:ip:<ip>`) when `UPSTASH_REDIS_REST_URL`/`_TOKEN` are set, otherwise in process memory. If Upstash errors, the request is allowed and a `ratelimit.error` line is logged (fail open); blocked requests log `ratelimit.blocked`. `/api/catalog` is not limited (no AI, cached).
 
 **Validation.** Every `POST` route then reads its body with `parseBody(req, Schema)` (`lib/route.ts`) using the Zod schemas in `lib/schemas.ts` (`TurnBodySchema`, `ReportBodySchema`, `PackGenerateBodySchema`, `RoadmapBodySchema`, `AssistBodySchema`). Nothing reaches liveAgent unless the body passes.
 
@@ -292,7 +297,22 @@ Behavior: `503` with `{ ok: false, hasKey: false, error }` if liveAgent is unrea
 Response: `{ ok: boolean; hasKey: boolean; chat: { model, ok, ms, error? }; scoring: { model, ok, ms, error? } }`. Used by Settings → Data & AI's "AI connection test".
 
 ### 5.7 `GET /api/catalog`
-Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatalog()` (§8), with `Cache-Control: public, max-age=300`. Read by `useCatalog()`.
+Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatalog()` (§8), with `Cache-Control: public, max-age=300`. Read by `useCatalog()`. Public: no sign-in, no rate limit.
+
+### 5.8 `GET /api/auth/me`
+Response: `{ mode: "supabase" | "off"; user: { id; email } | null; google: boolean }`, `no-store`. `google` is true when `AUTH_GOOGLE=on` and accounts are on. 503 when auth is unusable (off in production, or `AUTH_MODE=supabase` without keys). Read by `getAuth()` (§2).
+
+### 5.9 `POST /api/auth/otp` and `POST /api/auth/verify`
+Email one-time-code sign-in. `otp`: body `{ email }` (trimmed, lowercased, validated) → Supabase `signInWithOtp` (creates the account on first use) → `{ ok: true }`; Supabase's own rate limit → 429, other Supabase errors → 502. `verify`: body `{ email, code }` (`code` 6–10 digits) → `verifyOtp({ type: "email" })`, sets the session cookies, records a `terms` consent for `TERMS_VERSION` if missing → `{ ok: true }`; wrong or expired code → 400. Both: 404 when accounts are off, rate-limited per IP.
+
+### 5.10 `GET /auth/google` and `GET /auth/callback`
+Google sign-in, web only (the sign-in page hides it inside the mobile app). `/auth/google` → `signInWithOAuth` with PKCE (verifier in a cookie) → 307 to Google, or to `/sign-in` when Google is off. `/auth/callback?code=` → `exchangeCodeForSession`, records terms consent → 307 to `/`; failures → `/sign-in?error=google`.
+
+### 5.11 `POST /api/auth/sign-out` and `DELETE /api/account`
+`sign-out` clears this device's session cookies → `{ ok: true }`. `account` (401 without a session) deletes the auth user with the secret key, which cascades to `users`, `profiles` and `consents` (§9), then clears the cookies → `{ ok: true }`; 503 without `SUPABASE_SECRET_KEY`, 404 when accounts are off.
+
+### 5.12 `GET | PUT | DELETE /api/db/[collection]`
+The signed-in user's server-side collections (implementationPlan M2.4); only `profile` so far (`USER_COLLECTIONS` in `lib/userData.ts`). `GET` → `{ items: T[] }`; `PUT` body = the item, validated by the collection's schema (400 with `issues`) → `{ item }`; `DELETE` → `{ ok: true }`. Queries run on the user-scoped client, so RLS applies. 401 without a session; 404 for an unknown collection or when accounts are off.
 
 ---
 
@@ -328,8 +348,8 @@ Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatal
 ## 7. Cross-cutting conventions
 
 - **Truncation limits are hardcoded per call site**, not centralized: resume 6000 chars (interviewer prompt) / 4000 chars (pack-gen prompt), JD 4000–8000 chars depending on route, transcript 40,000 chars, code 6000 chars, message history 60 turns. Any future refactor touching prompt construction should grep for these magic numbers rather than assume one shared constant.
-- **Request validation** happens in liveAgent (Pydantic models in `live_agent/models.py`). Core's routes only do the presence checks they need to resolve the field and persona.
-- **No rate limiting, no user auth, no per-user quotas** on any Core route — any caller with network access to the dev/prod server can invoke Gemini through these endpoints at will. (liveAgent itself only accepts calls carrying Core's shared token.)
+- **Request validation** happens in Core with Zod (§5.0) and again in liveAgent (Pydantic models in `live_agent/models.py`).
+- **Sign-in and rate limits** on every AI route (§5.0); no per-plan quotas yet (M2/M6). liveAgent itself only accepts calls carrying Core's shared token.
 - **Error contract** is uniform: every route catches, maps `ApiError` to its `.status`, defaults to `500`, and responds `{ error: string }`, plus `issues` on validation failures and a `Retry-After` header on 429 (§5.0).
 - **Model routing** matches DEV_PLAN.md's "cheap model for chatter, strong model for scoring" principle: `MODELS.chat` (flash-tier) is used for interviewer turns, roadmap generation, and AI assist; `MODELS.scoring` (pro-tier) is used for report scoring and pack generation (both benefit from stronger reasoning over more context).
 
@@ -337,10 +357,25 @@ Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatal
 
 ## 8. Supabase catalog
 
-The only server-side data today. User data is still in `localStorage` (§2).
+Read-only reference data for every user. User accounts and profiles are in §9; the rest of the user's data is still in `localStorage` (§2).
 
 - **Tables** (`supabase/migrations/20261003120000_catalog.sql`): `domains` (one row per `DomainProfile`, snake_case columns, plus `sort_order` = inference order and `active`) and `packs` (built-in packs; `domains text[]`, null = every field; `round_type` is text validated in code against `ROUND_TYPES`). Both have `created_at`/`updated_at` (trigger).
 - **Access**: RLS enabled with no policies, so only the secret key can read or write. `lib/supabase.ts::getSupabaseAdmin()` builds that client from `SUPABASE_URL` + `SUPABASE_SECRET_KEY`, or returns null when they're unset.
 - **`lib/catalog-server.ts::getCatalog()`**: loads active rows ordered by `sort_order`, maps them to `DomainProfile`/`Pack`, drops packs failing `isValidPack` or `ROUND_TYPES`, caches 5 min in memory. Falls back to `DEFAULT_CATALOG` (`lib/catalog.ts`) when Supabase is unconfigured (cached 5 min), or empty/erroring (logged, retried after 30 s).
 - **Seeding**: `npm run db:seed` (`scripts/seed-catalog.ts`) upserts the code copies with `ignoreDuplicates`, so edits made in Supabase are kept; `-- --force` overwrites them.
 - **Changing catalog content**: edit rows in Supabase and bump `domains.version` when prompt text changes. Changes reach new requests within 5 minutes. Keep the code copies roughly in sync, since they're the fallback.
+
+---
+
+## 9. Accounts (Supabase Auth)
+
+Plan and decisions: [plans/auth.md](plans/auth.md).
+
+- **Mode** (`lib/auth.ts::authMode()`): `supabase` when `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are set, else `off`; `AUTH_MODE` overrides. `off` = one implicit local user (`LOCAL_USER`), for local work and CI; under `NODE_ENV=production` it fails closed (§5.0).
+- **Sessions**: `@supabase/ssr` cookie sessions. All sign-in calls go through Core's routes (§5.8–5.11), so the browser has no Supabase client and needs no public keys. `lib/supabase-server.ts::getSupabaseForRequest()` is the user-scoped client (publishable key + the request's cookies); `getSupabaseAdmin()` (secret key) is only used for the catalog and account deletion.
+- **Identity**: `getUser()` verifies the session JWT with `auth.getClaims()` and returns `{ id: sub, email }`; `requireUser()` throws 401.
+- **`proxy.ts`** (Next 16 middleware) runs on everything except static files: refreshes the session cookies, and redirects signed-out *page* requests outside `PUBLIC_PAGES` (`/welcome`, `/sign-in`, `/terms`, `/privacy`; `lib/pages.ts`) to `/welcome`. `/api/*` and `/auth/*` are never redirected. It is not the security boundary.
+- **Client route guard**: `redirectFor(path, auth, onboarded)` in `lib/pages.ts`, applied by the Shell: signed out → public pages only; signed in without a profile → `/onboarding`; onboarded → away from `/welcome` and `/sign-in`. With `AUTH_MODE=off` the old flow (`/welcome` → `/onboarding`) is kept.
+- **Tables** (`supabase/migrations/20261014120000_accounts.sql`): `users` (mirror of `auth.users`, filled by the `on_auth_user_created` trigger; `display_name`, reserved `birth_year`), `profiles` (`user_id` primary key, `data jsonb`, `updated_at`), `consents` (`user_id`, nullable `org_id`, `kind` text, `value jsonb`, `version`, `granted_at`, `revoked_at`). All reference `auth.users` (directly or through `users`) with `on delete cascade`.
+- **RLS**: each `authenticated` user can read/update their own `users` row (only `display_name`, `birth_year`), read/write/delete their own `profiles` row, and read/insert (not revoke) their own `consents`. `anon` has no grants. Tested against a real database in `supabase/tests/rls.test.ts` (CI job `database`).
+- **Mobile app**: the WebView appends `OfferlyApp/<version>` to its user agent; `lib/inApp.ts::isInApp()` hides Google sign-in there.

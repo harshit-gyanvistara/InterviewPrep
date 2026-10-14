@@ -18,6 +18,7 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (loading) return null;
 
@@ -30,20 +31,27 @@ export default function Onboarding() {
 
   const finish = async (to: string) => {
     setSaving(true);
-    await db.profiles.put({
-      id: existing?.id ?? uid(),
-      createdAt: existing?.createdAt ?? Date.now(),
-      name: name.trim(),
-      targetRole: targetRole.trim(),
-      targetCompanies: v("targetCompanies", "").trim(),
-      jobDescription: v("jobDescription", "").trim(),
-      experience: v("experience", "fresher"),
-      domain: v("domain", "") || undefined,
-      resume: v("resume", "").trim(),
-      interviewDate: v("interviewDate", "") || undefined,
-      weeklyGoal: v("weeklyGoal", 3),
-      onboarded: true,
-    });
+    setSaveError(null);
+    try {
+      await db.profiles.put({
+        id: existing?.id ?? uid(),
+        createdAt: existing?.createdAt ?? Date.now(),
+        name: name.trim(),
+        targetRole: targetRole.trim(),
+        targetCompanies: v("targetCompanies", "").trim(),
+        jobDescription: v("jobDescription", "").trim(),
+        experience: v("experience", "fresher"),
+        domain: v("domain", "") || undefined,
+        resume: v("resume", "").trim(),
+        interviewDate: v("interviewDate", "") || undefined,
+        weeklyGoal: v("weeklyGoal", 3),
+        onboarded: true,
+      });
+    } catch (e) {
+      setSaving(false);
+      setSaveError(e instanceof Error ? e.message : "Couldn't save your profile.");
+      return;
+    }
     router.push(to);
   };
 
@@ -148,6 +156,7 @@ export default function Onboarding() {
               </button>
               <button disabled={saving} onClick={() => finish("/")} className="btn btn-ghost">Go to dashboard</button>
             </div>
+            {saveError && <p className="text-sm text-danger">{saveError}</p>}
           </div>
         )}
 

@@ -115,3 +115,36 @@ export type ReportBody = z.infer<typeof ReportBodySchema>;
 export type PackGenerateBody = z.infer<typeof PackGenerateBodySchema>;
 export type RoadmapBody = z.infer<typeof RoadmapBodySchema>;
 export type AssistBody = z.infer<typeof AssistBodySchema>;
+
+// ---- Accounts (plans/auth.md) ----
+
+const email = z.string().trim().toLowerCase().pipe(z.email({ message: "Enter a valid email address." }).max(320));
+
+export const EmailOtpBodySchema = z.object({ email });
+
+export const VerifyOtpBodySchema = z.object({
+  email,
+  // Supabase codes are 6 digits by default; the project can configure up to 10.
+  code: z.string().trim().regex(/^\d{6,10}$/, { message: "Enter the code from the email." }),
+});
+
+/**
+ * A stored Profile (lib/types.ts), for the server copy in `profiles.data`. Known fields are
+ * checked; unknown ones are kept, so an older server doesn't drop fields a newer client adds.
+ */
+export const StoredProfileSchema = z.looseObject({
+  id: short,
+  name: short,
+  targetRole: short,
+  targetCompanies: short.default(""),
+  jobDescription: long.default(""),
+  experience: short,
+  domain: short.optional(),
+  resume: long.default(""),
+  interviewDate: short.optional(),
+  weeklyGoal: z.number().int().min(0).max(50),
+  onboarded: z.boolean(),
+  createdAt: z.number(),
+});
+
+export type StoredProfile = z.infer<typeof StoredProfileSchema>;

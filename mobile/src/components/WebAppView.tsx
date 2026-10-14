@@ -1,9 +1,14 @@
 import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Linking, Platform, StyleSheet, Text, View } from "react-native";
+import Constants from "expo-constants";
 import { useFocusEffect } from "expo-router";
 import WebView, { type WebViewNavigation, type WebViewProps } from "react-native-webview";
 
 import { WEB_APP_ORIGIN, WEB_APP_URL } from "@/lib/config";
+
+// Appended to the WebView's user agent so the web app knows it is inside the app (lib/inApp.ts in
+// the web project) and hides sign-in methods a WebView can't do, like Google OAuth.
+const APP_USER_AGENT = `OfferlyApp/${Constants.expoConfig?.version ?? "0"}`;
 
 // Keep the shell itself minimal: no chrome, no extra screens. Everything a user sees lives in the
 // web app at WEB_APP_URL, which already handles its own safe-area padding, bottom nav, and theming
@@ -54,6 +59,7 @@ export function WebAppView() {
       <WebView<WebViewProps>
         ref={webViewRef}
         source={{ uri: WEB_APP_URL }}
+        applicationNameForUserAgent={APP_USER_AGENT}
         style={styles.webview}
         onNavigationStateChange={onNavigationStateChange}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

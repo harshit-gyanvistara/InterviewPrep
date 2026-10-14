@@ -4,15 +4,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Moon, Settings, Sun, Video } from "lucide-react";
-import { useProfile } from "@/lib/db";
+import { useAuth, useProfile } from "@/lib/db";
 import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
+import { isBarePage, redirectFor } from "@/lib/pages";
 import { MobileNav } from "@/components/MobileNav";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
-  const { data: profile, loading } = useProfile();
+  const { data: auth, loading: authLoading } = useAuth();
+  const { data: profile, loading: profileLoading, error: profileError } = useProfile();
+  const loading = authLoading || profileLoading;
+  const loadError = auth?.error ?? profileError;
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
@@ -24,15 +28,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   const toggleTheme = () => applyTheme(theme === "dark" ? "light" : "dark");
 
-  const bare = path === "/welcome" || path === "/onboarding";
+  const bare = isBarePage(path);
   const onboarded = !!profile?.onboarded;
+  // Never guess when the server couldn't be reached: that could send an onboarded user to onboarding.
+  const redirect = loading || loadError || !auth ? null : redirectFor(path, auth, onboarded);
 
-  // Route guard: new users go through the landing + onboarding first.
+  // Route guard. proxy.ts already sends signed-out page loads to /welcome; this covers client-side navigation.
   useEffect(() => {
-    if (loading) return;
-    if (!onboarded && !bare) router.replace("/welcome");
-    else if (onboarded && path === "/welcome") router.replace("/");
-  }, [loading, onboarded, bare, path, router]);
+    if (redirect) router.replace(redirect);
+  }, [redirect, router]);
 
   const active = (href: string) => (href === "/" ? path === "/" : path.startsWith(href));
   const inInterview = path.startsWith("/interview/");
@@ -85,7 +89,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className={`min-h-0 flex-1 overflow-y-auto ${inInterview ? "mt-5" : "mt-6 sm:mt-8"} ${showMobileNav ? "pb-20 lg:pb-0" : ""}`}>
-          {loading || (!onboarded && !bare) ? null : children}
+          {loadError ? (
+            <div className="mx-auto mt-10 max-w-md rounded-3xl bg-card p-6 text-center">
+              <p className="font-medium">Couldn&apos;t reach Offerly</p>
+              <p className="mt-1 text-sm text-muted">{loadError}</p>
+              <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Try again</button>
+            </div>
+          ) : loading || redirect ? null : (
+            children
+          )}
         </main>
 
         {showMobileNav && <MobileNav />}

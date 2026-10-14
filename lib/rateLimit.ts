@@ -1,17 +1,18 @@
 import { ApiError } from "./liveAgent";
 
-// Server-only. Per-IP rate limits for the AI routes (implementationPlan M1.2), so nobody who can
-// reach the server can burn the Gemini budget. Each route calls `enforceRateLimit` before reading
-// its body. Counts live in Upstash Redis when UPSTASH_REDIS_REST_URL/TOKEN are set (shared by every
-// server instance), otherwise in this process's memory (fine for local dev and a single server).
-// Per-user quotas replace the IP as the key once accounts exist (M2).
+// Server-only. Rate limits for the AI and sign-in routes (implementationPlan M1.2), so nobody who
+// can reach the server can burn the Gemini budget or spam sign-in emails. AI routes call it through
+// `authorize` in lib/route.ts, keyed by the signed-in user; sign-in routes key by client IP. Counts
+// live in Upstash Redis when UPSTASH_REDIS_REST_URL/TOKEN are set (shared by every server
+// instance), otherwise in this process's memory (fine for local dev and a single server).
+// Per-plan quotas from usage_ledger come later (M2/M6).
 
 export interface Rule {
   limit: number;
   windowSec: number;
 }
 
-/** Requests allowed per client IP per window. The Pro-model routes (report, pack generation) are strictest. */
+/** Requests allowed per user (or client IP) per window. The Pro-model routes (report, pack generation) are strictest. */
 export const RATE_LIMITS = {
   "interview.turn": { limit: 20, windowSec: 60 },
   "interview.report": { limit: 5, windowSec: 600 },
@@ -20,6 +21,9 @@ export const RATE_LIMITS = {
   "ai.assist": { limit: 20, windowSec: 60 },
   // Pings both Gemini models.
   health: { limit: 5, windowSec: 60 },
+  // Sign-in, per IP: each code request sends an email.
+  "auth.otp": { limit: 5, windowSec: 600 },
+  "auth.verify": { limit: 10, windowSec: 600 },
 } satisfies Record<string, Rule>;
 
 export type Bucket = keyof typeof RATE_LIMITS;
@@ -98,20 +102,24 @@ export function clientIp(req: Request): string {
 const wait = (sec: number) => (sec < 90 ? `${sec} seconds` : `${Math.ceil(sec / 60)} minutes`);
 
 /**
- * Throws ApiError 429 (with Retry-After) when this client is over the bucket's limit. If the store
- * itself fails (Upstash down), the request is let through and the error logged: an outage of the
- * limiter shouldn't take the app down with it.
+ * Throws ApiError 429 (with Retry-After) when this caller is over the bucket's limit. The caller is
+ * `userId` when given, else the client IP. If the store itself fails (Upstash down), the request is
+ * let through and the error logged: an outage of the limiter shouldn't take the app down with it.
  */
-export async function enforceRateLimit(req: Request, bucket: Bucket, store: LimiterStore = getStore()): Promise<void> {
-  const ip = clientIp(req);
+export async function enforceRateLimit(
+  req: Request,
+  bucket: Bucket,
+  { userId, store = getStore() }: { userId?: string; store?: LimiterStore } = {},
+): Promise<void> {
+  const who = userId ? `user:${userId}` : `ip:${clientIp(req)}`;
   let hit: Hit;
   try {
-    hit = await store.hit(`${bucket}:${ip}`, RATE_LIMITS[bucket]);
+    hit = await store.hit(`${bucket}:${who}`, RATE_LIMITS[bucket]);
   } catch (e) {
     console.error(JSON.stringify({ event: "ratelimit.error", bucket, error: e instanceof Error ? e.message : String(e) }));
     return;
   }
   if (hit.allowed) return;
-  console.warn(JSON.stringify({ event: "ratelimit.blocked", bucket, ip }));
+  console.warn(JSON.stringify({ event: "ratelimit.blocked", bucket, who }));
   throw new ApiError(429, `Too many requests. Try again in ${wait(hit.retryAfterSec)}.`, { retryAfterSec: hit.retryAfterSec });
 }

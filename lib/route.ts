@@ -1,8 +1,20 @@
 import type { z } from "zod";
+import { LOCAL_USER, requireUser, type AuthUser } from "./auth";
 import { ApiError } from "./liveAgent";
+import { enforceRateLimit, type Bucket } from "./rateLimit";
 import { LIMITS } from "./schemas";
 
 // Server-only helpers for app/api route handlers.
+
+/**
+ * The first line of every AI route: a signed-in user (401 otherwise), then that user's rate limit
+ * for `bucket` (429). With AUTH_MODE=off everyone is LOCAL_USER, so the limit falls back to the IP.
+ */
+export async function authorize(req: Request, bucket: Bucket): Promise<AuthUser> {
+  const user = await requireUser();
+  await enforceRateLimit(req, bucket, { userId: user === LOCAL_USER ? undefined : user.id });
+  return user;
+}
 
 /**
  * Reads and validates a JSON request body. Throws ApiError 413 for oversized bodies and 400 for

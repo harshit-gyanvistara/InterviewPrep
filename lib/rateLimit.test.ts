@@ -77,9 +77,9 @@ describe("enforceRateLimit", () => {
     const store = memoryStore(() => 0);
     const from = req({ "x-forwarded-for": "203.0.113.7" });
     const { limit } = RATE_LIMITS["interview.report"];
-    for (let i = 0; i < limit; i++) await enforceRateLimit(from, "interview.report", store);
+    for (let i = 0; i < limit; i++) await enforceRateLimit(from, "interview.report", { store });
 
-    const e = await enforceRateLimit(from, "interview.report", store).catch((err: unknown) => err);
+    const e = await enforceRateLimit(from, "interview.report", { store }).catch((err: unknown) => err);
     expect(e).toBeInstanceOf(ApiError);
     expect(e).toMatchObject({ status: 429, retryAfterSec: 600, message: "Too many requests. Try again in 10 minutes." });
 
@@ -92,17 +92,28 @@ describe("enforceRateLimit", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const store = memoryStore(() => 0);
     const a = req({ "x-forwarded-for": "203.0.113.7" });
-    for (let i = 0; i < RATE_LIMITS.health.limit; i++) await enforceRateLimit(a, "health", store);
-    await expect(enforceRateLimit(a, "health", store)).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/seconds\.$/) });
+    for (let i = 0; i < RATE_LIMITS.health.limit; i++) await enforceRateLimit(a, "health", { store });
+    await expect(enforceRateLimit(a, "health", { store })).rejects.toMatchObject({ status: 429, message: expect.stringMatching(/seconds\.$/) });
 
-    await expect(enforceRateLimit(a, "interview.turn", store)).resolves.toBeUndefined();
-    await expect(enforceRateLimit(req({ "x-forwarded-for": "198.51.100.2" }), "health", store)).resolves.toBeUndefined();
+    await expect(enforceRateLimit(a, "interview.turn", { store })).resolves.toBeUndefined();
+    await expect(enforceRateLimit(req({ "x-forwarded-for": "198.51.100.2" }), "health", { store })).resolves.toBeUndefined();
+  });
+
+  it("counts a signed-in user across IPs, separately from anonymous traffic on the same IP", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const store = memoryStore(() => 0);
+    const { limit } = RATE_LIMITS.health;
+    for (let i = 0; i < limit; i++) await enforceRateLimit(req({ "x-forwarded-for": `203.0.113.${i}` }), "health", { userId: "u1", store });
+    await expect(enforceRateLimit(req({ "x-forwarded-for": "203.0.113.99" }), "health", { userId: "u1", store })).rejects.toMatchObject({ status: 429 });
+
+    await expect(enforceRateLimit(req({ "x-forwarded-for": "203.0.113.0" }), "health", { store })).resolves.toBeUndefined();
+    await expect(enforceRateLimit(req(), "health", { userId: "u2", store })).resolves.toBeUndefined();
   });
 
   it("fails open and logs when the store errors", async () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const broken: LimiterStore = { hit: async () => Promise.reject(new Error("redis down")) };
-    await expect(enforceRateLimit(req(), "interview.turn", broken)).resolves.toBeUndefined();
+    await expect(enforceRateLimit(req(), "interview.turn", { store: broken })).resolves.toBeUndefined();
     expect(log).toHaveBeenCalledWith(expect.stringContaining("redis down"));
   });
 });

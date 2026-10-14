@@ -30,6 +30,29 @@ jobs:
       # No secrets: the build must work without Supabase or liveAgent configured.
       - run: npm run build
 
+  database:
+    name: Supabase (migrations + RLS)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # Applies every migration in supabase/migrations to a fresh local database.
+      - run: supabase start
+      - name: Row-level security tests
+        run: |
+          eval "$(supabase status -o env)"
+          export SUPABASE_TEST_URL="$API_URL"
+          export SUPABASE_TEST_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          export SUPABASE_TEST_SECRET_KEY="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
+          npx vitest run supabase/tests
+
   live-agent:
     name: liveAgent (Python)
     runs-on: ubuntu-latest

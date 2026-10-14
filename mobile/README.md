@@ -20,6 +20,13 @@ This app uses native modules (`react-native-webview`) and camera/mic permissions
 development build (`npx expo run:ios` / `npx expo run:android`, or `eas build --profile development`) —
 it will not run inside Expo Go.
 
+## Sign-in
+
+Sign-in happens in the web app. Use the email code: Google blocks its sign-in inside WebViews, so the
+web app hides the Google button here. It recognises the app by the `OfferlyApp/<version>` the WebView
+appends to its user agent (`applicationNameForUserAgent` in `WebAppView.tsx`). Session cookies live
+in the WebView's cookie store and persist between launches.
+
 ## Known limitation: speech-to-text
 
 The interview flow's live transcription (`lib/useSpeech.ts` in the web app) uses the browser's
