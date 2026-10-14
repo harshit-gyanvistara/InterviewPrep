@@ -196,7 +196,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 | M1.3 Centralise limits | Move truncation numbers into `lib/limits.ts`; tests assert prompts respect them |
 | M1.4 Usage capture | `generate_json` (liveAgent) returns Gemini usage metadata; log `{route, model, inputTokens, outputTokens, ms}` (structured logs now, `usage_ledger` table in M2) |
 | M1.5 Error tracking | Sentry (or equivalent) for routes and client |
-| M1.6 Route contract tests | liveAgent's side exists (`liveAgent/tests/test_routes.py`, Gemini mocked). Still to do: Core routes with `callAgent` mocked; test each route's 400/422/502/503 paths and response shaping (e.g. `overall` clamping, packs capped to 3) |
+| M1.6 Route contract tests | **Done.** `lib/api.contract.test.ts`: every Core AI route with liveAgent mocked at `fetch`: the request each route sends (path, token, shaped body), pass-through of liveAgent 400/422/502, 503 unreachable/unconfigured, 504 timeout, 429 + Retry-After, and the health route's error shape. Response shaping (`overall` clamping, packs capped to 3) moved to liveAgent and is tested in `liveAgent/tests/test_routes.py` |
 | M1.7 Deploy | Preview deploys per PR (e.g. Vercel) + a staging environment with its own Gemini key and budget alert |
 
 **Exit:** all routes schema-validated and rate-limited; contract tests in CI; staging URL live; cost per mock visible in logs.
