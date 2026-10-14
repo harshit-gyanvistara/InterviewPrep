@@ -12,7 +12,7 @@ How this fits with the other docs:
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | Narrative of what is built and why | Day 1 |
 | [DEV_PLAN.md](DEV_PLAN.md) | The **target** production architecture and phase roadmap | When planning beyond the prototype |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
-| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md)) | Before working on that initiative |
+| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md)) | Before working on that initiative |
 
 > The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -150,7 +150,7 @@ Each decision should become a short ADR in `docs/adr/` when the milestone that n
 |---|---|---|---|---|
 | D1 | Monorepo rewrite vs. evolve the Next.js app | **Evolve.** Keep Next.js route handlers as the API until a workload needs its own process | The `db` seam and stateless routes already isolate change; a rewrite delays users by weeks | Route handlers can't meet latency or long-running job needs |
 | D2 | Database + ORM | **Supabase** (managed Postgres). SQL migrations in `supabase/migrations/`; `supabase-js` with the secret key on the server. Revisit an ORM (Drizzle over the Supabase connection) when user tables land in M2 | Chosen 2026-10-03; the catalog (fields, built-in packs) already lives there. Collections map 1:1 to tables; JSON columns for `messages`, `dimensions` keep the migration small | Data residency needs a region Supabase doesn't offer |
-| D3 | Auth | **Supabase Auth** is now the natural fit (same project, RLS on `auth.uid()`); alternatives Better Auth or Clerk. Google + email; phone OTP before public free tier | Need user ids to scope data and quotas. Org SSO (Google Workspace / Microsoft, by email domain) is planned in D14 | SAML/SCIM required by a customer |
+| D3 | Auth | **Supabase Auth** is now the natural fit (same project, RLS on `auth.uid()`); alternatives Better Auth or Clerk. Email one-time code everywhere + Google on the web only (Google blocks OAuth inside the mobile app's WebView); phone OTP before public free tier. See [plans/auth.md](plans/auth.md) | Need user ids to scope data and quotas. Org SSO (Google Workspace / Microsoft, by email domain) is planned in D14 | SAML/SCIM required by a customer |
 | D4 | Validation | **Zod** schemas in `lib/schemas.ts`, `z.infer` replaces hand-written request types | Closes G2 and gives one contract for client and server | — |
 | D5 | Where state lives during an interview | Keep the client-driven, stateless turn API through M2; server writes the transcript on each turn | Preserves "refresh resumes" and keeps M2 small | M3 voice moves turn-taking to the agent |
 | D6 | Voice path | Phase-0 style spike: Gemini Live via LiveKit Agents vs. current browser STT/TTS; ship Live only if p95 ≤ 1.8s from India | Voice realism is the product's differentiator, but it is the riskiest and most expensive piece | Spike misses targets → keep browser speech, improve TTS only |
@@ -207,7 +207,7 @@ Goal: real users, data across devices, foundation for billing and B2B.
 
 | Task | Detail |
 |---|---|
-| M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding |
+| M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding. First slice (sign-in, `users`/`profiles`/`consents`, per-user rate limits, profile on the server) in [plans/auth.md](plans/auth.md); needs M1.6 and M1.7 first |
 | M2.2 Schema (D2) | Tables: `users`, `profiles`, `settings`, `sessions` (messages as JSONB to start), `reports`, `custom_packs`, `roadmaps`, `stories`, `notes`, `binders`, `cortex_pages`, `usage_ledger`. Every row has `user_id` |
 | M2.3 Versioning fields (G8) | `sessions.pack_snapshot` (the exact pack JSON used), `prompt_version`, `rubric_version`, `model_ids` |
 | M2.4 CRUD routes | `/api/db/[collection]` (or per-resource routes) with ownership checks on every read/write |
