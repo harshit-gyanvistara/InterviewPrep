@@ -33,6 +33,7 @@ function fakeClient(sub?: string) {
       getClaims: vi.fn(async () => ({ data: sub ? { claims: { sub, email: "asha@example.com" } } : null, error: null })),
       signInWithOtp: vi.fn<(arg: unknown) => Promise<{ error: null | { status: number; code: string } }>>(async () => ({ error: null })),
       verifyOtp: vi.fn<(arg: unknown) => Promise<{ data: { user: { id: string } | null }; error: unknown }>>(async () => ({ data: { user: { id: USER_ID } }, error: null })),
+      exchangeCodeForSession: vi.fn<(code: string) => Promise<{ data: { user: { id: string } | null }; error: unknown }>>(async () => ({ data: { user: { id: USER_ID } }, error: null })),
       signOut: vi.fn<(arg?: unknown) => Promise<{ error: null }>>(async () => ({ error: null })),
     },
   };
@@ -187,7 +188,10 @@ describe("email sign-in", () => {
     const { POST } = await import("../app/api/auth/otp/route");
 
     expect((await POST(json({ email: "  Asha@Example.COM " }))).status).toBe(200);
-    expect(client.auth.signInWithOtp).toHaveBeenCalledWith({ email: "asha@example.com", options: { shouldCreateUser: true } });
+    expect(client.auth.signInWithOtp).toHaveBeenCalledWith({
+      email: "asha@example.com",
+      options: { shouldCreateUser: true, emailRedirectTo: "http://localhost/auth/callback" },
+    });
 
     const bad = await POST(json({ email: "not-an-email" }));
     expect(bad.status).toBe(400);
@@ -233,6 +237,31 @@ describe("email sign-in", () => {
     const malformed = await POST(json({ email: "asha@example.com", code: "12ab" }));
     expect(malformed.status).toBe(400);
     expect(client.auth.verifyOtp).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("GET /auth/callback (Google, or the link in a sign-in email)", () => {
+  const get = (query: string) => new Request(`http://localhost/auth/callback${query}`);
+
+  it("exchanges the code, records consent and goes home", async () => {
+    accountsOn();
+    const client = signedInAs(undefined);
+    const { GET } = await import("../app/auth/callback/route");
+    const res = await GET(get("?code=abc"));
+    expect(res.headers.get("location")).toBe("http://localhost/");
+    expect(client.auth.exchangeCodeForSession).toHaveBeenCalledWith("abc");
+    expect(ensureTermsConsent).toHaveBeenCalledWith(client, USER_ID);
+  });
+
+  it("sends failures back to sign-in", async () => {
+    accountsOn();
+    const client = signedInAs(undefined);
+    const { GET } = await import("../app/auth/callback/route");
+    // Supabase redirects with ?error=... when a link is expired or already used.
+    expect((await GET(get("?error=access_denied"))).headers.get("location")).toBe("http://localhost/sign-in?error=callback");
+    client.auth.exchangeCodeForSession.mockResolvedValueOnce({ data: { user: null }, error: { code: "bad_code_verifier" } });
+    expect((await GET(get("?code=abc"))).headers.get("location")).toBe("http://localhost/sign-in?error=callback");
+    expect(ensureTermsConsent).not.toHaveBeenCalled();
   });
 });
 

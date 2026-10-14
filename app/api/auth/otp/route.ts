@@ -9,6 +9,8 @@ import { getSupabaseForRequest } from "@/lib/supabase-server";
 /**
  * Step 1 of email sign-in: send a one-time code. Creates the account on first use. A code typed
  * into the page works the same in a browser and inside the mobile app's WebView (plans/auth.md A1).
+ * The email's link also works, in the same browser: it lands on /auth/callback (PKCE; the verifier
+ * cookie is set here). That keeps Supabase's default templates usable until they show the code.
  */
 export async function POST(req: Request) {
   try {
@@ -17,7 +19,10 @@ export async function POST(req: Request) {
     const { email } = await parseBody(req, EmailOtpBodySchema);
 
     const supabase = await getSupabaseForRequest();
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: new URL("/auth/callback", req.url).toString() },
+    });
     if (error) {
       console.error(JSON.stringify({ event: "auth.otp.error", status: error.status, code: error.code }));
       if (error.status === 429) throw new ApiError(429, "Too many codes requested. Wait a minute and try again.");

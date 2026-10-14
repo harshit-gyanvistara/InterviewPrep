@@ -32,7 +32,7 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   // `auth` is only set in the browser, after hydration, so reading window here can't cause a mismatch.
   const showGoogle = !!auth?.google && !isInApp();
-  const googleFailed = !!auth && new URLSearchParams(window.location.search).get("error") === "google";
+  const callbackFailed = !!auth && new URLSearchParams(window.location.search).get("error") === "callback";
 
   const sendCode = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -85,7 +85,7 @@ export default function SignIn() {
           <form onSubmit={verify} className="grid gap-4">
             <div>
               <h1 className="text-3xl font-light">Check your email</h1>
-              <p className="mt-2 text-sm text-muted">Enter the code we sent to <b className="text-ink">{email}</b>. Each code works once.</p>
+              <p className="mt-2 text-sm text-muted">Enter the code we sent to <b className="text-ink">{email}</b>, or open the link in that email on this device.</p>
             </div>
             <input
               autoFocus
@@ -105,8 +105,8 @@ export default function SignIn() {
             </div>
           </form>
         )}
-        {(error || (googleFailed && step === "email")) && (
-          <p className="mt-4 text-sm text-danger">{error ?? "Google sign-in didn’t finish. Try again, or use your email."}</p>
+        {(error || (callbackFailed && step === "email")) && (
+          <p className="mt-4 text-sm text-danger">{error ?? "Sign-in didn’t finish. Links only work once, in the browser where you asked for them. Try again."}</p>
         )}
         <p className="mt-6 text-xs text-muted">
           By continuing you agree to the <Link href="/terms" className="underline">Terms</Link> and <Link href="/privacy" className="underline">Privacy Policy</Link>.

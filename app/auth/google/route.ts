@@ -16,7 +16,7 @@ export async function GET(req: Request) {
     options: { redirectTo: new URL("/auth/callback", req.url).toString(), skipBrowserRedirect: true },
   });
   if (error || !data.url) {
-    signIn.searchParams.set("error", "google");
+    signIn.searchParams.set("error", "callback");
     return NextResponse.redirect(signIn);
   }
   return NextResponse.redirect(data.url);
