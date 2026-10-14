@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "coverage/**",
+    // Separate Expo project with its own lint config (cd mobile && npm run lint).
+    "mobile/**",
   ]),
 ]);
 
