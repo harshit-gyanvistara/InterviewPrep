@@ -11,6 +11,7 @@ import math
 from typing import Any
 
 from .gemini import ChatTurn
+from .limits import LIMITS
 from .models import AssistRequest, DomainIn, Message, Pack, PersonaIn, Profile, SessionConfig
 
 
@@ -32,7 +33,7 @@ def js_json(value: Any) -> str:
 
 def profile_block(p: Profile) -> str:
     jd = (
-        f'- Job description they are preparing for:\n"""\n{p.job_description[:4000]}\n"""\n'
+        f'- Job description they are preparing for:\n"""\n{p.job_description[: LIMITS.job_description_chars]}\n"""\n'
         if p.job_description.strip()
         else ""
     )
@@ -44,7 +45,7 @@ def profile_block(p: Profile) -> str:
         f"- Experience: {p.experience}\n"
         f"{jd}- Resume (may be empty):\n"
         '"""\n'
-        f"{p.resume[:6000] or '(not provided)'}\n"
+        f"{p.resume[: LIMITS.resume_chars] or '(not provided)'}\n"
         '"""'
     )
 
@@ -106,15 +107,15 @@ def interview_state(*, config: SessionConfig, round_type: str, elapsed_sec: floa
     parts = [f"{js_round(elapsed_sec / 60)} of {num(config.duration_min)} min used, about {js_round(left / 60)} min left"]
     if config.question_count:
         parts.append(f"about {questions_so_far} of {num(config.question_count)} main questions asked")
-    if left < 90:
+    if left < LIMITS.wrap_up_sec:
         parts.append("time is almost up")
     note = f"[STATE: {'; '.join(parts)}.]"
     if round_type == "coding":
-        return f"{note}\n[CURRENT CODE]\n```\n{code[:6000] or '(empty)'}\n```"
+        return f"{note}\n[CURRENT CODE]\n```\n{code[: LIMITS.code_chars] or '(empty)'}\n```"
     return note
 
 
-def recent_window(messages: list, max_len: int = 60, step: int = 20) -> list:
+def recent_window(messages: list, max_len: int = LIMITS.history_messages, step: int = LIMITS.history_step) -> list:
     """The last <= max_len messages, trimmed in steps of `step` instead of one message per turn. The
     start of the history is part of the cached prefix, so this keeps it unchanged for `step` turns."""
     if len(messages) <= max_len:
@@ -172,7 +173,7 @@ def transcript_text(messages: list[Message], name: str, interviewer: str) -> str
 
 
 def roadmap_system(profile: Profile, domain: DomainIn, weeks: float) -> str:
-    jd = f'Job description:\n"""\n{profile.job_description[:4000]}\n"""' if profile.job_description.strip() else ""
+    jd = f'Job description:\n"""\n{profile.job_description[: LIMITS.job_description_chars]}\n"""' if profile.job_description.strip() else ""
     return (
         f"You are a career coach building a {num(weeks)}-week interview preparation roadmap. {domain.roadmap_hints}\n"
         f"Target role: {profile.target_role}. Target companies: {profile.target_companies or 'n/a'}. Experience: {profile.experience}.\n"
@@ -184,11 +185,11 @@ def roadmap_system(profile: Profile, domain: DomainIn, weeks: float) -> str:
 
 def pack_gen_system(p: Profile, domain: DomainIn) -> str:
     jd = (
-        f'JOB DESCRIPTION (use this as the primary source of what to ask about):\n"""\n{p.job_description[:8000]}\n"""'
+        f'JOB DESCRIPTION (use this as the primary source of what to ask about):\n"""\n{p.job_description[: LIMITS.pack_gen_job_description_chars]}\n"""'
         if p.job_description.strip()
         else "No job description was provided — base the rounds on the target role alone, using well-known norms for that role and level."
     )
-    resume = f'CANDIDATE RESUME (for context only, do not grade it here):\n"""\n{p.resume[:4000]}\n"""' if p.resume.strip() else ""
+    resume = f'CANDIDATE RESUME (for context only, do not grade it here):\n"""\n{p.resume[: LIMITS.pack_gen_resume_chars]}\n"""' if p.resume.strip() else ""
     return (
         'You design realistic mock-interview rounds for job seekers preparing for a specific role. Work ONLY from the information given — never invent a company name if none is given, use "Any employer" instead.\n'
         "\n"
@@ -225,7 +226,7 @@ def assist_system(body: AssistRequest) -> str:
 def assist_user_text(body: AssistRequest) -> str:
     if body.mode == "improve":
         title = f"TITLE: {body.context_title}\n\n" if body.context_title else ""
-        return f"{title}CONTENT TO IMPROVE:\n{(body.text or '')[:12000]}"
+        return f"{title}CONTENT TO IMPROVE:\n{(body.text or '')[: LIMITS.assist_text_chars]}"
     title = f"PAGE TITLE: {body.context_title}\n" if body.context_title else ""
     what = (body.instruction or "").strip() or "Notes relevant to this title."
     return f"{title}WHAT TO WRITE: {what}"

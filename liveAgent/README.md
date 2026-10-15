@@ -45,6 +45,8 @@ API docs at http://localhost:8000/docs while it runs.
   Next.js app's generated `lib/liveAgent.types.ts`.
 - `live_agent/prompts.py`: every prompt. Byte-identical to the TypeScript originals; the interviewer
   prompt is Gemini's cached prefix, so drift costs money.
+- `live_agent/limits.py`: `LIMITS`, how much of each input reaches the model (resume, JD, code,
+  transcript, history window, digests). Every truncation reads from here.
 - `live_agent/gemini.py`: the only module that calls the Gemini SDK (`generate_json`), and logs one
   `llm.usage` JSON line per call.
 - `live_agent/routes/`: one module per feature.
@@ -56,6 +58,8 @@ API docs at http://localhost:8000/docs while it runs.
   difference.
 - **A request or response shape:** edit `models.py` or a route, then run `npm run agent:types` from
   the repo root and commit both `openapi.json` and `lib/liveAgent.types.ts`.
+- **A limit:** edit `limits.py`. `tests/test_limits.py` checks every prompt honours it; the
+  prompt goldens change only if the fixture inputs were long enough to be cut.
 - **Tests:** `npm run agent:test` (Gemini is mocked; no key needed).
 
 ## Deploy

@@ -86,7 +86,7 @@ Two properties to internalise, because most of the plan follows from them:
 
 1. `/practice` creates a `Session { status: "lobby" }` via `db.sessions.put`.
 2. `/interview/[id]` shows the Lobby. Cancel deletes the session; Join sets `status: "active"`.
-3. Each candidate answer appends a `Message`, then `POST /api/interview/turn` with `{config, profile, pack, messages, elapsedSec, code}`. The route builds `interviewerSystem(...)`, sends the **last 60** messages, gets `{reply, endInterview}`.
+3. Each candidate answer appends a `Message`, then `POST /api/interview/turn` with `{config, profile, pack, messages, elapsedSec, code}`. The route builds `interviewerSystem(...)`, sends the **last 60** messages (`LIMITS.history_messages`), gets `{reply, endInterview}`.
 4. On end (button, timer + 45s, or `endInterview: true`): `status: "scoring"`, `POST /api/interview/report`. Failure → back to `active` with transcript kept.
 5. The client adds `id`, `sessionId`, `packId`, `createdAt` and `signals` (from `lib/analysis.ts::computeSignals`) and saves the `Report`; session becomes `done`.
 
@@ -112,7 +112,7 @@ Settings → Data & AI → "AI connection test" calls `/api/health` and confirms
 - Routes return `{ error }` with `ApiError.status` (default 500). Keep that contract.
 - Models are config (`MODELS` + env vars), never hardcoded at call sites.
 - New settings fields must have defaults in `DEFAULT_SETTINGS`; `useSettings()` merges stored data over defaults, so old saved data keeps working.
-- Truncation limits (resume 6000, JD 4000–8000, transcript 40,000, code 6000, 60 turns) are scattered magic numbers. Grep for them before changing prompt construction.
+- Truncation limits (resume, JD, transcript, code, history window, ...) live in `LIMITS` (`liveAgent/live_agent/limits.py`); never slice prompt inputs with a literal number. Core's request caps are the separate `LIMITS` in `lib/schemas.ts`.
 
 ---
 
@@ -193,7 +193,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 |---|---|
 | M1.1 Zod schemas (D4) | **Done.** `lib/schemas.ts` (client-safe) + `parseBody` in `lib/route.ts`; 400 `{ error, issues }`, 413 over 1 MB; ad-hoc checks removed; SPEC.md §5.0. Not yet: client-side use of the schemas |
 | M1.2 Rate limiting | **Done.** `lib/rateLimit.ts`: `enforceRateLimit(req, bucket)` at the top of each AI route (not in `proxy.ts`, Next 16's renamed middleware, whose docs advise against shared state). Limits in `RATE_LIMITS`, Pro-model routes 5 per 10 min. Upstash Redis via REST when `UPSTASH_REDIS_REST_URL/TOKEN` are set (no client library), in-memory otherwise; fails open. SPEC.md §5.0. Set the Upstash vars before M1.7 deploys |
-| M1.3 Centralise limits | Move truncation numbers into `lib/limits.ts`; tests assert prompts respect them |
+| M1.3 Centralise limits | **Done.** Truncation moved to liveAgent with the prompts, so the limits are `LIMITS` in `liveAgent/live_agent/limits.py` (not `lib/limits.ts`; Core's request caps were already `LIMITS` in `lib/schemas.ts`). `liveAgent/tests/test_limits.py` checks every prompt builder against them; route caps (transcript, final code, history, digests, packs) in `test_routes.py`. Prompts unchanged (goldens pass) |
 | M1.4 Usage capture | `generate_json` (liveAgent) returns Gemini usage metadata; log `{route, model, inputTokens, outputTokens, ms}` (structured logs now, `usage_ledger` table in M2) |
 | M1.5 Error tracking | Sentry (or equivalent) for routes and client |
 | M1.6 Route contract tests | **Done.** `lib/api.contract.test.ts`: every Core AI route with liveAgent mocked at `fetch`: the request each route sends (path, token, shaped body), pass-through of liveAgent 400/422/502, 503 unreachable/unconfigured, 504 timeout, 429 + Retry-After, and the health route's error shape. Response shaping (`overall` clamping, packs capped to 3) moved to liveAgent and is tested in `liveAgent/tests/test_routes.py` |
@@ -311,7 +311,6 @@ M2-Org, M3, M4 and M5 all depend on M2 (server-side sessions) and are independen
 | Task | Files | Milestone |
 |---|---|---|
 | Tests for `lib/domains` (`inferDomain`, `resolveDomain`, bad regex in DB) | `lib/domains/index.ts` | M0.3 follow-up |
-| Centralise truncation limits | `lib/limits.ts`, liveAgent | M1.3 |
 
 ### Definition of done for any PR
 

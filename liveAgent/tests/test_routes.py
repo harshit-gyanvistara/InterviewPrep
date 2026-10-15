@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from live_agent import gemini
+from live_agent.limits import LIMITS
 from live_agent.main import app
 from live_agent.models import (
     AssistResult,
@@ -114,6 +115,33 @@ def test_report_clamps_and_rounds_overall(client, fake, raw, expected):
     assert transcript.endswith("[FINAL CODE IN EDITOR]\nprint(1)")
 
 
+def test_report_caps_transcript(client, fake):
+    fake.result = _report(70)
+    messages = [{"role": "candidate", "text": "a" * 5000}] * (LIMITS.transcript_chars // 5000 + 2)
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": messages}
+    assert client.post("/v1/interview/report", json=body, headers=AUTH).status_code == 200
+    assert len(fake.calls[0]["turns"][0]["text"]) == len("TRANSCRIPT\n") + LIMITS.transcript_chars
+
+
+def test_report_caps_final_code(client, fake):
+    fake.result = _report(70)
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": MESSAGES, "code": "c" * (LIMITS.code_chars + 100)}
+    assert client.post("/v1/interview/report", json=body, headers=AUTH).status_code == 200
+    assert fake.calls[0]["turns"][0]["text"].endswith("[FINAL CODE IN EDITOR]\n" + "c" * LIMITS.code_chars)
+
+
+def test_turn_sends_a_bounded_history(client, fake):
+    fake.result = TurnResult(reply="ok", endInterview=False)
+    roles = ["interviewer", "candidate"]
+    messages = [{"role": roles[i % 2], "text": f"m{i}"} for i in range(LIMITS.history_messages * 3)]  # ends on a candidate
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "persona": PERSONA, "domain": DOMAIN, "messages": messages}
+    assert client.post("/v1/interview/turn", json=body, headers=AUTH).status_code == 200
+    turns = fake.calls[0]["turns"]
+    # recent_window keeps <= history_messages; to_turns may add the opening "joined" turn.
+    assert len(turns) <= LIMITS.history_messages + 1
+    assert turns[-1]["text"].startswith(f"m{len(messages) - 1}\n\n[STATE:")
+
+
 def test_report_without_candidate_answers_is_422(client, fake):
     body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": MESSAGES[:1]}
     res = client.post("/v1/interview/report", json=body, headers=AUTH)
@@ -125,11 +153,11 @@ def _pack(i: int) -> GeneratedPack:
     return GeneratedPack(title=f"R{i}", company="Any employer", role="Nurse", roundType="hr", description="d", durationMin=15, topics=["t"], rubric=["r"], style="s")
 
 
-def test_pack_generate_keeps_three(client, fake):
-    fake.result = PacksResult(packs=[_pack(i) for i in range(5)])
+def test_pack_generate_caps_packs(client, fake):
+    fake.result = PacksResult(packs=[_pack(i) for i in range(LIMITS.generated_packs + 2)])
     res = client.post("/v1/packs/generate", json={"profile": PROFILE, "domain": DOMAIN}, headers=AUTH)
     assert res.status_code == 200
-    assert [p["title"] for p in res.json()["packs"]] == ["R0", "R1", "R2"]
+    assert [p["title"] for p in res.json()["packs"]] == [f"R{i}" for i in range(LIMITS.generated_packs)]
 
 
 def test_pack_generate_empty_is_502(client, fake):
@@ -144,17 +172,20 @@ def test_pack_generate_needs_role(client, fake):
     assert res.json() == {"error": "Missing target role."}
 
 
-@pytest.mark.parametrize(("weeks", "expected"), [(None, 4), (0, 4), (40, 12), (2, 2)])
+@pytest.mark.parametrize(
+    ("weeks", "expected"),
+    [(None, LIMITS.roadmap_weeks_default), (0, LIMITS.roadmap_weeks_default), (40, LIMITS.roadmap_weeks_max), (2, 2)],
+)
 def test_roadmap_clamps_weeks_and_sends_digests_as_js_json(client, fake, weeks, expected):
     fake.result = RoadmapResult(summary="s", items=[])
-    digests = [{"pack": "Behavioural — “HR”", "overall": 62, "weakDimensions": ["Structure"], "topFixes": []}] * 20
+    digests = [{"pack": "Behavioural — “HR”", "overall": 62, "weakDimensions": ["Structure"], "topFixes": []}] * (LIMITS.roadmap_digests + 5)
     res = client.post("/v1/roadmap", json={"profile": PROFILE, "domain": DOMAIN, "weeks": weeks, "digests": digests}, headers=AUTH)
     assert res.status_code == 200
     call = fake.calls[0]
     assert call["system"].startswith(f"You are a career coach building a {expected}-week")
     sent = call["turns"][0]["text"]
     assert sent.startswith('[{"pack":"Behavioural — “HR”","overall":62,"weakDimensions":["Structure"],"topFixes":[]},')
-    assert sent.count('"pack"') == 15
+    assert sent.count('"pack"') == LIMITS.roadmap_digests
 
 
 @pytest.mark.parametrize(

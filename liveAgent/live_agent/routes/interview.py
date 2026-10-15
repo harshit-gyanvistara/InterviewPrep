@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from ..gemini import MODELS, ApiError, generate_json
+from ..limits import LIMITS
 from ..models import ReportRequest, ReportResult, TurnRequest, TurnResult
 from ..prompts import interview_state, interviewer_system, js_round, recent_window, scoring_system, to_turns, transcript_text
 
@@ -34,13 +35,13 @@ async def report(body: ReportRequest) -> ReportResult:
 
     transcript = transcript_text(body.messages, body.profile.name, body.interviewer_name)
     if body.code.strip():
-        transcript += f"\n\n[FINAL CODE IN EDITOR]\n{body.code[:6000]}"
+        transcript += f"\n\n[FINAL CODE IN EDITOR]\n{body.code[: LIMITS.code_chars]}"
 
     out = await generate_json(
         task="interview.report",
         model=MODELS.scoring,
         system=scoring_system(body.pack, body.config, body.profile, body.domain),
-        turns=[{"role": "user", "text": f"TRANSCRIPT\n{transcript[:40000]}"}],
+        turns=[{"role": "user", "text": f"TRANSCRIPT\n{transcript[: LIMITS.transcript_chars]}"}],
         temperature=0.2,
         schema=ReportResult,
     )

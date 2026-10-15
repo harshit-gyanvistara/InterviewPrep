@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from ..gemini import MODELS, ApiError, generate_json
+from ..limits import LIMITS
 from ..models import PackGenerateRequest, PacksResult
 from ..prompts import pack_gen_system
 
@@ -23,4 +24,4 @@ async def generate(body: PackGenerateRequest) -> PacksResult:
     )
     if not out.packs:
         raise ApiError(502, "Could not generate interview rounds. Try again.")
-    return PacksResult(packs=out.packs[:3])
+    return PacksResult(packs=out.packs[: LIMITS.generated_packs])
