@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSkeleton } from "@/components/Skeleton";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Clock, Loader2, Sparkles, Trash2, Zap } from "lucide-react";
@@ -39,7 +40,7 @@ function Practice() {
   const [genBusy, setGenBusy] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
-  if (loading || packsLoading || !profile) return null;
+  if (loading || packsLoading || !profile) return <PageSkeleton />;
 
   const builtIn = visibleBuiltInPacks(profile, catalog);
   const packs: Pack[] = [...customPacks, ...builtIn];

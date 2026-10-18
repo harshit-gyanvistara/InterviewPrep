@@ -1,7 +1,8 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
 import { useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { NoteChip } from "@/components/NoteChip";
 import { db, uid, useStories } from "@/lib/db";
@@ -63,7 +64,7 @@ export function StoryBank() {
         <button className="btn btn-primary" onClick={() => open("new")}><Plus size={16} /> New story</button>
       </div>
       {stories.length === 0 ? (
-        <Card><p className="text-sm text-muted">No stories yet. Start with your hardest project and a time you disagreed with someone.</p></Card>
+        <EmptyState icon={<BookOpen size={20} />} title="Build your story bank" text="Write up 5–6 stories you can reuse in any interview. Start with your hardest project and a time you disagreed with someone." />
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {stories.map((s) => (

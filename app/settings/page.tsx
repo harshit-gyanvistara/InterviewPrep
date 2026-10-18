@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSkeleton } from "@/components/Skeleton";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, PageTitle } from "@/components/Shell";
@@ -18,7 +19,7 @@ export default function Settings() {
   const { data: profile, loading } = useProfile();
   const { settings } = useSettings();
   const [tab, setTab] = useState<Tab>("Profile");
-  if (loading) return null;
+  if (loading) return <PageSkeleton />;
 
   const update = (patch: Partial<S>) => saveSettings(patch, settings);
 

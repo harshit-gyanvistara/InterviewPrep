@@ -1,6 +1,6 @@
 # Plan: Design refresh ("calm & premium")
 
-**Status: phases 1 and 2 built (2026-10-19).** A visual pass before demos and the beta. No feature or data changes.
+**Status: phases 1–3 built (2026-10-19).** A visual pass before demos and the beta. No feature or data changes.
 
 ## Context
 The app works end to end, but it looks like a template: every page sits in a rounded "window" on a lavender gradient, the only accent is near-black, cards and text are all the same weight, and there's no Offerly identity. The two screens that sell the product, the **interview room** and the **report**, are the plainest.

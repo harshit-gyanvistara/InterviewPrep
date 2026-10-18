@@ -1,8 +1,10 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { PageSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { useState } from "react";
-import { Trash2 } from "lucide-react";
+import { LineChart, Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { db, useAllPacks, useReports } from "@/lib/db";
 import { verdictTone } from "@/lib/analysis";
@@ -14,7 +16,7 @@ export default function Progress() {
   const { byId } = useAllPacks();
   const confirm = useConfirm();
   const [filter, setFilter] = useState("all");
-  if (loading) return null;
+  if (loading) return <PageSkeleton />;
 
   const remove = async (sessionId: string, reportId: string) => {
     if (!(await confirm({ message: "Delete this session and its report?", danger: true }))) return;
@@ -43,10 +45,12 @@ export default function Progress() {
     <div>
       <PageTitle title="Your progress" sub="Scores over time and where you are weakest." />
       {reports.length === 0 ? (
-        <Card>
-          <p className="text-sm text-muted">Complete a mock interview to see your trend.</p>
-          <Link href="/practice" className="btn btn-primary mt-4">Start practice</Link>
-        </Card>
+        <EmptyState
+          icon={<LineChart size={20} />}
+          title="Your trend starts with one mock"
+          text="Finish a mock interview and your scores, weakest skills and history show up here."
+          action={{ label: "Start a mock", href: "/practice" }}
+        />
       ) : (
         <div className="grid gap-5 lg:grid-cols-3">
           <Card className="lg:col-span-2">

@@ -1,7 +1,9 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { PageSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
-import { ArrowRight, StickyNote } from "lucide-react";
+import { ArrowRight, Mic, StickyNote } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
@@ -20,7 +22,7 @@ export default function Dashboard() {
   const { data: notes = [] } = useNoteList();
   const { openPanel } = useNotesPanel();
 
-  if (loading || packsLoading || !profile) return null;
+  if (loading || packsLoading || !profile) return <PageSkeleton />;
 
   const packs = [...customPacks, ...visibleBuiltInPacks(profile, catalog)];
   const done = sessions.filter((s) => s.status === "done");
@@ -127,7 +129,13 @@ export default function Dashboard() {
             <Link href="/progress" className="text-sm font-medium text-accent">View all</Link>
           </div>
           {reports.length === 0 ? (
-            <p className="px-5 py-8 text-center text-sm text-muted">No reports yet. Your first mock&apos;s report shows here.</p>
+            <EmptyState
+              className="m-5"
+              icon={<Mic size={20} />}
+              title="No reports yet"
+              text="Take a 15-minute baseline mock. Your score, focus areas and top fixes appear here."
+              action={{ label: "Start baseline", href: action.href }}
+            />
           ) : (
             <ul>
               {reports.slice(0, 5).map((r) => (

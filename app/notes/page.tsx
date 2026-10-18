@@ -1,7 +1,9 @@
 "use client";
 
+import { EmptyState } from "@/components/EmptyState";
+import { PageSkeleton } from "@/components/Skeleton";
 import { useMemo, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Plus, Search, StickyNote, X } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { NoteEditor } from "@/components/notes/NoteEditor";
@@ -24,7 +26,7 @@ export default function NotesPage() {
     return list;
   }, [notes, tag, query]);
 
-  if (loading) return null;
+  if (loading) return <PageSkeleton />;
 
   return (
     <div>
@@ -56,13 +58,17 @@ export default function NotesPage() {
       )}
 
       {shown.length === 0 ? (
-        <Card>
-          <p className="text-sm text-muted">
-            {notes.length === 0
-              ? `No notes yet. Add one here, or from any ${Object.values(NOTE_TYPE_LABEL).join(", ").toLowerCase()} elsewhere in the app.`
-              : "Nothing matches your search or filter."}
-          </p>
-        </Card>
+        notes.length === 0 ? (
+          <EmptyState
+            icon={<StickyNote size={20} />}
+            title="No notes yet"
+            text={`Press "n" anywhere, or add one from any ${Object.values(NOTE_TYPE_LABEL).join(", ").toLowerCase()} in the app.`}
+          />
+        ) : (
+          <Card>
+            <p className="text-sm text-muted">Nothing matches your search or filter.</p>
+          </Card>
+        )
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map((n) => (

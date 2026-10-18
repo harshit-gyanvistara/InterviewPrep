@@ -17,12 +17,14 @@
   --accent-ink: #ffffff;
   --accent-soft: #eef0ff;
   --hl: #eef0ff;
-  --ok: #15803d;
+  --ok: #15703a;
   --ok-soft: #e8f5ec;
   --warn: #b45309;
   --warn-soft: #fdf3e7;
   --danger: #b91c1c;
   --danger-soft: #fcecec;
+  /* Text on solid ok/danger fills (End button, live mic). Dark mode fills are light, so text goes dark. */
+  --on-status: #ffffff;
   --shadow-float: 0 1px 2px rgba(17, 17, 19, 0.04), 0 8px 24px rgba(17, 17, 19, 0.06);
 }
 
@@ -45,6 +47,7 @@
   --warn-soft: #2a2112;
   --danger: #f87171;
   --danger-soft: #2c1617;
+  --on-status: #0e0f12;
   --shadow-float: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
   color-scheme: dark;
 }
@@ -66,6 +69,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-on-status: var(--on-status);
   --font-sans: var(--font-geist-sans), system-ui, sans-serif;
   --shadow-float: var(--shadow-float);
 }
@@ -169,7 +173,7 @@ h1, h2, h3 {
 }
 .btn-danger {
   background: var(--danger);
-  color: #fff;
+  color: var(--on-status);
 }
 
 .input {

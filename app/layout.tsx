@@ -13,9 +13,15 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
+const description = "Practise interviews out loud with an AI interviewer that follows up, then get a scored report that shows exactly what to fix. For any profession.";
+
 export const metadata: Metadata = {
-  title: "Offerly — Prepare. Practice. Land the job.",
-  description: "Mock interviews that feel like the real thing, with AI feedback for graduates.",
+  // Absolute base for the share image and links in previews (app/opengraph-image.tsx).
+  metadataBase: new URL(process.env.SITE_URL ?? "https://build-score.com"),
+  title: "Offerly: mock interviews with an AI interviewer",
+  description,
+  openGraph: { title: "Offerly: walk into your interview already practised", description, siteName: "Offerly", type: "website" },
+  twitter: { card: "summary_large_image", title: "Offerly: walk into your interview already practised", description },
   appleWebApp: {
     // Lets someone add this to their home screen and open it full-screen, without the browser chrome.
     capable: true,
@@ -30,8 +36,8 @@ export const viewport: Viewport = {
   maximumScale: 1,
   viewportFit: "cover", // lets our safe-area padding reach under notches/home indicators
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#b4b8e6" },
-    { media: "(prefers-color-scheme: dark)", color: "#1b1c2e" },
+    { media: "(prefers-color-scheme: light)", color: "#fafaf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e0f12" },
   ],
 };
 

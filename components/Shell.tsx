@@ -10,6 +10,7 @@ import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
 import { isBarePage, redirectFor } from "@/lib/pages";
 import { MobileNav } from "@/components/MobileNav";
+import { PageSkeleton } from "@/components/Skeleton";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -94,7 +95,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <p className="mt-1 text-sm text-muted">{loadError}</p>
               <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Try again</button>
             </div>
-          ) : loading || redirect ? null : (
+          ) : loading ? (
+            bare ? null : <PageSkeleton />
+          ) : redirect ? null : (
             children
           )}
         </div>

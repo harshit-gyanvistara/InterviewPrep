@@ -349,7 +349,7 @@ export default function InterviewRoom() {
             >
               {listen.listening ? <Mic size={18} /> : <MicOff size={18} />}
             </RoundBtn>
-            <button onClick={endClicked} disabled={finishing} className="ml-2 inline-flex h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-white disabled:opacity-50" title="End interview">
+            <button onClick={endClicked} disabled={finishing} className="ml-2 inline-flex h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-on-status disabled:opacity-50" title="End interview">
               <PhoneOff size={16} /> <span className="hidden sm:inline">End</span>
             </button>
           </div>
@@ -457,7 +457,7 @@ export default function InterviewRoom() {
 function RoundBtn({ children, onClick, active, primary, disabled, label }: { children: React.ReactNode; onClick: () => void; active?: boolean; primary?: boolean; disabled?: boolean; label: string }) {
   // The mic is the main control: filled in the accent colour; the others stay quiet until switched on.
   const look = primary
-    ? active ? "bg-ok text-white" : "bg-accent text-accent-ink hover:opacity-90"
+    ? active ? "bg-ok text-on-status" : "bg-accent text-accent-ink hover:opacity-90"
     : active ? "bg-card text-ink ring-1 ring-line" : "bg-transparent text-muted ring-1 ring-line hover:bg-card hover:text-ink";
   return (
     <button onClick={onClick} disabled={disabled} title={label} aria-label={label} aria-pressed={active} className={`grid h-11 w-11 place-items-center rounded-full transition disabled:opacity-40 ${look}`}>

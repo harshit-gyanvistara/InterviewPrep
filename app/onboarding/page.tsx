@@ -68,7 +68,7 @@ export default function Onboarding() {
       <ol className="mb-6 flex items-center justify-center gap-2 text-xs">
         {STEPS.map((s, i) => (
           <li key={s} className="flex items-center gap-2">
-            <span className={`grid h-7 w-7 place-items-center rounded-full font-semibold ${i < step ? "bg-ok text-white" : i === step ? "bg-accent text-accent-ink" : "bg-soft text-muted"}`}>
+            <span className={`grid h-7 w-7 place-items-center rounded-full font-semibold ${i < step ? "bg-ok text-on-status" : i === step ? "bg-accent text-accent-ink" : "bg-soft text-muted"}`}>
               {i < step ? <Check size={14} /> : i + 1}
             </span>
             <span className={`hidden sm:block ${i === step ? "font-medium" : "text-muted"}`}>{s}</span>
@@ -153,7 +153,7 @@ export default function Onboarding() {
 
         {step === 4 && (
           <div className="grid gap-4 text-center">
-            <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-ok text-white"><Check size={28} /></span>
+            <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-ok text-on-status"><Check size={28} /></span>
             <h1 className="text-3xl font-light">You&apos;re set, {name.split(" ")[0]}</h1>
             <p className="mx-auto max-w-md text-sm text-muted">
               {v("jobDescription", "") ? "We'll build interview rounds from the job description you pasted." : "We recommend a 15-minute baseline behavioural interview. It shows where you stand and personalises your plan."}

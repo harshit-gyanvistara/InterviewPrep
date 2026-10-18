@@ -1,5 +1,6 @@
 "use client";
 
+import { PageSkeleton } from "@/components/Skeleton";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowRight, NotebookPen, Repeat, StickyNote } from "lucide-react";
@@ -57,7 +58,7 @@ export default function ReportPage() {
   const sessionLink = session && report ? { type: "session" as const, id: session.id, label: byId(report.packId)?.title ?? "Interview" } : undefined;
   const { notes: sessionNotes } = useNotesFor(sessionLink);
 
-  if (loading) return null;
+  if (loading) return <PageSkeleton />;
   if (!session || !report)
     return (
       <Card>
