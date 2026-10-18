@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const user = await requireUser();
     const meters = await Promise.all(MeterSchema.options.map((m) => checkEntitlement(user, m)));
-    return NextResponse.json({ package: packageFor(user), meters }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ package: await packageFor(user), meters }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);
   }

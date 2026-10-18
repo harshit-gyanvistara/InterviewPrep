@@ -53,7 +53,7 @@ A missing meter means unlimited; `limit: null` means unlimited. Code never check
 
 | Decision later | What we build now | How it expands |
 |---|---|---|
-| Package names, prices, numbers | `PACKAGES` config with placeholder numbers; beta is the only one in use | Edit numbers, add packages; M6 moves them to a `packages` table |
+| Package names, prices, numbers | `packages` table (code defaults as fallback); beta is the only one in use | Edit a row or add one; M6 adds prices and subscriptions |
 | Who is on which package | `packageFor(user)` returns `"beta"` | Reads `subscriptions` (M6), then the user's org entitlements (O.5) |
 | What to meter | `mocks` and `ai_calls` | Add `voice_minutes`, `tokens` as new strings |
 | Where usage is stored | `usage_ledger` rows (user, org?, meter, amount, request id) | Billing and org reports read the same rows; `org_id` gets its key in M2.10 |
@@ -79,8 +79,13 @@ Changed while building: counts go straight into a `usage_ledger` table instead o
 9. ~~`usage_ledger` table~~ built in phase 1.
 10. Optional: also store token counts (`tokens` meter) from `recordUsage`, for exact cost per user.
 
+### Phase 1b: limits editable in the database (built 2026-10-19)
+- `packages` table (`id`, `allowances` JSONB `{ meter: { limit, period } }`, `active`), seeded with beta/free/pro. Server-only (RLS on, no policies), like the catalog.
+- `lib/packages-server.ts` `getPackages()`: reads it with the secret key, validates with Zod, caches 60 seconds, and falls back to `PACKAGES` in code when the table is empty, invalid or unreachable.
+- Changing a limit = editing a row in Supabase's table editor; it applies within a minute, no deploy.
+
 ### Phase 3: packages from billing (M6)
-11. `packages` and `subscriptions` tables; `packageFor` reads the active subscription; Razorpay/Stripe webhooks write it.
+11. `subscriptions` table (packages already exist); `packageFor` reads the active subscription; Razorpay/Stripe webhooks write it.
 12. Upgrade prompt on the 429 message and in Settings.
 
 ### Phase 4: organisations (O.5)

@@ -81,7 +81,7 @@ generate_json ─ one record per Gemini call ─► llm.usage log line (liveAgen
 
 Records cover failed calls (`ok: false`) and thinking tokens. Join the two services' lines on `requestId`. Plan: [plans/usage-capture.md](plans/usage-capture.md).
 
-**Allowances** ([plans/usage-limits.md](plans/usage-limits.md)): each user's package (`lib/packages.ts`, everyone on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST) is checked against the `usage_ledger` table. `GET /api/usage` returns used / limit / reset per meter; the dashboard and lobby show mocks left.
+**Allowances** ([plans/usage-limits.md](plans/usage-limits.md)): each user's package (the `packages` table, edited in Supabase and applied within a minute; `lib/packages.ts` holds the fallback; everyone on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST) is checked against the `usage_ledger` table. `GET /api/usage` returns used / limit / reset per meter; the dashboard and lobby show mocks left.
 
 ## 6. Deploy (staging, being set up)
 

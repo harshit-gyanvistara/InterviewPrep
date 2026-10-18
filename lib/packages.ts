@@ -7,26 +7,31 @@ import { z } from "zod";
 export const MeterSchema = z.enum(["mocks", "ai_calls"]);
 export type Meter = z.infer<typeof MeterSchema>;
 
-export type Period = "day" | "month" | "none";
-
-export interface Allowance {
+export const AllowanceSchema = z.object({
   /** null = unlimited. */
-  limit: number | null;
-  period: Period;
-}
+  limit: z.number().int().nonnegative().nullable(),
+  period: z.enum(["day", "month", "none"]),
+});
+export type Allowance = z.infer<typeof AllowanceSchema>;
+export type Period = Allowance["period"];
 
+/** Unknown meters in a stored row are ignored rather than rejected, so a row can run ahead of the code. */
+export const PackageSchema = z.record(z.string(), AllowanceSchema).transform((rec) => {
+  const out: Partial<Record<Meter, Allowance>> = {};
+  for (const m of MeterSchema.options) if (rec[m]) out[m] = rec[m];
+  return out;
+});
 export type Package = Partial<Record<Meter, Allowance>>;
 
-/** A meter missing from a package is unlimited. Only `beta` is in use; the others are placeholders. */
+/**
+ * Defaults, used when the `packages` table is empty or unreachable (lib/packages-server.ts).
+ * A meter missing from a package is unlimited. Only `beta` is in use; the others are placeholders.
+ */
 export const PACKAGES = {
   beta: { mocks: { limit: 5, period: "day" }, ai_calls: { limit: 150, period: "day" } },
   free: { mocks: { limit: 3, period: "month" }, ai_calls: { limit: 100, period: "month" } },
   pro: { mocks: { limit: null, period: "none" }, ai_calls: { limit: 2000, period: "month" } },
 } satisfies Record<string, Package>;
-
-export type PackageId = keyof typeof PACKAGES;
-
-export const isPackageId = (id: string | undefined): id is PackageId => !!id && id in PACKAGES;
 
 // Periods reset on calendar boundaries in India time, so "resets at midnight" is literally true.
 // One place to change for per-user time zones later.

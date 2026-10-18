@@ -1,6 +1,7 @@
 import { LOCAL_USER, type AuthUser } from "./auth";
 import { ApiError } from "./liveAgent";
-import { PACKAGES, isPackageId, periodWindow, type Allowance, type Meter, type Package, type PackageId } from "./packages";
+import { periodWindow, type Allowance, type Meter } from "./packages";
+import { getPackages } from "./packages-server";
 import { getSupabaseAdmin } from "./supabase";
 
 // Server-only. Usage allowances (plans/usage-limits.md). Each business decision is one function
@@ -8,16 +9,18 @@ import { getSupabaseAdmin } from "./supabase";
 // recorded in the `usage_ledger` table and allowances are checked by summing it.
 
 /**
- * The package a user is on. Today everyone gets PACKAGE_DEFAULT (beta unless set).
+ * The package a user is on: PACKAGE_DEFAULT when it names an active package, else beta.
  * M6 reads the user's subscription; O.5 checks their org's entitlements first.
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- the user decides the package from M6 on
-export function packageFor(user: AuthUser): PackageId {
+export async function packageFor(user: AuthUser): Promise<string> {
   const configured = process.env.PACKAGE_DEFAULT?.trim();
-  return isPackageId(configured) ? configured : "beta";
+  return configured && configured in (await getPackages()) ? configured : "beta";
 }
 
-const allowanceFor = (user: AuthUser, meter: Meter): Allowance | undefined => (PACKAGES[packageFor(user)] as Package)[meter];
+async function allowanceFor(user: AuthUser, meter: Meter): Promise<Allowance | undefined> {
+  return (await getPackages())[await packageFor(user)]?.[meter];
+}
 
 /** Where use is recorded. The ledger in production; tests pass an in-memory one. */
 export interface UsageStore {
@@ -57,7 +60,7 @@ const logError = (meter: Meter, e: unknown) =>
 
 /** Where the user stands on `meter`. Fails open (logged) if the ledger can't be read. */
 export async function checkEntitlement(user: AuthUser, meter: Meter, store: UsageStore | null = ledgerStore()): Promise<MeterStatus> {
-  const allowance = allowanceFor(user, meter);
+  const allowance = await allowanceFor(user, meter);
   if (user === LOCAL_USER || !allowance || allowance.limit === null) {
     return { meter, used: 0, limit: null, resetsAt: null, allowed: true };
   }
@@ -89,7 +92,7 @@ export async function requireAllowance(user: AuthUser, meter: Meter, store?: Usa
   if (s.allowed) return;
   console.warn(JSON.stringify({ event: "usage.blocked", meter, userId: user.id, used: s.used, limit: s.limit }));
   const retryAfterSec = s.resetsAt ? Math.max(1, Math.ceil((s.resetsAt - Date.now()) / 1000)) : undefined;
-  const span = allowanceFor(user, meter)?.period === "month" ? "this month" : "today";
+  const span = (await allowanceFor(user, meter))?.period === "month" ? "this month" : "today";
   throw new ApiError(429, `You've used all ${s.limit} ${NOUN[meter]} for ${span}.${resetText(s.resetsAt)}`, { retryAfterSec });
 }
 

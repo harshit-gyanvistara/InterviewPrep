@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LOCAL_USER, type AuthUser } from "./auth";
 import { periodWindow, type Meter } from "./packages";
+import { resetPackagesCache } from "./packages-server";
 import { addUsage, checkEntitlement, packageFor, requireAllowance, type UsageStore } from "./policies";
 import { getSupabaseAdmin } from "./supabase";
 import { getSupabaseForRequest } from "./supabase-server";
@@ -28,6 +29,7 @@ function memoryLedger() {
 }
 
 afterEach(() => {
+  resetPackagesCache();
   vi.unstubAllEnvs();
   vi.useRealTimers();
 });
@@ -51,12 +53,39 @@ describe("periodWindow (India time)", () => {
 });
 
 describe("packages", () => {
-  it("puts everyone on beta unless PACKAGE_DEFAULT names another package", () => {
-    expect(packageFor(user)).toBe("beta");
+  it("puts everyone on beta unless PACKAGE_DEFAULT names another package", async () => {
+    expect(await packageFor(user)).toBe("beta");
     vi.stubEnv("PACKAGE_DEFAULT", "pro");
-    expect(packageFor(user)).toBe("pro");
+    expect(await packageFor(user)).toBe("pro");
     vi.stubEnv("PACKAGE_DEFAULT", "nonsense");
-    expect(packageFor(user)).toBe("beta");
+    expect(await packageFor(user)).toBe("beta");
+  });
+
+  // A fake secret-key client whose `packages` table returns `rows` (or an error).
+  function packagesTable(rows: unknown[] | Error) {
+    vi.mocked(getSupabaseAdmin).mockReturnValue({
+      from: () => ({ select: () => ({ eq: async () => (rows instanceof Error ? { data: null, error: { message: rows.message } } : { data: rows, error: null }) }) }),
+    } as unknown as SupabaseClient);
+  }
+
+  it("takes limits from the packages table when it has valid rows", async () => {
+    packagesTable([{ id: "beta", allowances: { mocks: { limit: 1, period: "day" }, future_meter: { limit: 9, period: "day" } } }]);
+    const { store } = memoryLedger();
+    expect(await checkEntitlement(user, "mocks", store)).toMatchObject({ limit: 1, allowed: true });
+    // ai_calls isn't in the row, so it's unlimited for this package.
+    expect(await checkEntitlement(user, "ai_calls", store)).toMatchObject({ limit: null, allowed: true });
+    vi.mocked(getSupabaseAdmin).mockReturnValue(null);
+  });
+
+  it("falls back to the code defaults when the table is down or a row is invalid", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    packagesTable(new Error("down"));
+    expect((await checkEntitlement(user, "mocks", memoryLedger().store)).limit).toBe(5);
+    resetPackagesCache();
+    packagesTable([{ id: "beta", allowances: { mocks: { limit: -3, period: "week" } } }]);
+    expect((await checkEntitlement(user, "mocks", memoryLedger().store)).limit).toBe(5);
+    expect(err).toHaveBeenCalled();
+    vi.mocked(getSupabaseAdmin).mockReturnValue(null);
   });
 });
 

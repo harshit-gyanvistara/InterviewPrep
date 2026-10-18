@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Package limits live in a packages table
+- **Decision:** A `packages` table (`id`, `allowances` JSONB) holds each package's limits, seeded with beta/free/pro. `getPackages()` in `lib/packages-server.ts` reads it with the secret key, caches 60 seconds and falls back to `PACKAGES` in code if the table is empty, invalid or unreachable.
+- **Why:** Limits need to change without a deploy (for the beta, and to test a limit live). It's where M6 was going anyway.
+- **Considered:** A `PACKAGE_LIMITS` env variable (still needs a redeploy and has no history).
+- **Revisit:** M6, when prices and subscriptions join the table.
+
 ## 2026-10-19 · Usage allowances by package, recorded in usage_ledger
 - **Decision:** Allowances come from the user's package (`lib/packages.ts`; everyone is on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST). `checkEntitlement(user, meter)` in `lib/policies.ts` sums a new `usage_ledger` table; `authorize()` checks `ai_calls`, the first turn of a mock checks `mocks`, the report records a mock, `callAgent` records each AI call with its request id. See [plans/usage-limits.md](plans/usage-limits.md).
 - **Why:** The beta list decides who gets in, not how much they use. Packages and meters keep prices and numbers as config (D15). The ledger was brought forward from M2.2 because Upstash isn't set up on staging, so counts kept in memory would reset on every deploy.
