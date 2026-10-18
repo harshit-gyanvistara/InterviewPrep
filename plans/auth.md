@@ -66,7 +66,7 @@ Only what this slice needs. The org tables and the `org_id` columns on sessions,
 Every AI route (`/api/interview/turn`, `/report`, `/api/pack/generate`, `/api/roadmap`, `/api/ai/assist`, `/api/health`) calls `requireUser()` before `enforceRateLimit`. `/api/catalog` stays public.
 
 ## Work breakdown (each a PR)
-1. **Plumbing.** `@supabase/ssr`, `lib/supabase-server.ts`, `lib/auth.ts` with `AUTH_MODE`, `proxy.ts`. Env vars in `.env.example` (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `AUTH_MODE`).
+1. **Plumbing.** `@supabase/ssr`, `lib/supabase-server.ts`, `lib/auth.ts` with `AUTH_MODE`, `proxy.ts`. Env vars in `.env.example` (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `AUTH_MODE`; no `NEXT_PUBLIC_*` keys, see the first rule above).
 2. **Migration.** `users`, `profiles`, `consents`, trigger, RLS policies.
 3. **Sign-in UI.** `/sign-in`, `/auth/callback`, sign-out in Settings, `isInApp()`, the shell's user agent change.
 4. **Protect the API.** `requireUser()` in every AI route, rate limits keyed by user, 401 cases added to the M1.6 contract tests.
