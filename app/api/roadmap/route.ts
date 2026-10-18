@@ -8,7 +8,7 @@ import { RoadmapBodySchema } from "@/lib/schemas";
 /** A week-by-week prep plan from recent report digests. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
-    await authorize(req, "roadmap");
+    const user = await authorize(req, "roadmap");
     const body = await parseBody(req, RoadmapBodySchema);
 
     const domain = resolveDomain(body.profile, undefined, (await getCatalog()).domains);
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       domain: agentDomain(domain),
       weeks: body.weeks,
       digests: body.digests,
-    } satisfies Agent["RoadmapRequest"]);
+    } satisfies Agent["RoadmapRequest"], { user });
     return NextResponse.json(out);
   } catch (e) {
     return errorResponse(e);

@@ -98,7 +98,21 @@ const post = (body: unknown, ip: string) =>
     body: JSON.stringify(body),
   });
 
-const agentReply = (status: number, json: unknown) => vi.fn(async () => new Response(JSON.stringify(json), { status, headers: { "Content-Type": "application/json" } }));
+const agentReply = (status: number, json: unknown, headers: Record<string, string> = {}) =>
+  vi.fn(async () => new Response(JSON.stringify(json), { status, headers: { "Content-Type": "application/json", ...headers } }));
+
+const usage = { task: "t", model: "m", ms: 5, inputTokens: 100, cachedTokens: 60, outputTokens: 20, thoughtTokens: 40, ok: true };
+
+/** The ai.usage lines logged while running `fn`. */
+async function usageLines(fn: () => Promise<unknown>) {
+  const log = vi.spyOn(console, "log").mockImplementation(() => {});
+  try {
+    await fn();
+    return log.mock.calls.map(([line]) => JSON.parse(String(line))).filter((l) => l.event === "ai.usage");
+  } finally {
+    log.mockRestore();
+  }
+}
 
 beforeEach(() => {
   vi.stubEnv("LIVE_AGENT_URL", AGENT);
@@ -128,6 +142,21 @@ describe.each(cases)("POST /api/$name", ({ bucket, agentPath, load, body, sent }
     expect(init.method).toBe("POST");
     expect((init.headers as Record<string, string>).Authorization).toBe("Bearer agent-token");
     sent(JSON.parse(String(init.body)));
+  });
+
+  it.each([200, 502])("records the usage liveAgent reports against the user (status %i)", async (status) => {
+    const fetchSpy = agentReply(status, {}, { "X-LLM-Usage": JSON.stringify([usage, { ...usage, ok: false }]) });
+    vi.stubGlobal("fetch", fetchSpy);
+    const { POST } = await load();
+
+    const lines = await usageLines(() => POST(post(body, nextIp())));
+    const [, init] = fetchSpy.mock.calls[0] as unknown as [URL, RequestInit];
+    const requestId = (init.headers as Record<string, string>)["X-Request-Id"];
+    expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(lines).toEqual([
+      { event: "ai.usage", userId: "local", route: agentPath, requestId, status, ...usage },
+      { event: "ai.usage", userId: "local", route: agentPath, requestId, status, ...usage, ok: false },
+    ]);
   });
 
   it.each([400, 422, 502])("passes a liveAgent %i through with its message", async (status) => {
@@ -188,6 +217,17 @@ describe("GET /api/health", () => {
     expect(await res.json()).toEqual({ ok: true, hasKey: true });
     const [url] = fetchSpy.mock.calls[0] as unknown as [URL];
     expect(String(url)).toBe(`${AGENT}/v1/health/models`);
+  });
+
+  it("records both model pings", async () => {
+    vi.stubGlobal("fetch", agentReply(200, { ok: true, hasKey: true }, { "X-LLM-Usage": JSON.stringify([usage, usage]) }));
+    const { GET } = await import("../app/api/health/route");
+
+    const lines = await usageLines(() => GET(get(nextIp())));
+    expect(lines.map((l) => [l.route, l.userId])).toEqual([
+      ["/v1/health/models", "local"],
+      ["/v1/health/models", "local"],
+    ]);
   });
 
   it("reports failures in the health shape, keeping the status", async () => {

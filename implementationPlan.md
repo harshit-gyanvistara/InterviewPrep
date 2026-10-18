@@ -12,7 +12,7 @@ How this fits with the other docs:
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | Narrative of what is built and why | Day 1 |
 | [DEV_PLAN.md](DEV_PLAN.md) | The **target** production architecture and phase roadmap | When planning beyond the prototype |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
-| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md)) | Before working on that initiative |
+| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md)) | Before working on that initiative |
 
 > The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -126,7 +126,7 @@ SPEC.md is accurate to the code (spot-checked against `lib/db.ts`, `lib/liveAgen
 | G2 | Input validation | Zod schemas on every route body, 400 with field errors, 1 MB body cap (M1.1 done) | Zod schemas shared by client and server | Done (server side) | M1 |
 | G3 | Tests / CI | Unit tests for pure logic + liveAgent pytest, CI on every PR (M0 done); no contract/E2E/evals yet | Unit → contract → E2E → conversation evals; CI on every PR | High | M0, M1, M4 |
 | G4 | Identity & data | Accounts (email code, Google on web) and the profile on the server; sessions, reports and notes still in `localStorage` per user | Accounts, Postgres, cross-device | High until M2.2–M2.5 | M2 |
-| G5 | Observability & cost | `console.error` only; no token/cost tracking | OpenTelemetry, Sentry, `usage_ledger` per session | Medium | M1 (ledger), M2 (persist) |
+| G5 | Observability & cost | Per-user token usage per Gemini call as structured `ai.usage` logs (M1.4 done); no error tracking or persisted ledger yet | OpenTelemetry, Sentry, `usage_ledger` per session | Medium | M1 (ledger), M2 (persist) |
 | G6 | Interview engine | One big prompt; model decides pacing and ending | Explicit orchestrator state machine + follow-up policy | Medium | M4 |
 | G7 | Scoring trust | One Pro call, no calibration, no regression tests | Versioned rubrics, human-rated calibration set, ≥0.7 correlation | Medium | M4 |
 | G8 | Versioning | Packs/prompts change silently; old reports not reproducible | Every session stores pack/prompt/rubric versions | Medium | M2 (fields), M4 (process) |
@@ -194,7 +194,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 | M1.1 Zod schemas (D4) | **Done.** `lib/schemas.ts` (client-safe) + `parseBody` in `lib/route.ts`; 400 `{ error, issues }`, 413 over 1 MB; ad-hoc checks removed; SPEC.md §5.0. Not yet: client-side use of the schemas |
 | M1.2 Rate limiting | **Done.** `lib/rateLimit.ts`: `enforceRateLimit(req, bucket)` at the top of each AI route (not in `proxy.ts`, Next 16's renamed middleware, whose docs advise against shared state). Limits in `RATE_LIMITS`, Pro-model routes 5 per 10 min. Upstash Redis via REST when `UPSTASH_REDIS_REST_URL/TOKEN` are set (no client library), in-memory otherwise; fails open. SPEC.md §5.0. Set the Upstash vars before M1.7 deploys |
 | M1.3 Centralise limits | **Done.** Truncation moved to liveAgent with the prompts, so the limits are `LIMITS` in `liveAgent/live_agent/limits.py` (not `lib/limits.ts`; Core's request caps were already `LIMITS` in `lib/schemas.ts`). `liveAgent/tests/test_limits.py` checks every prompt builder against them; route caps (transcript, final code, history, digests, packs) in `test_routes.py`. Prompts unchanged (goldens pass) |
-| M1.4 Usage capture | `generate_json` (liveAgent) returns Gemini usage metadata; log `{route, model, inputTokens, outputTokens, ms}` (structured logs now, `usage_ledger` table in M2) |
+| M1.4 Usage capture | **Done.** See [plans/usage-capture.md](plans/usage-capture.md). liveAgent records every Gemini call (failed ones too, plus `thoughtTokens`) and returns the records in an `X-LLM-Usage` header; Core's `callAgent` (now requires `user`) logs one `ai.usage` line per call with `userId`, route and a `requestId` shared with liveAgent's `llm.usage` line. `recordUsage` in `lib/usage.ts` is where M2 writes `usage_ledger` |
 | M1.5 Error tracking | Sentry (or equivalent) for routes and client |
 | M1.6 Route contract tests | **Done.** `lib/api.contract.test.ts`: every Core AI route with liveAgent mocked at `fetch`: the request each route sends (path, token, shaped body), pass-through of liveAgent 400/422/502, 503 unreachable/unconfigured, 504 timeout, 429 + Retry-After, and the health route's error shape. Response shaping (`overall` clamping, packs capped to 3) moved to liveAgent and is tested in `liveAgent/tests/test_routes.py` |
 | M1.7 Deploy | Preview deploys per PR (e.g. Vercel) + a staging environment with its own Gemini key and budget alert |

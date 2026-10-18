@@ -8,7 +8,7 @@ import { TurnBodySchema } from "@/lib/schemas";
 /** The interviewer's next line. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
-    await authorize(req, "interview.turn");
+    const user = await authorize(req, "interview.turn");
     const body = await parseBody(req, TurnBodySchema);
 
     const { domains } = await getCatalog();
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       messages: body.messages,
       elapsedSec: body.elapsedSec,
       code: body.code,
-    } satisfies Agent["TurnRequest"]);
+    } satisfies Agent["TurnRequest"], { user });
     return NextResponse.json(out);
   } catch (e) {
     return errorResponse(e);

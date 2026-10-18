@@ -12,7 +12,7 @@ export const maxDuration = 120;
 /** Scores the finished interview against the pack's rubric. The prompt and Gemini call live in liveAgent. */
 export async function POST(req: Request) {
   try {
-    await authorize(req, "interview.report");
+    const user = await authorize(req, "interview.report");
     const body = await parseBody(req, ReportBodySchema);
 
     const { domains } = await getCatalog();
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
         messages: body.messages,
         code: body.code,
       } satisfies Agent["ReportRequest"],
-      { timeoutMs: 115_000 },
+      { user, timeoutMs: 115_000 },
     );
     return NextResponse.json(out);
   } catch (e) {

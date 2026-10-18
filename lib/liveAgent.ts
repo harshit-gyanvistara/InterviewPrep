@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import type { AuthUser } from "./auth";
 import type { DomainProfile } from "./domains";
 import type { components } from "./liveAgent.types";
 import { PERSONAS } from "./packs";
 import type { Persona } from "./types";
+import { parseUsageHeader, recordUsage } from "./usage";
 
 // Server-only. Client for liveAgent, the Python AI service (liveAgent/ in this repo). Every Gemini
 // call goes through it; this app never holds the Gemini key. The request/response types are
@@ -27,16 +29,24 @@ export class ApiError extends Error {
   }
 }
 
-/** POST `body` (or GET when omitted) to liveAgent and return its JSON. Errors keep liveAgent's status and message. */
-export async function callAgent<T>(path: string, body?: unknown, opts: { timeoutMs?: number } = {}): Promise<T> {
+/**
+ * POST `body` (or GET when undefined) to liveAgent and return its JSON. Errors keep liveAgent's
+ * status and message. The Gemini usage liveAgent reports is recorded against `user`, on errors too.
+ */
+export async function callAgent<T>(path: string, body: unknown, opts: { user: AuthUser; timeoutMs?: number }): Promise<T> {
   const base = process.env.LIVE_AGENT_URL;
   if (!base) throw new ApiError(503, "LIVE_AGENT_URL is not set. Add it to .env.local and restart the dev server.");
 
+  const requestId = crypto.randomUUID();
   let res: Response;
   try {
     res = await fetch(new URL(path, base), {
       method: body === undefined ? "GET" : "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.LIVE_AGENT_TOKEN ?? ""}` },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.LIVE_AGENT_TOKEN ?? ""}`,
+        "X-Request-Id": requestId,
+      },
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 60_000),
       cache: "no-store",
@@ -45,6 +55,8 @@ export async function callAgent<T>(path: string, body?: unknown, opts: { timeout
     if (e instanceof DOMException && e.name === "TimeoutError") throw new ApiError(504, "The AI service took too long to answer. Try again.");
     throw new ApiError(503, `AI service unreachable at ${base}. Is liveAgent running (npm run agent)?`);
   }
+
+  recordUsage({ userId: opts.user.id, route: path, requestId, status: res.status }, parseUsageHeader(res.headers.get("X-LLM-Usage")));
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, (json as { error?: string }).error || `AI service error (${res.status})`);

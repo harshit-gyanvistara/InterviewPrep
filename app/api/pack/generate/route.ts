@@ -16,14 +16,14 @@ export const maxDuration = 120;
  */
 export async function POST(req: Request) {
   try {
-    await authorize(req, "pack.generate");
+    const user = await authorize(req, "pack.generate");
     const { profile: p } = await parseBody(req, PackGenerateBodySchema);
 
     const domain = resolveDomain(p, undefined, (await getCatalog()).domains);
     const out = await callAgent<Agent["PacksResult"]>(
       "/v1/packs/generate",
       { profile: p, domain: agentDomain(domain) } satisfies Agent["PackGenerateRequest"],
-      { timeoutMs: 115_000 },
+      { user, timeoutMs: 115_000 },
     );
     return NextResponse.json(out);
   } catch (e) {

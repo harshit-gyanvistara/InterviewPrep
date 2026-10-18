@@ -6,13 +6,16 @@ persona, and sends everything a call needs; this service holds no user data. Eve
 """
 
 import hmac
+import json
 import os
 
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.datastructures import Headers, MutableHeaders
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .gemini import ApiError
+from .gemini import ApiError, usage_scope
 from .models import ErrorBody
 from .routes import assist, health, interview, packs, roadmap
 
@@ -27,6 +30,28 @@ def require_core(request: Request) -> None:
         raise ApiError(401, "Unauthorized.")
 
 
+class UsageHeaderMiddleware:
+    """Reports the Gemini calls a request made in an `X-LLM-Usage` header (JSON array), so Core can
+    record them against the user. Takes Core's `X-Request-Id` for the llm.usage log lines."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request_id = (Headers(scope=scope).get("x-request-id") or "")[:64] or None
+        with usage_scope(request_id) as calls:
+
+            async def send_with_usage(message: Message) -> None:
+                if message["type"] == "http.response.start" and calls:
+                    MutableHeaders(scope=message).append("X-LLM-Usage", json.dumps(calls, separators=(",", ":")))
+                await send(message)
+
+            await self.app(scope, receive, send_with_usage)
+
+
 app = FastAPI(
     title="liveAgent",
     version="1.0.0",
@@ -38,6 +63,7 @@ v1 = APIRouter(prefix="/v1", dependencies=[Depends(require_core)])
 for module in (interview, packs, roadmap, assist, health):
     v1.include_router(module.router)
 app.include_router(v1)
+app.add_middleware(UsageHeaderMiddleware)
 
 
 @app.get("/healthz", tags=["health"])

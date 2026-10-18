@@ -11,14 +11,14 @@ import { AssistBodySchema } from "@/lib/schemas";
  */
 export async function POST(req: Request) {
   try {
-    await authorize(req, "ai.assist");
+    const user = await authorize(req, "ai.assist");
     const body = await parseBody(req, AssistBodySchema);
     const out = await callAgent<Agent["AssistResult"]>("/v1/assist", {
       mode: body.mode,
       text: body.text,
       instruction: body.instruction,
       contextTitle: body.contextTitle,
-    } satisfies Agent["AssistRequest"]);
+    } satisfies Agent["AssistRequest"], { user });
     return NextResponse.json(out);
   } catch (e) {
     return errorResponse(e);
