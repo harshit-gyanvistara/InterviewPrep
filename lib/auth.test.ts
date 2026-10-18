@@ -438,7 +438,7 @@ describe("page access", () => {
   });
 
   it("proxy lets API routes, the OAuth callback and public pages through", () => {
-    for (const p of ["/api/interview/turn", "/auth/callback", "/welcome", "/sign-in", "/terms"]) expect(isPublicPath(p), p).toBe(true);
+    for (const p of ["/api/interview/turn", "/auth/callback", "/welcome", "/sign-in", "/terms", "/opengraph-image"]) expect(isPublicPath(p), p).toBe(true);
     for (const p of ["/", "/practice", "/onboarding", "/welcomeback"]) expect(isPublicPath(p), p).toBe(false);
   });
 
