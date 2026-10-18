@@ -321,7 +321,7 @@ describe("/api/db/[collection]", () => {
     expect((await GET(json(undefined, "GET"), ctx("profile"))).status).toBe(404);
     accountsOn();
     signedInAs(USER_ID);
-    expect((await GET(json(undefined, "GET"), ctx("sessions"))).status).toBe(404);
+    expect((await GET(json(undefined, "GET"), ctx("passwords"))).status).toBe(404);
   });
 
   it("needs a session", async () => {
@@ -347,6 +347,34 @@ describe("/api/db/[collection]", () => {
 
     expect((await route.DELETE(json(undefined, "DELETE"), ctx("profile"))).status).toBe(200);
     expect(removeItems).toHaveBeenCalledWith(client, "profile", USER_ID);
+  });
+
+  it("list collections: upsert by id keeping every field, and delete one item", async () => {
+    accountsOn();
+    const client = signedInAs(USER_ID);
+    const route = await import("../app/api/db/[collection]/route");
+    const item = await import("../app/api/db/[collection]/[id]/route");
+    const sessionItem = { id: "s1", startedAt: 1, messages: [{ id: "m1", role: "candidate", text: "hi" }], extra: { kept: true } };
+
+    expect((await route.PUT(json(sessionItem, "PUT"), ctx("sessions"))).status).toBe(200);
+    expect(putItem).toHaveBeenCalledWith(client, "sessions", USER_ID, sessionItem);
+
+    const del = await item.DELETE(json(undefined, "DELETE"), { params: Promise.resolve({ collection: "notes", id: "n1" }) });
+    expect(del.status).toBe(200);
+    expect(removeItems).toHaveBeenCalledWith(client, "notes", USER_ID, "n1");
+  });
+
+  it("list collections: an item without an id is rejected; deleting needs a session", async () => {
+    accountsOn();
+    signedInAs(USER_ID);
+    const route = await import("../app/api/db/[collection]/route");
+    expect((await route.PUT(json({ startedAt: 1 }, "PUT"), ctx("sessions"))).status).toBe(400);
+    expect(putItem).not.toHaveBeenCalled();
+
+    signedInAs(undefined);
+    const item = await import("../app/api/db/[collection]/[id]/route");
+    expect((await item.DELETE(json(undefined, "DELETE"), { params: Promise.resolve({ collection: "notes", id: "n1" }) })).status).toBe(401);
+    expect(removeItems).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid profile with field errors", async () => {

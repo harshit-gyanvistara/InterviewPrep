@@ -11,6 +11,7 @@ import { NAV } from "@/lib/nav";
 import { isBarePage, redirectFor } from "@/lib/pages";
 import { MobileNav } from "@/components/MobileNav";
 import { PageSkeleton } from "@/components/Skeleton";
+import { SyncNote } from "@/components/SyncNote";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -70,6 +71,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {!bare && <SyncNote />}
             <button onClick={toggleTheme} aria-label="Toggle theme" className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink active:scale-95">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>

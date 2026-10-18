@@ -210,10 +210,10 @@ Goal: real users, data across devices, foundation for billing and B2B.
 | Task | Detail |
 |---|---|
 | M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding. **First slice done (2026-10-14)**, see [plans/auth.md](plans/auth.md): email-code sign-in (Google on the web), `proxy.ts` + `lib/auth.ts`, every AI route 401 without a session and rate-limited per user, `users`/`profiles`/`consents` with RLS, profile on the server via `/api/db/profile`, per-user `localStorage` prefix with one-time takeover of earlier data, delete account. Remaining before real users: M1.7 deploy, SMTP, Supabase email templates |
-| M2.2 Schema (D2) | Tables: `users`, `profiles`, `settings`, `sessions` (messages as JSONB to start), `reports`, `custom_packs`, `roadmaps`, `stories`, `notes`, `binders`, `cortex_pages`, `usage_ledger`. Every row has `user_id` |
+| M2.2 Schema (D2) | **Done for user collections (2026-10-19)**, see [plans/server-history.md](plans/server-history.md). Tables: `users`, `profiles`, `settings`, `sessions` (messages as JSONB to start), `reports`, `custom_packs`, `roadmaps`, `stories`, `notes`, `binders`, `cortex_pages`, `usage_ledger`. Every row has `user_id` |
 | M2.3 Versioning fields (G8) | `sessions.pack_snapshot` (the exact pack JSON used), `prompt_version`, `rubric_version`, `model_ids` |
-| M2.4 CRUD routes | `/api/db/[collection]` (or per-resource routes) with ownership checks on every read/write |
-| M2.5 Swap the adapter | Re-implement `localCollection` as `remoteCollection` calling M2.4; keep the same `Collection<T>` interface and the change-event reactivity so pages don't change |
+| M2.4 CRUD routes | **Done (2026-10-19).** `/api/db/[collection]` (or per-resource routes) with ownership checks on every read/write |
+| M2.5 Swap the adapter | **Done (2026-10-19)**, with a retry queue. Re-implement `localCollection` as `remoteCollection` calling M2.4; keep the same `Collection<T>` interface and the change-event reactivity so pages don't change |
 | M2.6 Server-trusted context | `/api/interview/turn` and `/report` load `profile`, `pack` and `session` from the DB by `sessionId` instead of trusting the body; client sends only the new answer + code |
 | M2.7 Local import (D9) | First sign-in offers to upload the `exportAll()` JSON |
 | M2.8 Privacy | Consent copy, retention policy, "delete my account" deleting all rows, export (DSAR) via existing export JSON |

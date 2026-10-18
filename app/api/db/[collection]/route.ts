@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server";
-import { authMode, requireUser } from "@/lib/auth";
-import { ApiError, errorResponse } from "@/lib/liveAgent";
+import { errorResponse } from "@/lib/liveAgent";
+import { openUserCollection as open } from "@/lib/userCollectionRoute";
 import { parseBody } from "@/lib/route";
-import { getSupabaseForRequest } from "@/lib/supabase-server";
-import { USER_COLLECTIONS, isUserCollection, listItems, putItem, removeItems } from "@/lib/userData";
+import { USER_COLLECTIONS, listItems, putItem, removeItems } from "@/lib/userData";
 
-// The signed-in user's server-side collections (implementationPlan M2.4), read and written by
-// remoteCollection in lib/db.ts. Only `profile` lives here so far (plans/auth.md).
+// The signed-in user's server-side collections (implementationPlan M2.4, plans/server-history.md),
+// read and written by remoteCollection / remoteSingleton in lib/db.ts. GET lists, PUT upserts one
+// item by id, DELETE clears the collection (the profile); /api/db/[collection]/[id] deletes one item.
 
 type Ctx = { params: Promise<{ collection: string }> };
-
-async function open(ctx: Ctx) {
-  if (authMode() !== "supabase") throw new ApiError(404, "Server storage needs sign-in, which is turned off on this server.");
-  const { collection } = await ctx.params;
-  if (!isUserCollection(collection)) throw new ApiError(404, `Unknown collection "${collection}".`);
-  const user = await requireUser();
-  return { collection, user, supabase: await getSupabaseForRequest() };
-}
 
 export async function GET(_req: Request, ctx: Ctx) {
   try {

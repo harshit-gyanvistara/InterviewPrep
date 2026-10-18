@@ -55,13 +55,14 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 
 `proxy.ts` only refreshes the session and redirects pages; route handlers check the user themselves, and row-level security checks again in the database. With `AUTH_MODE=off` (local work, CI) everyone is the one `local` user.
 
-## 3. Where data lives (until M2.5)
+## 3. Where data lives
 
 | Data | Where | Notes |
 |---|---|---|
 | Profile | Supabase `profiles` (JSONB) via `/api/db/profile` | Same profile on web and app |
 | Users, terms consent | Supabase `users`, `consents` | RLS: own rows only; delete account cascades |
-| Sessions, reports, notes, roadmaps, custom packs | Browser `localStorage`, keys prefixed per user | Moves to the server in M2.2–M2.5; first sign-in in a browser adopts older un-prefixed data |
+| Sessions, reports, roadmaps, stories, settings, custom packs, notes, Cortex | Supabase, one table each (`data` JSONB, key `(user_id, id)`), via `/api/db/<name>` | Cached in memory per page load; saves go through a retry queue kept in localStorage (top bar shows "Saving N changes…"). Older browser data is uploaded once on sign-in. [plans/server-history.md](plans/server-history.md) |
+| Everything, with `AUTH_MODE=off` | Browser `localStorage`, unprefixed keys | Local work and CI only |
 | Fields and built-in packs | Supabase `domains`, `packs` | Code copies are the seed and the fallback |
 
 ## 4. One interview

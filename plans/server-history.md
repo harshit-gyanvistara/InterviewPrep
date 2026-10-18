@@ -1,6 +1,6 @@
 # Plan: History on the server (M2.2, M2.4, M2.5)
 
-**Status: proposed (2026-10-19).** Implements [implementationPlan.md](../implementationPlan.md) M2.2 (schema), M2.4 (CRUD routes) and M2.5 (swap the adapter) for every collection except the profile, which is already on the server ([plans/auth.md](auth.md)). M2.3 (versioning fields) and M2.6 (server-trusted interview context) stay separate.
+**Status: built (2026-10-19).** Implements [implementationPlan.md](../implementationPlan.md) M2.2 (schema), M2.4 (CRUD routes) and M2.5 (swap the adapter) for every collection except the profile, which is already on the server ([plans/auth.md](auth.md)). M2.3 (versioning fields) and M2.6 (server-trusted interview context) stay separate.
 
 ## Context
 Signed-in users keep their profile on the server, but everything else (interviews, reports, roadmap, stories, notes, Cortex, settings, custom rounds) lives in `localStorage` under a per-user prefix ([lib/db.ts](../lib/db.ts)). So:

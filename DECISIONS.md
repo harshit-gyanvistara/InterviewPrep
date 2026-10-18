@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · History moves to the server (M2.2, M2.4, M2.5)
+- **Decision:** Sessions, reports, roadmaps, stories, settings, custom packs, notes, binders and Cortex pages each get a Supabase table of the same shape (`user_id`, `id`, `data` JSONB, timestamps; RLS own rows; `org_id` on sessions and reports). `/api/db/<name>` lists and upserts, `/api/db/<name>/<id>` deletes. `remoteCollection` in `lib/db.ts` caches per page load, updates the screen at once and sends writes through a retry queue saved in localStorage; a newer save of the same item replaces an unsent one. Each signed-in browser uploads its older local data once (only ids the server lacks) and keeps the local copy as a backup.
+- **Why:** History has to follow the user across devices, and later work (org views, billing, analytics) needs it on the server. Pages didn't change because they already used the `Collection` interface.
+- **Considered:** One generic `user_items` table (fewer tables, but sessions and reports will gain real columns and org policies); saving straight to the server with no queue (a dropped connection mid-interview would lose an answer); IndexedDB offline store (more than the beta needs).
+- **Revisit:** M2.3 (versioning columns on sessions), M2.6 (turn route loads the session itself), or if two-device edits start to clash (version numbers per row).
+
 ## 2026-10-19 · Package limits live in a packages table
 - **Decision:** A `packages` table (`id`, `allowances` JSONB) holds each package's limits, seeded with beta/free/pro. `getPackages()` in `lib/packages-server.ts` reads it with the secret key, caches 60 seconds and falls back to `PACKAGES` in code if the table is empty, invalid or unreachable.
 - **Why:** Limits need to change without a deploy (for the beta, and to test a limit live). It's where M6 was going anyway.

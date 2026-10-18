@@ -94,9 +94,22 @@ describe.skipIf(!url)("account tables: row-level security", () => {
     expect((await client.rpc("usage_total", { p_user: id, p_meter: "mocks", p_since: new Date(0).toISOString() })).error).not.toBeNull();
   });
 
+  it("user collections: each user reads and writes only their own rows", async () => {
+    for (const table of ["sessions", "reports", "roadmaps", "stories", "settings", "custom_packs", "notes", "binders", "cortex_pages"]) {
+      const a = users.a, b = users.b;
+      expect((await a.client.from(table).insert({ user_id: a.id, id: "x1", data: { id: "x1" } })).error, table).toBeNull();
+      expect((await a.client.from(table).insert({ user_id: b.id, id: "x2", data: { id: "x2" } })).error, table).not.toBeNull();
+      expect((await b.client.from(table).select("*").eq("user_id", a.id)).data ?? [], table).toEqual([]);
+      await b.client.from(table).update({ data: { id: "x1", forged: true } }).eq("user_id", a.id);
+      await b.client.from(table).delete().eq("user_id", a.id);
+      const { data } = await a.client.from(table).select("data").eq("id", "x1");
+      expect(data, table).toEqual([{ data: { id: "x1" } }]);
+    }
+  });
+
   it("anonymous requests see nothing", async () => {
     const anon = createClient(url!, publishableKey, opts);
-    for (const table of ["users", "profiles", "consents", "usage_ledger"]) {
+    for (const table of ["users", "profiles", "consents", "usage_ledger", "sessions", "reports", "notes"]) {
       const { data } = await anon.from(table).select("*");
       expect(data ?? [], table).toEqual([]);
     }

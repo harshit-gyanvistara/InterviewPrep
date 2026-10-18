@@ -8,10 +8,9 @@ import { DEFAULT_CATALOG, type Catalog } from "./catalog";
  * Storage layer. Everything goes through `db`, which is async and collection-based, so moving a
  * collection to the server only means swapping its `Collection` adapter (implementationPlan M2.5).
  *
- * Accounts (plans/auth.md): the first call asks /api/auth/me who is signed in. With accounts on,
- * the profile lives on the server (/api/db/profile) and every other collection stays in
- * localStorage under a per-user key prefix, so people sharing a browser don't see each other's
- * data. With AUTH_MODE=off there is one implicit user and the keys are unprefixed, as before.
+ * Accounts (plans/auth.md, plans/server-history.md): the first call asks /api/auth/me who is signed
+ * in. With accounts on, every collection lives on the server (/api/db/<name>), cached in memory and
+ * saved through a retry queue. With AUTH_MODE=off everything stays in localStorage, unprefixed.
  */
 
 const PREFIX = "interviewprep:v1:";
@@ -51,6 +50,7 @@ export function getAuth(): Promise<AuthState> {
     })
     .then(async (auth) => {
       await adoptLocalData(auth);
+      await moveLocalToServer(auth);
       return auth;
     })
     .catch((e: unknown): AuthState => ({ mode: "supabase", user: null, google: false, error: e instanceof Error ? e.message : "Couldn't reach the server." }));
@@ -156,6 +156,140 @@ function remoteSingleton<T extends { id: string }>(name: string): Collection<T> 
   };
 }
 
+// ---- Server collections with a save queue (plans/server-history.md) ----
+
+const SYNC_EVENT = "interviewprep:sync";
+type Op = { c: string; kind: "put"; item: { id: string } } | { c: string; kind: "remove"; id: string };
+
+/** Unsent saves live in localStorage, so a failed save survives a reload and is retried. */
+async function queueKey(): Promise<string | null> {
+  const auth = await getAuth();
+  return auth.mode === "supabase" && auth.user ? `${PREFIX}u:${auth.user.id}:pending` : null;
+}
+async function readQueue(): Promise<Op[]> {
+  const k = await queueKey();
+  return k ? read<Op>(k) : [];
+}
+async function writeQueue(ops: Op[]) {
+  const k = await queueKey();
+  if (!k) return;
+  try {
+    if (ops.length) window.localStorage.setItem(k, JSON.stringify(ops));
+    else window.localStorage.removeItem(k);
+  } catch (e) {
+    console.error("Couldn't keep the unsent changes", e);
+  }
+  window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: ops.length }));
+}
+
+async function sendOp(op: Op) {
+  const r =
+    op.kind === "put"
+      ? await fetch(`/api/db/${op.c}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(op.item) })
+      : await fetch(`/api/db/${op.c}/${encodeURIComponent(op.id)}`, { method: "DELETE" });
+  if (!r.ok) throw await apiError(r);
+}
+
+let flushing: Promise<void> | null = null;
+let flushAgain = false;
+
+/** Sends queued saves in order; stops at the first failure and keeps the rest for the next try. */
+function flushQueue(): Promise<void> {
+  if (flushing) {
+    flushAgain = true;
+    return flushing;
+  }
+  flushing = (async () => {
+    do {
+      flushAgain = false;
+      let ops = await readQueue();
+      while (ops.length) {
+        try {
+          await sendOp(ops[0]);
+        } catch (e) {
+          console.error("Save failed; will retry", e);
+          return;
+        }
+        // Re-read: more saves may have been queued while this one was in flight.
+        ops = (await readQueue()).slice(1);
+        await writeQueue(ops);
+      }
+    } while (flushAgain);
+  })().finally(() => {
+    flushing = null;
+  });
+  return flushing;
+}
+
+async function enqueue(op: Op) {
+  const ops = await readQueue();
+  // A newer save of the same item replaces an unsent older one.
+  const key = op.kind === "put" ? op.item.id : op.id;
+  await writeQueue([...ops.filter((o) => !(o.c === op.c && (o.kind === "put" ? o.item.id : o.id) === key)), op]);
+  void flushQueue();
+}
+
+/** Number of saves not yet on the server (shown as a quiet note by the shell). */
+export async function pendingSaves(): Promise<number> {
+  return (await readQueue()).length;
+}
+export const SYNC_EVENT_NAME = SYNC_EVENT;
+
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => void flushQueue());
+  window.addEventListener("focus", () => void flushQueue());
+}
+
+/**
+ * A collection with many items per user, stored by /api/db/[name]. Read once per page load, then
+ * served from memory; writes update memory and fire the change event at once, then go out through
+ * the save queue. Unsent saves are applied on top of what the server returns, so nothing flickers back.
+ */
+function remoteCollection<T extends { id: string }>(name: string): Collection<T> & { reset(): void } {
+  let cache: T[] | null = null;
+  let loading: Promise<T[]> | null = null;
+  const load = async (): Promise<T[]> => {
+    const r = await fetch(`/api/db/${name}`, { cache: "no-store" });
+    if (!r.ok) throw await apiError(r);
+    let items = ((await r.json()) as { items: T[] }).items;
+    for (const op of await readQueue()) {
+      if (op.c !== name) continue;
+      items = op.kind === "put" ? [...items.filter((i) => i.id !== op.item.id), op.item as T] : items.filter((i) => i.id !== op.id);
+    }
+    return items;
+  };
+  return {
+    reset() {
+      cache = null;
+      loading = null;
+    },
+    async list() {
+      if (cache) return cache;
+      loading ??= load().finally(() => {
+        loading = null;
+      });
+      cache = await loading;
+      return cache;
+    },
+    async get(id) {
+      return (await this.list()).find((i) => i.id === id);
+    },
+    async put(item) {
+      const items = await this.list();
+      const idx = items.findIndex((i) => i.id === item.id);
+      cache = idx >= 0 ? items.map((i, n) => (n === idx ? item : i)) : [...items, item];
+      notify();
+      await enqueue({ c: name, kind: "put", item });
+      return item;
+    },
+    async remove(id) {
+      cache = (await this.list()).filter((i) => i.id !== id);
+      notify();
+      await enqueue({ c: name, kind: "remove", id });
+    },
+  };
+}
+
 /** Uses `remote` when signed in with an account, `local` otherwise (AUTH_MODE=off). */
 function byAuth<T extends { id: string }>(remote: Collection<T>, local: Collection<T>): Collection<T> {
   const pick = async () => {
@@ -171,11 +305,25 @@ function byAuth<T extends { id: string }>(remote: Collection<T>, local: Collecti
 }
 
 const remoteProfile = remoteSingleton<Profile>("profile");
+const remote = {
+  sessions: remoteCollection<Session>("sessions"),
+  reports: remoteCollection<Report>("reports"),
+  roadmaps: remoteCollection<Roadmap>("roadmaps"),
+  stories: remoteCollection<Story>("stories"),
+  settings: remoteCollection<Settings>("settings"),
+  customPacks: remoteCollection<Pack>("customPacks"),
+  notes: remoteCollection<Note>("notes"),
+  binders: remoteCollection<Binder>("binders"),
+  cortexPages: remoteCollection<CortexPage>("cortexPages"),
+};
+type ListCollection = keyof typeof remote;
+const LIST_COLLECTIONS = Object.keys(remote) as ListCollection[];
 
 /** Forget the cached session and server data, then let every query reload. Call after sign-in or sign-out. */
 export function resetSession() {
   authRequest = null;
   remoteProfile.reset();
+  for (const c of LIST_COLLECTIONS) remote[c].reset();
   notify();
 }
 
@@ -203,58 +351,69 @@ async function adoptLocalData(auth: AuthState) {
   }
 }
 
+/**
+ * After history moved to the server: a signed-in user's collections in this browser are uploaded once
+ * (only items the server doesn't have), then marked as moved. The local copy is left as a backup.
+ */
+async function moveLocalToServer(auth: AuthState) {
+  if (auth.mode !== "supabase" || !auth.user) return;
+  const marker = `${PREFIX}u:${auth.user.id}:moved-to-server`;
+  try {
+    if (window.localStorage.getItem(marker)) return;
+    for (const c of LIST_COLLECTIONS) {
+      const local = read<{ id: string }>(storageKey(auth, c)!);
+      if (!local.length) continue;
+      const r = await fetch(`/api/db/${c}`, { cache: "no-store" });
+      if (!r.ok) throw await apiError(r);
+      const onServer = new Set(((await r.json()) as { items: { id: string }[] }).items.map((i) => i.id));
+      for (const item of local) if (!onServer.has(item.id)) await sendOp({ c, kind: "put", item });
+    }
+    window.localStorage.setItem(marker, new Date().toISOString());
+  } catch (e) {
+    // Try again on the next page load; uploads are upserts, so repeating is safe.
+    console.error("Couldn't move this browser's history to your account yet", e);
+  }
+}
+
 export const db = {
   profiles: byAuth(remoteProfile, localCollection<Profile>("profiles")),
-  sessions: localCollection<Session>("sessions"),
-  reports: localCollection<Report>("reports"),
-  roadmaps: localCollection<Roadmap>("roadmaps"),
-  stories: localCollection<Story>("stories"),
-  settings: localCollection<Settings>("settings"),
-  customPacks: localCollection<Pack>("customPacks"),
-  notes: localCollection<Note>("notes"),
-  binders: localCollection<Binder>("binders"),
-  cortexPages: localCollection<CortexPage>("cortexPages"),
-  /** Deletes this user's data: the local collections in this browser and, with accounts, the server profile. */
+  sessions: byAuth(remote.sessions, localCollection<Session>("sessions")),
+  reports: byAuth(remote.reports, localCollection<Report>("reports")),
+  roadmaps: byAuth(remote.roadmaps, localCollection<Roadmap>("roadmaps")),
+  stories: byAuth(remote.stories, localCollection<Story>("stories")),
+  settings: byAuth(remote.settings, localCollection<Settings>("settings")),
+  customPacks: byAuth(remote.customPacks, localCollection<Pack>("customPacks")),
+  notes: byAuth(remote.notes, localCollection<Note>("notes")),
+  binders: byAuth(remote.binders, localCollection<Binder>("binders")),
+  cortexPages: byAuth(remote.cortexPages, localCollection<CortexPage>("cortexPages")),
+  /** Deletes this user's data: on the server with accounts, plus anything left in this browser. */
   async clearAll() {
     const auth = await getAuth();
+    if (auth.mode === "supabase" && auth.user) {
+      await writeQueue([]);
+      for (const c of LIST_COLLECTIONS) {
+        const r = await fetch(`/api/db/${c}`, { method: "DELETE" });
+        if (!r.ok) throw await apiError(r);
+        remote[c].reset();
+      }
+      for (const p of await remoteProfile.list()) await remoteProfile.remove(p.id);
+    }
     for (const c of COLLECTIONS) {
       const k = storageKey(auth, c);
       if (k) window.localStorage.removeItem(k);
     }
-    if (auth.mode === "supabase" && auth.user) for (const p of await remoteProfile.list()) await remoteProfile.remove(p.id);
     notify();
   },
   async exportAll() {
-    const auth = await getAuth();
-    const local = (c: CollectionName) => {
-      const k = storageKey(auth, c);
-      return k ? read<unknown>(k) : [];
-    };
-    return {
-      profiles: await db.profiles.list(),
-      sessions: local("sessions"),
-      reports: local("reports"),
-      roadmaps: local("roadmaps"),
-      stories: local("stories"),
-      settings: local("settings"),
-      customPacks: local("customPacks"),
-      notes: local("notes"),
-      binders: local("binders"),
-      cortexPages: local("cortexPages"),
-    };
+    const out: Record<string, unknown[]> = { profiles: await db.profiles.list() };
+    for (const c of LIST_COLLECTIONS) out[c] = await db[c].list();
+    return out;
   },
   async importAll(data: Record<string, unknown>) {
-    const auth = await getAuth();
-    for (const c of COLLECTIONS) {
-      const items = data[c];
-      if (!Array.isArray(items)) continue;
-      if (c === "profiles") {
-        if (items[0]) await db.profiles.put(items[0] as Profile);
-        continue;
-      }
-      const k = storageKey(auth, c);
-      if (k) write(k, items);
-    }
+    const items = (c: string) => (Array.isArray(data[c]) ? (data[c] as { id: string }[]) : []);
+    const profile = items("profiles")[0];
+    if (profile) await db.profiles.put(profile as Profile);
+    for (const c of LIST_COLLECTIONS) for (const item of items(c)) await (db[c] as Collection<{ id: string }>).put(item);
   },
 };
 
