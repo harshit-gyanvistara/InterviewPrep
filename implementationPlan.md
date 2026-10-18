@@ -14,7 +14,7 @@ How this fits with the other docs:
 | [FLOWS.md](FLOWS.md) | How requests, sign-in, interviews, usage and deploys flow; the initial plan and every deviation from it | Before changing a flow |
 | [DECISIONS.md](DECISIONS.md) | Dated log of every decision made while building, with why and when to revisit | Before re-opening a choice |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
-| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md)) | Before working on that initiative |
+| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md), [Design refresh](plans/design-refresh.md)) | Before working on that initiative |
 
 > The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
