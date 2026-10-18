@@ -15,6 +15,7 @@ from live_agent.models import (
     RoadmapResult,
     TurnResult,
 )
+from live_agent.prompts import PROMPT_VERSIONS
 from live_agent.routes import assist, health, interview, packs, roadmap
 
 TOKEN = "test-token"
@@ -83,6 +84,7 @@ def test_turn(client, fake):
     res = client.post("/v1/interview/turn", json=body, headers=AUTH)
     assert res.status_code == 200
     assert res.json() == {"reply": "Why APIs?", "endInterview": False}
+    assert res.headers["X-Prompt-Version"] == PROMPT_VERSIONS["interview.turn"]
     call = fake.calls[0]
     assert call["task"] == "interview.turn"
     assert call["temperature"] == 0.8  # tough persona
@@ -110,6 +112,7 @@ def test_report_clamps_and_rounds_overall(client, fake, raw, expected):
     res = client.post("/v1/interview/report", json=body, headers=AUTH)
     assert res.status_code == 200
     assert res.json()["overall"] == expected
+    assert res.headers["X-Prompt-Version"] == PROMPT_VERSIONS["interview.report"]
     transcript = fake.calls[0]["turns"][0]["text"]
     assert "Marcus: Hi, tell me about yourself.\nAsha: I build APIs." in transcript
     assert transcript.endswith("[FINAL CODE IN EDITOR]\nprint(1)")

@@ -71,21 +71,32 @@ export const MessageSchema = z.object({
 const messages = z.array(MessageSchema).max(LIMITS.messages).default([]);
 const code = z.string().max(LIMITS.code).default("");
 
-export const TurnBodySchema = z.object({
+/**
+ * The interview's context as the browser holds it. Sent only when sign-in is off (no server copy);
+ * signed in, the routes load it from the database and ignore this (M2.6, plans/session-versioning-and-trusted-context.md).
+ */
+export const InterviewContextSchema = z.object({
   config: SessionConfigSchema,
   profile: ProfileSchema,
   pack: PackSchema,
   messages,
+});
+
+const sessionId = z.string().min(1).max(100);
+
+export const TurnBodySchema = z.object({
+  sessionId,
+  /** The candidate's new message; absent for the opening greeting. Ids make a retried turn safe. */
+  answer: z.object({ id: z.string().min(1).max(100), text: z.string().trim().min(1).max(LIMITS.message), at: z.number().nonnegative() }).optional(),
   elapsedSec: z.number().nonnegative().max(24 * 3600).default(0),
   code,
+  context: InterviewContextSchema.optional(),
 });
 
 export const ReportBodySchema = z.object({
-  config: SessionConfigSchema,
-  profile: ProfileSchema,
-  pack: PackSchema,
-  messages,
+  sessionId,
   code,
+  context: InterviewContextSchema.optional(),
 });
 
 export const PackGenerateBodySchema = z.object({
@@ -112,6 +123,7 @@ export const AssistBodySchema = z
 
 export type TurnBody = z.infer<typeof TurnBodySchema>;
 export type ReportBody = z.infer<typeof ReportBodySchema>;
+export type InterviewContext = z.infer<typeof InterviewContextSchema>;
 export type PackGenerateBody = z.infer<typeof PackGenerateBodySchema>;
 export type RoadmapBody = z.infer<typeof RoadmapBodySchema>;
 export type AssistBody = z.infer<typeof AssistBodySchema>;

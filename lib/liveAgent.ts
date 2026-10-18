@@ -35,6 +35,19 @@ export class ApiError extends Error {
  * status and message. The Gemini usage liveAgent reports is recorded against `user`, on errors too.
  */
 export async function callAgent<T>(path: string, body: unknown, opts: { user: AuthUser; timeoutMs?: number }): Promise<T> {
+  return (await callAgentWithMeta<T>(path, body, opts)).data;
+}
+
+/** What produced a liveAgent answer, for versioning sessions (plans/session-versioning-and-trusted-context.md). */
+export interface AgentMeta {
+  /** From the `X-Prompt-Version` header; null when the route doesn't version its prompt. */
+  promptVersion: string | null;
+  /** The Gemini models liveAgent called, in order. */
+  models: string[];
+}
+
+/** `callAgent`, plus the prompt version and models that produced the answer. */
+export async function callAgentWithMeta<T>(path: string, body: unknown, opts: { user: AuthUser; timeoutMs?: number }): Promise<{ data: T; meta: AgentMeta }> {
   const base = process.env.LIVE_AGENT_URL;
   if (!base) throw new ApiError(503, "LIVE_AGENT_URL is not set. Add it to .env.local and restart the dev server.");
 
@@ -64,7 +77,7 @@ export async function callAgent<T>(path: string, body: unknown, opts: { user: Au
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, (json as { error?: string }).error || `AI service error (${res.status})`);
-  return json as T;
+  return { data: json as T, meta: { promptVersion: res.headers.get("X-Prompt-Version"), models: [...new Set(calls.map((c) => c.model))] } };
 }
 
 /** The field-profile text liveAgent needs; the catalog and field inference stay in this app. */

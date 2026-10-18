@@ -31,7 +31,7 @@ Every PR meets these (the PR template has them as a checklist):
 
 - Lint, typecheck, tests and build pass.
 - If `lib/types.ts` or a route's request/response shape changed, [SPEC.md](SPEC.md) is updated in the same PR.
-- No Gemini SDK calls outside `liveAgent/live_agent/gemini.py`; no hardcoded model ids. A prompt change updates its golden; a contract change re-runs `npm run agent:types`.
+- No Gemini SDK calls outside `liveAgent/live_agent/gemini.py`; no hardcoded model ids. A prompt change updates its golden and bumps its `PROMPT_VERSIONS` entry in `liveAgent/live_agent/prompts.py`; a contract change re-runs `npm run agent:types`.
 - No `window.confirm/alert/prompt`; use `useConfirm()` / `usePrompt()`.
 - User-visible behaviour changes are reflected in [USER_FLOW.md](USER_FLOW.md).
 

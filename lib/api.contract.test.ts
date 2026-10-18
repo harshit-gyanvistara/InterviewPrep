@@ -31,7 +31,8 @@ const cases: Case[] = [
     bucket: "interview.turn",
     agentPath: "/v1/interview/turn",
     load: () => import("../app/api/interview/turn/route"),
-    body: { config, profile, pack, messages, elapsedSec: 42, code: "" },
+    // AUTH_MODE=off here, so the browser's context is used (signed in, it comes from the database).
+    body: { sessionId: "s1", answer: { id: "3", text: "Mostly Go.", at: 9000 }, elapsedSec: 42, code: "", context: { config, profile, pack, messages } },
     sent: (b) => {
       expect(b.persona).toMatchObject({ name: expect.any(String), tone: expect.any(String) });
       expect(b.domain).toMatchObject({ id: "software" });
@@ -39,6 +40,7 @@ const cases: Case[] = [
       expect(b.messages).toEqual([
         { role: "interviewer", text: "Tell me about yourself." },
         { role: "candidate", text: "I build APIs." },
+        { role: "candidate", text: "Mostly Go." },
       ]);
       expect(b.elapsedSec).toBe(42);
     },
@@ -48,7 +50,7 @@ const cases: Case[] = [
     bucket: "interview.report",
     agentPath: "/v1/interview/report",
     load: () => import("../app/api/interview/report/route"),
-    body: { config, profile, pack, messages, code: "" },
+    body: { sessionId: "s1", code: "", context: { config, profile, pack, messages } },
     sent: (b) => {
       expect(b.interviewerName).toEqual(expect.any(String));
       expect(b.domain).toMatchObject({ id: "software" });
@@ -127,14 +129,15 @@ afterEach(() => {
 });
 
 describe.each(cases)("POST /api/$name", ({ bucket, agentPath, load, body, sent }) => {
-  it("sends the shaped request to liveAgent and returns its JSON unchanged", async () => {
+  it("sends the shaped request to liveAgent and returns its JSON", async () => {
     const fetchSpy = agentReply(200, { ok: "from agent" });
     vi.stubGlobal("fetch", fetchSpy);
     const { POST } = await load();
 
     const res = await POST(post(body, nextIp()));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: "from agent" });
+    // The turn route adds the interviewer `message` it saved; everything else passes through.
+    expect(await res.json()).toMatchObject({ ok: "from agent" });
 
     expect(fetchSpy).toHaveBeenCalledOnce();
     const [url, init] = fetchSpy.mock.calls[0] as unknown as [URL, RequestInit];

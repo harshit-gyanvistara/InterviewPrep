@@ -15,6 +15,16 @@ from .limits import LIMITS
 from .models import AssistRequest, DomainIn, Message, Pack, PersonaIn, Profile, SessionConfig
 
 
+
+# The version of each prompt, sent to Core in an `X-Prompt-Version` header and stored on the session
+# (plans/session-versioning-and-trusted-context.md). Bump it whenever the prompt's golden output changes.
+
+PROMPT_VERSIONS = {
+    "interview.turn": "2026-10-19.1",
+    "interview.report": "2026-10-19.1",
+}
+
+
 def js_round(x: float) -> int:
     return math.floor(x + 0.5)
 

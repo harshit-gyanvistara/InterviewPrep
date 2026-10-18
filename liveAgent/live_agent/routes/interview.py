@@ -1,15 +1,16 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from ..gemini import MODELS, ApiError, generate_json
 from ..limits import LIMITS
 from ..models import ReportRequest, ReportResult, TurnRequest, TurnResult
-from ..prompts import interview_state, interviewer_system, js_round, recent_window, scoring_system, to_turns, transcript_text
+from ..prompts import PROMPT_VERSIONS, interview_state, interviewer_system, js_round, recent_window, scoring_system, to_turns, transcript_text
 
 router = APIRouter(prefix="/interview", tags=["interview"])
 
 
 @router.post("/turn")
-async def turn(body: TurnRequest) -> TurnResult:
+async def turn(body: TurnRequest, response: Response) -> TurnResult:
+    response.headers["X-Prompt-Version"] = PROMPT_VERSIONS["interview.turn"]
     state = interview_state(
         config=body.config,
         round_type=body.pack.round_type,
@@ -29,7 +30,8 @@ async def turn(body: TurnRequest) -> TurnResult:
 
 
 @router.post("/report")
-async def report(body: ReportRequest) -> ReportResult:
+async def report(body: ReportRequest, response: Response) -> ReportResult:
+    response.headers["X-Prompt-Version"] = PROMPT_VERSIONS["interview.report"]
     if not any(m.role == "candidate" for m in body.messages):
         raise ApiError(422, "No candidate answers to evaluate.")
 

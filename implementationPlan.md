@@ -14,7 +14,7 @@ How this fits with the other docs:
 | [FLOWS.md](FLOWS.md) | How requests, sign-in, interviews, usage and deploys flow; the initial plan and every deviation from it | Before changing a flow |
 | [DECISIONS.md](DECISIONS.md) | Dated log of every decision made while building, with why and when to revisit | Before re-opening a choice |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
-| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md), [Design refresh](plans/design-refresh.md), [History on the server](plans/server-history.md)) | Before working on that initiative |
+| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md), [Design refresh](plans/design-refresh.md), [History on the server](plans/server-history.md), [Session versioning and trusted context](plans/session-versioning-and-trusted-context.md)) | Before working on that initiative |
 
 > The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -88,7 +88,7 @@ Two properties to internalise, because most of the plan follows from them:
 
 1. `/practice` creates a `Session { status: "lobby" }` via `db.sessions.put`.
 2. `/interview/[id]` shows the Lobby. Cancel deletes the session; Join sets `status: "active"`.
-3. Each candidate answer appends a `Message`, then `POST /api/interview/turn` with `{config, profile, pack, messages, elapsedSec, code}`. The route builds `interviewerSystem(...)`, sends the **last 60** messages (`LIMITS.history_messages`), gets `{reply, endInterview}`.
+3. Each candidate answer appends a `Message`, then `POST /api/interview/turn` with `{sessionId, answer, elapsedSec, code}`. Signed in, the route loads config, profile, pack and transcript from Supabase (`lib/interviewContext.ts`), saves the answer and reply, and returns the reply as `message`; with `AUTH_MODE=off` the browser also sends `context`. liveAgent builds `interviewerSystem(...)`, sends the **last 60** messages (`LIMITS.history_messages`), gets `{reply, endInterview}`.
 4. On end (button, timer + 45s, or `endInterview: true`): `status: "scoring"`, `POST /api/interview/report`. Failure → back to `active` with transcript kept.
 5. The client adds `id`, `sessionId`, `packId`, `createdAt` and `signals` (from `lib/analysis.ts::computeSignals`) and saves the `Report`; session becomes `done`.
 
@@ -211,10 +211,10 @@ Goal: real users, data across devices, foundation for billing and B2B.
 |---|---|
 | M2.1 Auth (D3) | Sign-in, session cookie, `userId` available in route handlers; `/welcome` becomes public, everything else requires auth + onboarding. **First slice done (2026-10-14)**, see [plans/auth.md](plans/auth.md): email-code sign-in (Google on the web), `proxy.ts` + `lib/auth.ts`, every AI route 401 without a session and rate-limited per user, `users`/`profiles`/`consents` with RLS, profile on the server via `/api/db/profile`, per-user `localStorage` prefix with one-time takeover of earlier data, delete account. Remaining before real users: M1.7 deploy, SMTP, Supabase email templates |
 | M2.2 Schema (D2) | **Done for user collections (2026-10-19)**, see [plans/server-history.md](plans/server-history.md). Tables: `users`, `profiles`, `settings`, `sessions` (messages as JSONB to start), `reports`, `custom_packs`, `roadmaps`, `stories`, `notes`, `binders`, `cortex_pages`, `usage_ledger`. Every row has `user_id` |
-| M2.3 Versioning fields (G8) | `sessions.pack_snapshot` (the exact pack JSON used), `prompt_version`, `rubric_version`, `model_ids` |
+| M2.3 Versioning fields (G8) | **Done (2026-10-19)**, see [plans/session-versioning-and-trusted-context.md](plans/session-versioning-and-trusted-context.md): server-only columns, `prompt_versions` from liveAgent's `X-Prompt-Version`. `sessions.pack_snapshot` (the exact pack JSON used), `prompt_version`, `rubric_version`, `model_ids` |
 | M2.4 CRUD routes | **Done (2026-10-19).** `/api/db/[collection]` (or per-resource routes) with ownership checks on every read/write |
 | M2.5 Swap the adapter | **Done (2026-10-19)**, with a retry queue. Re-implement `localCollection` as `remoteCollection` calling M2.4; keep the same `Collection<T>` interface and the change-event reactivity so pages don't change |
-| M2.6 Server-trusted context | `/api/interview/turn` and `/report` load `profile`, `pack` and `session` from the DB by `sessionId` instead of trusting the body; client sends only the new answer + code |
+| M2.6 Server-trusted context | **Done (2026-10-19)**, same plan; the browser's context is still accepted with `AUTH_MODE=off`. `/api/interview/turn` and `/report` load `profile`, `pack` and `session` from the DB by `sessionId` instead of trusting the body; client sends only the new answer + code |
 | M2.7 Local import (D9) | First sign-in offers to upload the `exportAll()` JSON |
 | M2.8 Privacy | Consent copy, retention policy, "delete my account" deleting all rows, export (DSAR) via existing export JSON |
 | M2.9 E2E | Playwright: onboarding → mock (text mode, Gemini mocked) → report → progress |

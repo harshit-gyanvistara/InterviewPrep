@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · The server owns the interview context; sessions record versions (M2.3, M2.6)
+- **Decision:** Signed in, `/api/interview/turn` and `/report` take only `{ sessionId, answer?, elapsedSec, code }` and load the transcript, config, profile and pack from Supabase. The turn route appends the answer (once per answer id) and the reply, and saves them. The first AI call freezes the pack into `sessions.pack_snapshot`. `prompt_versions` (from liveAgent's `X-Prompt-Version` header), `rubric_version` (a hash of the rubric) and `model_ids` sit next to it as columns that only the server writes. With `AUTH_MODE=off` the browser still sends its context. See [plans/session-versioning-and-trusted-context.md](plans/session-versioning-and-trusted-context.md).
+- **Why:** A user could edit the request and get a transcript scored that they never spoke, or swap the rubric. Old reports couldn't be explained after a pack or prompt changed. Using columns keeps the client's `data` upserts from erasing the versions.
+- **Considered:** Version fields inside `data` (any client save would overwrite them); a prompt hash computed in Core (Core doesn't see the prompts); having the server write the whole session (would need a different client adapter for one collection).
+- **Revisit:** When voice (M3) moves turn-taking into the agent, or when a re-score job needs the versions back in the client.
+
 ## 2026-10-19 · History moves to the server (M2.2, M2.4, M2.5)
 - **Decision:** Sessions, reports, roadmaps, stories, settings, custom packs, notes, binders and Cortex pages each get a Supabase table of the same shape (`user_id`, `id`, `data` JSONB, timestamps; RLS own rows; `org_id` on sessions and reports). `/api/db/<name>` lists and upserts, `/api/db/<name>/<id>` deletes. `remoteCollection` in `lib/db.ts` caches per page load, updates the screen at once and sends writes through a retry queue saved in localStorage; a newer save of the same item replaces an unsent one. Each signed-in browser uploads its older local data once (only ids the server lacks) and keeps the local copy as a backup.
 - **Why:** History has to follow the user across devices, and later work (org views, billing, analytics) needs it on the server. Pages didn't change because they already used the `Collection` interface.

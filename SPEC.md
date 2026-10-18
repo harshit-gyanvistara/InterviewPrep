@@ -266,17 +266,18 @@ The AI routes (5.1–5.6) are thin proxies: Core resolves the field (and for int
 ### 5.1 `POST /api/interview/turn`
 Request:
 ```ts
-{ config: SessionConfig; profile: Profile; pack: Pack; messages: Message[]; elapsedSec: number; code?: string }
+{ sessionId: string; answer?: { id: string; text: string; at: number }; elapsedSec: number; code?: string;
+  context?: { config: SessionConfig; profile: Profile; pack: Pack; messages: Message[] } } // only with AUTH_MODE=off
 ```
-Behavior: body validated by `TurnBodySchema` (§5.0); resolves the field from the profile; counts prior interviewer turns for the STATE note; calls `generateJson` with `MODELS.chat`, `temperature: config.persona === "tough" ? 0.8 : 0.7`, the static `interviewerSystem`, and `toTurns(recentWindow(messages), interviewState(...))`: at most 60 messages, older context dropped (not summarized).
-Response: `{ reply: string; endInterview: boolean }` or `{ error: string }` with non-200 status.
+Behavior: body validated by `TurnBodySchema` (§5.0). Signed in, config, profile, pack and transcript are loaded from Supabase (`lib/interviewContext.ts`) and `context` is ignored; **409** if the session isn't on the server yet. The pack comes from `sessions.pack_snapshot`, frozen on the first call. `answer` is appended unless its id is already in the transcript. Answer and reply are saved, along with `prompt_versions`/`rubric_version`/`model_ids`. Resolves the field from the profile; counts prior interviewer turns for the STATE note; calls `generateJson` with `MODELS.chat`, `temperature: config.persona === "tough" ? 0.8 : 0.7`, the static `interviewerSystem`, and `toTurns(recentWindow(messages), interviewState(...))`: at most 60 messages, older context dropped (not summarized).
+Response: `{ reply: string; endInterview: boolean; message: Message }` (`message` is the reply as saved) or `{ error: string }` with non-200 status.
 
 ### 5.2 `POST /api/interview/report`
 Request:
 ```ts
-{ config: SessionConfig; profile: Profile; pack: Pack; messages: Message[]; code?: string }
+{ sessionId: string; code?: string; context?: { config; profile; pack; messages } } // context only with AUTH_MODE=off
 ```
-Behavior: body validated by `ReportBodySchema` (§5.0); **422** if zero candidate turns ("No candidate answers to evaluate"); builds transcript (appends final code under a `[FINAL CODE IN EDITOR]` marker, truncated 6000 chars) capped at 40,000 chars total; calls `generateJson` with `MODELS.scoring`, `temperature: 0.2`; clamps `overall` to `[0, 100]` and rounds it after the response.
+Behavior: body validated by `ReportBodySchema` (§5.0); the transcript, config, profile and pack are loaded as in §5.1 and the report's prompt version is stamped on the session; **422** if zero candidate turns ("No candidate answers to evaluate"); builds transcript (appends final code under a `[FINAL CODE IN EDITOR]` marker, truncated 6000 chars) capped at 40,000 chars total; calls `generateJson` with `MODELS.scoring`, `temperature: 0.2`; clamps `overall` to `[0, 100]` and rounds it after the response.
 Response: `Pick<Report, "overall"|"verdict"|"summary"|"strengths"|"topFixes"> & { dimensions: DimensionScore[]; answerReviews: AnswerReview[] }` — note this is **not** a full `Report`: the caller must still attach `id`, `sessionId`, `packId`, `createdAt`, and `signals` (computed locally) before persisting.
 
 ### 5.3 `POST /api/pack/generate`

@@ -167,19 +167,38 @@ describe("routes", () => {
     vi.stubEnv("SUPABASE_URL", "https://project.supabase.test");
     vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test");
     vi.stubEnv("LIVE_AGENT_URL", "http://agent.test");
+    userDb([]);
+  });
+
+  /**
+   * A fake user-scoped client holding one session (`messages` so far) and the profile. The pack is
+   * a built-in, so it resolves from the code catalog. Records the session updates the route makes.
+   */
+  function userDb(messages: unknown[], snapshot: unknown = null) {
+    const updates: Record<string, unknown>[] = [];
+    const rows: Record<string, unknown> = {
+      sessions: { data: { id: "s1", config: { packId: "behavioural", persona: "neutral", durationMin: 15 }, messages, code: "" }, pack_snapshot: snapshot, prompt_versions: null, model_ids: [] },
+      profiles: { data: { name: "Asha", targetRole: "Backend Developer" } },
+    };
+    const query = (table: string) => {
+      const q = { eq: () => q, maybeSingle: async () => ({ data: rows[table] ?? null, error: null }) };
+      return q;
+    };
+    const update = (row: Record<string, unknown>) => {
+      updates.push(row);
+      const q = { eq: () => q, then: (ok: (v: unknown) => void) => ok({ error: null }) };
+      return q;
+    };
     vi.mocked(getSupabaseForRequest).mockResolvedValue({
       auth: { getClaims: vi.fn(async () => ({ data: { claims: { sub: user.id, email: user.email } }, error: null })) },
+      from: (table: string) => ({ select: () => query(table), update }),
     } as unknown as SupabaseClient);
-  });
+    return { updates };
+  }
 
   afterEach(() => vi.mocked(getSupabaseAdmin).mockReturnValue(null));
 
-  const turnBody = (messages: unknown[]) => ({
-    config: { packId: "behavioural", persona: "neutral", durationMin: 15 },
-    profile: { name: "Asha", targetRole: "Backend Developer" },
-    pack: { id: "behavioural", title: "B", company: "Any", role: "Any", roundType: "behavioural", description: "d", durationMin: 15, topics: ["t"], rubric: ["r"], style: "s" },
-    messages,
-  });
+  const turnBody = (answer?: string) => ({ sessionId: "s1", ...(answer ? { answer: { id: "a1", text: answer, at: 2000 } } : {}) });
   const post = (body: unknown) =>
     new Request("http://localhost/api/interview/turn", { method: "POST", headers: { "Content-Type": "application/json", "x-forwarded-for": `198.51.100.${Math.floor(Math.random() * 250)}` }, body: JSON.stringify(body) });
 
@@ -189,12 +208,13 @@ describe("routes", () => {
     vi.stubGlobal("fetch", fetchSpy);
     const { POST } = await import("../app/api/interview/turn/route");
 
-    const start = await POST(post(turnBody([])));
+    const start = await POST(post(turnBody()));
     expect(start.status).toBe(429);
     expect((await start.json()).error).toMatch(/all 5 mock interviews for today/);
     expect(fetchSpy).not.toHaveBeenCalled();
 
-    const ongoing = await POST(post(turnBody([{ role: "interviewer", text: "Hi", ts: 1 }, { role: "candidate", text: "Hello", ts: 2 }])));
+    userDb([{ id: "m1", role: "interviewer", text: "Hi", at: 1 }]);
+    const ongoing = await POST(post(turnBody("Hello")));
     expect(ongoing.status).toBe(200);
   });
 
@@ -202,7 +222,60 @@ describe("routes", () => {
     const { inserts } = ledgerWith(0);
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reply: "Hi", done: false }), { status: 200 })));
     const { POST } = await import("../app/api/interview/turn/route");
-    expect((await POST(post(turnBody([])))).status).toBe(200);
+    expect((await POST(post(turnBody()))).status).toBe(200);
     expect(inserts).toEqual([expect.objectContaining({ user_id: user.id, meter: "ai_calls", amount: 1, request_id: expect.any(String) })]);
+  });
+
+  it("saves the transcript, pack snapshot and versions on the session, from the database not the body", async () => {
+    ledgerWith(0);
+    const { updates } = userDb([{ id: "m1", role: "interviewer", text: "Hi", at: 1 }]);
+    const fetchSpy = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ reply: "Why Go?", endInterview: false }), {
+          status: 200,
+          headers: { "X-Prompt-Version": "turn-v7", "X-LLM-Usage": JSON.stringify([{ task: "interview.turn", model: "gemini-x", ms: 1, inputTokens: 1, cachedTokens: 0, outputTokens: 1, thoughtTokens: 0, ok: true }]) },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+    const { POST } = await import("../app/api/interview/turn/route");
+
+    // A forged context is ignored when signed in; a retried answer isn't added twice.
+    const forged = { config: { persona: "tough", durationMin: 1 }, profile: { name: "Mallory" }, pack: { title: "X", roundType: "behavioural", topics: ["x"], rubric: ["x"] }, messages: [] };
+    const res = await POST(post({ ...turnBody("Hello"), elapsedSec: 30, context: forged }));
+    expect(res.status).toBe(200);
+    const out = await res.json();
+    expect(out).toMatchObject({ reply: "Why Go?", message: { role: "interviewer", text: "Why Go?", at: 30_000 } });
+
+    const sent = JSON.parse(String((fetchSpy.mock.calls[0] as unknown as [URL, RequestInit])[1].body));
+    expect(sent.profile.name).toBe("Asha");
+    expect(sent.pack.title).not.toBe("X");
+    expect(sent.messages).toEqual([
+      { role: "interviewer", text: "Hi" },
+      { role: "candidate", text: "Hello" },
+    ]);
+
+    expect(updates).toHaveLength(1);
+    const saved = updates[0] as { data: { messages: { id: string }[] }; pack_snapshot: { id: string }; prompt_versions: unknown; rubric_version: string; model_ids: string[] };
+    expect(saved.data.messages.map((m) => m.id)).toEqual(["m1", "a1", out.message.id]);
+    expect(saved.pack_snapshot.id).toBe("behavioural");
+    expect(saved.prompt_versions).toEqual({ turn: "turn-v7" });
+    expect(saved.rubric_version).toMatch(/^[0-9a-f]{12}$/);
+    expect(saved.model_ids).toEqual(["gemini-x"]);
+
+    userDb([{ id: "m1", role: "interviewer", text: "Hi", at: 1 }, { id: "a1", role: "candidate", text: "Hello", at: 2000 }]);
+    await POST(post(turnBody("Hello")));
+    const retried = JSON.parse(String((fetchSpy.mock.calls[1] as unknown as [URL, RequestInit])[1].body));
+    expect(retried.messages).toHaveLength(2);
+  });
+
+  it("uses the session's pack snapshot over the current catalog", async () => {
+    ledgerWith(0);
+    const snapshot = { id: "behavioural", title: "Frozen round", company: "", role: "", roundType: "behavioural", description: "", durationMin: 15, topics: ["old"], rubric: ["old"], style: "", domains: "all" };
+    userDb([], snapshot);
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ reply: "Hi", endInterview: false }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchSpy);
+    const { POST } = await import("../app/api/interview/turn/route");
+    expect((await POST(post(turnBody()))).status).toBe(200);
+    expect(JSON.parse(String((fetchSpy.mock.calls[0] as unknown as [URL, RequestInit])[1].body)).pack.title).toBe("Frozen round");
   });
 });

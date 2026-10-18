@@ -69,8 +69,9 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 
 1. `/practice` creates a session (`lobby`).
 2. `/interview/[id]`: Lobby → Join (`active`).
-3. Each candidate answer → `POST /api/interview/turn` (flow 1) → the interviewer's next line. The client keeps the transcript, so a refresh resumes.
-4. End (button, timer + 45 s, or the model ends it) → `scoring` → `POST /api/interview/report` (Pro model, up to 115 s). On failure it returns to `active` with the transcript kept.
+3. Each candidate answer → `POST /api/interview/turn` with `{ sessionId, answer, elapsedSec, code }` (flow 1). The server loads the transcript, profile and pack from Supabase (the pack is frozen into `sessions.pack_snapshot` on the first call), adds the answer and the reply, saves them, and returns the reply as a message. The client saves that same message, so a refresh resumes. A 409 (the session's first save hasn't arrived yet) is retried once.
+4. End (button, timer + 45 s, or the model ends it) → `scoring` → `POST /api/interview/report` with `{ sessionId, code }`; the transcript comes from the server (Pro model, up to 115 s). On failure it returns to `active` with the transcript kept.
+   Each call stamps `prompt_versions`, `rubric_version` and `model_ids` on the session ([plans/session-versioning-and-trusted-context.md](plans/session-versioning-and-trusted-context.md)). With `AUTH_MODE=off` the browser also sends `context` (config, profile, pack, messages), and nothing is saved on the server.
 5. The client saves the report with signals from `lib/analysis.ts`; the session becomes `done`.
 
 ## 5. Usage and cost

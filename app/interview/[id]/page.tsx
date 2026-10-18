@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Camera, CameraOff, Loader2, Mic, MicOff, PhoneOff, Send, StickyNote, Volume2, VolumeX } from "lucide-react";
-import { db, uid, useAllPacks, useSettings } from "@/lib/db";
+import { db, getAuth, uid, useAllPacks, useSettings } from "@/lib/db";
 import { Lobby } from "@/components/Lobby";
 import { NoteChip } from "@/components/NoteChip";
 import { PERSONAS } from "@/lib/packs";
@@ -11,15 +11,32 @@ import { computeSignals } from "@/lib/analysis";
 import { useListen, useSpeak } from "@/lib/useSpeech";
 import { useNotesPanel } from "@/lib/notesContext";
 import { useConfirm } from "@/lib/dialogContext";
-import type { Message, Profile, Report, Session } from "@/lib/types";
+import type { Message, Pack, Profile, Report, Session } from "@/lib/types";
 
 const fmt = (s: number) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, "0")}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
 
 async function post<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
-  return json as T;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json().catch(() => ({}));
+    // 409: the session's first save hasn't reached the server yet; give the save queue a moment.
+    if (res.status === 409 && attempt === 0) {
+      await new Promise((r) => setTimeout(r, 1500));
+      continue;
+    }
+    if (!res.ok) throw new Error(json.error || `Request failed (${res.status})`);
+    return json as T;
+  }
+}
+
+/**
+ * The interview's context, sent only when signed out (AUTH_MODE=off). Signed in, the server loads it
+ * from the database and the browser sends just the session id and the new answer (M2.6).
+ */
+async function browserContext(s: Session, profile: Profile, pack: Pack | undefined, messages: Message[]) {
+  const auth = await getAuth();
+  if (auth.mode === "supabase" && auth.user) return undefined;
+  return { config: s.config, profile, pack, messages };
 }
 
 export default function InterviewRoom() {
@@ -100,11 +117,9 @@ export default function InterviewRoom() {
     await persist((x) => ({ ...x, status: "scoring", endedAt: Date.now() }));
     try {
       const scored = await post<Omit<Report, "id" | "sessionId" | "packId" | "createdAt" | "signals">>("/api/interview/report", {
-        config: s.config,
-        profile,
-        pack: byIdRef.current(s.config.packId),
-        messages: s.messages,
+        sessionId: s.id,
         code: s.code,
+        context: await browserContext(s, profile, byIdRef.current(s.config.packId), s.messages),
       });
       const report: Report = {
         ...scored,
@@ -133,22 +148,22 @@ export default function InterviewRoom() {
   });
 
   const requestTurn = useCallback(
-    async (messages: Message[]) => {
+    async (answer?: Message) => {
       const s = sessionRef.current;
       if (!s || !profile) return;
       setBusy(true);
       setError(null);
       try {
-        const out = await post<{ reply: string; endInterview: boolean }>("/api/interview/turn", {
-          config: s.config,
-          profile,
-          pack: byIdRef.current(s.config.packId),
-          messages,
+        // The server adds the answer and the reply to its copy and returns the reply as a message,
+        // so both copies keep the same ids.
+        const out = await post<{ reply: string; endInterview: boolean; message: Message }>("/api/interview/turn", {
+          sessionId: s.id,
+          answer: answer && { id: answer.id, text: answer.text, at: answer.at },
           elapsedSec: (Date.now() - s.startedAt) / 1000,
           code: s.code,
+          context: await browserContext(s, profile, byIdRef.current(s.config.packId), s.messages.filter((m) => m.id !== answer?.id)),
         });
-        const msg: Message = { id: uid(), role: "interviewer", text: out.reply, at: Date.now() - s.startedAt };
-        await persist((x) => ({ ...x, messages: [...x.messages, msg] }));
+        await persist((x) => ({ ...x, messages: [...x.messages, out.message] }));
         const after = () => {
           if (out.endInterview) finish();
           else if (voiceRef.current && settingsRef.current.autoListen && listenRef.current.supported) listenRef.current.start();
@@ -164,6 +179,12 @@ export default function InterviewRoom() {
     [profile, persist, speech, finish],
   );
 
+  // Retrying resends the last answer if it got no reply; the server won't add it twice.
+  function retryTurn() {
+    const last = sessionRef.current?.messages.at(-1);
+    return requestTurn(last?.role === "candidate" ? last : undefined);
+  }
+
   function submit(raw: string) {
     const t = raw.trim();
     const s = sessionRef.current;
@@ -172,15 +193,14 @@ export default function InterviewRoom() {
     listenRef.current.stop();
     setText("");
     const msg: Message = { id: uid(), role: "candidate", text: t, at: Date.now() - s.startedAt };
-    const messages = [...s.messages, msg];
-    persist((x) => ({ ...x, messages })).then(() => requestTurn(messages));
+    persist((x) => ({ ...x, messages: [...x.messages, msg] })).then(() => requestTurn(msg));
   }
 
   // opening question (guarded against StrictMode double-run)
   useEffect(() => {
     if (!session || !profile || !pack || session.status !== "active" || startedRef.current) return;
     startedRef.current = true;
-    if (session.messages.length === 0) setTimeout(() => requestTurn([]), 0);
+    if (session.messages.length === 0) setTimeout(() => requestTurn(), 0);
   }, [session, profile, pack, requestTurn]);
 
   // ---- timer
@@ -386,7 +406,7 @@ export default function InterviewRoom() {
             <span>{error}</span>
             <button
               className="btn btn-ghost"
-              onClick={() => (session.status === "active" && session.messages.length ? (finishingRef.current ? finish() : requestTurn(session.messages)) : requestTurn([]))}
+              onClick={() => (session.status === "active" && session.messages.length ? (finishingRef.current ? finish() : retryTurn()) : requestTurn())}
             >
               Retry
             </button>
