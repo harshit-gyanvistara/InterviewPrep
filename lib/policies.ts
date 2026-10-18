@@ -92,6 +92,7 @@ export async function requireAllowance(user: AuthUser, meter: Meter, store?: Usa
   if (s.allowed) return;
   console.warn(JSON.stringify({ event: "usage.blocked", meter, userId: user.id, used: s.used, limit: s.limit }));
   const retryAfterSec = s.resetsAt ? Math.max(1, Math.ceil((s.resetsAt - Date.now()) / 1000)) : undefined;
+  if (s.limit === 0) throw new ApiError(403, `${NOUN[meter][0].toUpperCase()}${NOUN[meter].slice(1)} aren't included in your plan.`);
   const span = (await allowanceFor(user, meter))?.period === "month" ? "this month" : "today";
   throw new ApiError(429, `You've used all ${s.limit} ${NOUN[meter]} for ${span}.${resetText(s.resetsAt)}`, { retryAfterSec });
 }

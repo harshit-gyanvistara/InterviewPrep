@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Card } from "@/components/Shell";
@@ -19,6 +19,14 @@ export default function Onboarding() {
   const [draft, setDraft] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The page sits inside the shell's scrolling <main>; start each step at the top, or a long step
+  // (Your goal) leaves the next one scrolled down with the step indicator out of view.
+  const goTo = (next: number) => {
+    setStep(next);
+    rootRef.current?.closest("main")?.scrollTo({ top: 0 });
+  };
 
   if (loading) return null;
 
@@ -56,7 +64,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div ref={rootRef} className="mx-auto max-w-2xl">
       <ol className="mb-6 flex items-center justify-center gap-2 text-xs">
         {STEPS.map((s, i) => (
           <li key={s} className="flex items-center gap-2">
@@ -162,10 +170,10 @@ export default function Onboarding() {
 
         {step < 4 && (
           <div className="mt-6 flex items-center justify-between">
-            <button className="btn btn-ghost" disabled={step === 0} onClick={() => setStep(step - 1)}><ArrowLeft size={16} /> Back</button>
+            <button className="btn btn-ghost" disabled={step === 0} onClick={() => goTo(step - 1)}><ArrowLeft size={16} /> Back</button>
             <div className="flex gap-2">
-              {step === 2 && <button className="btn btn-ghost" onClick={() => setStep(3)}>Skip</button>}
-              <button className="btn btn-primary" disabled={!canNext} onClick={() => setStep(step + 1)}>Continue <ArrowRight size={16} /></button>
+              {step === 2 && <button className="btn btn-ghost" onClick={() => goTo(3)}>Skip</button>}
+              <button className="btn btn-primary" disabled={!canNext} onClick={() => goTo(step + 1)}>Continue <ArrowRight size={16} /></button>
             </div>
           </div>
         )}

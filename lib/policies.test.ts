@@ -119,6 +119,14 @@ describe("checkEntitlement / requireAllowance", () => {
     expect((await checkEntitlement(user, "mocks", store)).allowed).toBe(true);
   });
 
+  it("says a meter isn't included when its limit is 0 (403, not a countdown)", async () => {
+    vi.mocked(getSupabaseAdmin).mockReturnValue({
+      from: () => ({ select: () => ({ eq: async () => ({ data: [{ id: "beta", allowances: { mocks: { limit: 0, period: "day" } } }], error: null }) }) }),
+    } as unknown as SupabaseClient);
+    await expect(requireAllowance(user, "mocks", memoryLedger().store)).rejects.toMatchObject({ status: 403, message: "Mock interviews aren't included in your plan." });
+    vi.mocked(getSupabaseAdmin).mockReturnValue(null);
+  });
+
   it("treats an unlimited allowance as always allowed", async () => {
     vi.stubEnv("PACKAGE_DEFAULT", "pro");
     const { store } = memoryLedger();
