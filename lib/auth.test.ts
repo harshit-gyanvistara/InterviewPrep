@@ -33,7 +33,7 @@ function fakeClient(sub?: string) {
       getClaims: vi.fn(async () => ({ data: sub ? { claims: { sub, email: "asha@example.com" } } : null, error: null })),
       signInWithOtp: vi.fn<(arg: unknown) => Promise<{ error: null | { status: number; code: string } }>>(async () => ({ error: null })),
       verifyOtp: vi.fn<(arg: unknown) => Promise<{ data: { user: { id: string } | null }; error: unknown }>>(async () => ({ data: { user: { id: USER_ID } }, error: null })),
-      exchangeCodeForSession: vi.fn<(code: string) => Promise<{ data: { user: { id: string } | null }; error: unknown }>>(async () => ({ data: { user: { id: USER_ID } }, error: null })),
+      exchangeCodeForSession: vi.fn<(code: string) => Promise<{ data: { user: { id: string; email?: string } | null }; error: unknown }>>(async () => ({ data: { user: { id: USER_ID } }, error: null })),
       signOut: vi.fn<(arg?: unknown) => Promise<{ error: null }>>(async () => ({ error: null })),
     },
   };
@@ -150,6 +150,18 @@ describe("AI routes require a signed-in user", () => {
     expect(await res.json()).toMatchObject({ ok: false, error: "Sign in to continue." });
   });
 
+  it("returns 403 to a signed-in user who isn't on the beta list", async () => {
+    accountsOn();
+    vi.stubEnv("BETA_ALLOWED_EMAILS", "someone@else.com");
+    signedInAs("beta-outsider");
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const { POST } = await import("../app/api/ai/assist/route");
+    const res = await POST(json({ mode: "improve", text: "x" }));
+    expect(res.status).toBe(403);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("rate-limits a signed-in user across IPs", async () => {
     accountsOn();
     signedInAs("rate-limit-user");
@@ -207,6 +219,20 @@ describe("email sign-in", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/Temporary inboxes/);
     expect(client.auth.signInWithOtp).not.toHaveBeenCalled();
+  });
+
+  it("refuses emails outside the beta list, allowing listed emails and @domains", async () => {
+    accountsOn();
+    vi.stubEnv("BETA_ALLOWED_EMAILS", "asha@example.com, @team.test");
+    const client = signedInAs(undefined);
+    const { POST } = await import("../app/api/auth/otp/route");
+
+    const res = await POST(json({ email: "stranger@gmail.com" }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toMatch(/private beta/);
+    expect(client.auth.signInWithOtp).not.toHaveBeenCalled();
+    expect((await POST(json({ email: "Asha@Example.com" }))).status).toBe(200);
+    expect((await POST(json({ email: "ravi@team.test" }))).status).toBe(200);
   });
 
   it("maps Supabase failures: its rate limit to 429, anything else to 502", async () => {
@@ -272,6 +298,17 @@ describe("GET /auth/callback (Google, or the link in a sign-in email)", () => {
     expect((await GET(get("?error=access_denied"))).headers.get("location")).toBe("http://localhost/sign-in?error=callback");
     client.auth.exchangeCodeForSession.mockResolvedValueOnce({ data: { user: null }, error: { code: "bad_code_verifier" } });
     expect((await GET(get("?code=abc"))).headers.get("location")).toBe("http://localhost/sign-in?error=callback");
+    expect(ensureTermsConsent).not.toHaveBeenCalled();
+  });
+
+  it("signs out anyone not on the beta list", async () => {
+    accountsOn();
+    vi.stubEnv("BETA_ALLOWED_EMAILS", "asha@example.com");
+    const client = signedInAs(undefined);
+    const { GET } = await import("../app/auth/callback/route");
+    client.auth.exchangeCodeForSession.mockResolvedValueOnce({ data: { user: { id: USER_ID, email: "stranger@gmail.com" } }, error: null });
+    expect((await GET(get("?code=abc"))).headers.get("location")).toBe("http://localhost/sign-in?error=beta");
+    expect(client.auth.signOut).toHaveBeenCalled();
     expect(ensureTermsConsent).not.toHaveBeenCalled();
   });
 });

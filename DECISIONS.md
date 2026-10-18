@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-18 · Private beta: invite list
+- **Decision:** `BETA_ALLOWED_EMAILS` (comma-separated emails and `@domain` entries) limits who can use staging. Checked at three points: `POST /api/auth/otp` (403 before Supabase sends anything), `/auth/callback` (signs out a Google user who isn't listed), and `authorize()` (403 on every AI route, so removing someone cuts off Gemini immediately). Empty means open. Staging starts with only the owner's address.
+- **Why:** The beta runs on the owner's Gemini and Resend budgets; blocking temporary inboxes alone still lets anyone with a Gmail in.
+- **Considered:** Turning off sign-ups in Supabase (works, but then every tester's account is made by hand, and it doesn't stop AI use by existing accounts); an invites table in the database (more to build before M2.2).
+- **Revisit:** Before the public free tier, when usage limits per plan (M6) replace the list.
+
 ## 2026-10-18 · Temporary inboxes can't sign in
 - **Decision:** `POST /api/auth/otp` refuses addresses on the `disposable-email-domains-js` list (about 5,000 domains, yopmail and mailinator among them), including their subdomains, with a 400 before Supabase is called. `BLOCKED_EMAIL_DOMAINS` adds domains per deployment without a release. See `lib/emailPolicy.ts`.
 - **Why:** Anyone can read those inboxes, so they'd let one person create unlimited free accounts and spend our Gemini and email budget. Refusing before Supabase also saves the email from the 100-a-day Resend quota.

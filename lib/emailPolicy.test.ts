@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isBlockedEmail } from "./emailPolicy";
+import { isBetaAllowed, isBlockedEmail } from "./emailPolicy";
 
 afterEach(() => vi.unstubAllEnvs());
 
@@ -24,5 +24,20 @@ describe("isBlockedEmail", () => {
     expect(isBlockedEmail("a@example.org")).toBe(true);
     expect(isBlockedEmail("a@sub.other.test")).toBe(true);
     expect(isBlockedEmail("a@example.com")).toBe(false);
+  });
+});
+
+describe("isBetaAllowed", () => {
+  it("lets everyone in when the list is empty", () => {
+    expect(isBetaAllowed("anyone@gmail.com")).toBe(true);
+  });
+
+  it("allows only listed emails and @domains when set", () => {
+    vi.stubEnv("BETA_ALLOWED_EMAILS", "Asha@Example.com, @team.test");
+    expect(isBetaAllowed("asha@example.com")).toBe(true);
+    expect(isBetaAllowed("ravi@team.test")).toBe(true);
+    expect(isBetaAllowed("ravi@sub.team.test")).toBe(false);
+    expect(isBetaAllowed("stranger@gmail.com")).toBe(false);
+    expect(isBetaAllowed(null)).toBe(false);
   });
 });

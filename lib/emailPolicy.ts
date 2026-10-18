@@ -14,6 +14,24 @@ function extraBlocked(): Set<string> {
   );
 }
 
+export const BETA_CLOSED_MESSAGE = "Offerly is in private beta. Ask the team for an invite.";
+
+/**
+ * Private beta: when BETA_ALLOWED_EMAILS is set (comma-separated emails and/or "@domain" entries),
+ * only those addresses may sign in or use AI. Empty or unset means open to everyone.
+ */
+export function isBetaAllowed(email: string | null | undefined): boolean {
+  const entries = (process.env.BETA_ALLOWED_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (entries.length === 0) return true;
+  if (!email) return false;
+  const address = email.trim().toLowerCase();
+  const domain = address.slice(address.lastIndexOf("@"));
+  return entries.includes(address) || entries.includes(domain);
+}
+
 /** True when the address's domain, or any parent of it (e.g. x.yopmail.com), is blocked. */
 export function isBlockedEmail(email: string): boolean {
   const domain = email.slice(email.lastIndexOf("@") + 1).trim().toLowerCase();

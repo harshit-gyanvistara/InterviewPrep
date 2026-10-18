@@ -32,7 +32,8 @@ export default function SignIn() {
   const [error, setError] = useState<string | null>(null);
   // `auth` is only set in the browser, after hydration, so reading window here can't cause a mismatch.
   const showGoogle = !!auth?.google && !isInApp();
-  const callbackFailed = !!auth && new URLSearchParams(window.location.search).get("error") === "callback";
+  const callbackError = auth ? new URLSearchParams(window.location.search).get("error") : null;
+  const callbackFailed = callbackError === "callback" || callbackError === "beta";
 
   const sendCode = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -106,7 +107,10 @@ export default function SignIn() {
           </form>
         )}
         {(error || (callbackFailed && step === "email")) && (
-          <p className="mt-4 text-sm text-danger">{error ?? "Sign-in didn’t finish. Links only work once, in the browser where you asked for them. Try again."}</p>
+          <p className="mt-4 text-sm text-danger">{error ??
+            (callbackError === "beta"
+              ? "Offerly is in private beta. Ask the team for an invite."
+              : "Sign-in didn’t finish. Links only work once, in the browser where you asked for them. Try again.")}</p>
         )}
         <p className="mt-6 text-xs text-muted">
           By continuing you agree to the <Link href="/terms" className="underline">Terms</Link> and <Link href="/privacy" className="underline">Privacy Policy</Link>.
