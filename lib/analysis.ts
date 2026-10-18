@@ -25,5 +25,9 @@ export function computeSignals(messages: Message[]): Signals {
   };
 }
 
-export const verdictColor = (v: string) =>
-  v === "Strong Hire" ? "text-emerald-600" : v === "Hire" ? "text-green-600" : v === "Borderline" ? "text-amber-600" : "text-rose-600";
+/** Score status for colour: ok (ready), warn (almost), danger (not yet). One scale for every score UI. */
+export type Tone = "ok" | "warn" | "danger";
+export const verdictTone = (v: string): Tone => (v === "Strong Hire" || v === "Hire" ? "ok" : v === "Borderline" ? "warn" : "danger");
+/** For a 0–100 score; a 0–10 dimension score is scaled first by the caller (×10). */
+export const scoreTone = (score: number): Tone => (score >= 70 ? "ok" : score >= 50 ? "warn" : "danger");
+export const verdictColor = (v: string) => ({ ok: "text-ok", warn: "text-warn", danger: "text-danger" })[verdictTone(v)];

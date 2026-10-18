@@ -5,7 +5,8 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { db, useAllPacks, useReports } from "@/lib/db";
-import { verdictColor } from "@/lib/analysis";
+import { verdictTone } from "@/lib/analysis";
+import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useConfirm } from "@/lib/dialogContext";
 
 export default function Progress() {
@@ -94,15 +95,13 @@ export default function Progress() {
               {shown.length === 0 && <li className="rounded-2xl bg-soft p-4 text-sm text-muted">No sessions for this round.</li>}
               {shown.map((r) => (
                 <li key={r.id} className="flex items-center gap-2">
-                  <Link href={`/report/${r.sessionId}`} className="flex flex-1 items-center justify-between rounded-2xl bg-soft px-4 py-3 hover:opacity-80">
-                    <div>
-                      <div className="text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
+                  <Link href={`/report/${r.sessionId}`} className="flex flex-1 items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:bg-soft">
+                    <ScoreBadge score={r.overall} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
                       <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString()}</div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-lg font-semibold">{r.overall}</div>
-                      <div className={`text-xs ${verdictColor(r.verdict)}`}>{r.verdict}</div>
-                    </div>
+                    <TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill>
                   </Link>
                   <button onClick={() => remove(r.sessionId, r.id)} aria-label="Delete session" className="grid h-10 w-10 place-items-center rounded-full text-muted hover:bg-soft hover:text-danger"><Trash2 size={16} /></button>
                 </li>

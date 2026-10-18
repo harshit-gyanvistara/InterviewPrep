@@ -33,7 +33,7 @@ export default function Welcome() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         {PILLARS.map(({ icon: Icon, title, text }) => (
-          <div key={title} className="rounded-3xl bg-card p-6">
+          <div key={title} className="rounded-xl bg-card p-6">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent text-accent-ink"><Icon size={20} /></span>
             <h2 className="mt-4 text-xl font-medium">{title}</h2>
             <p className="mt-2 text-sm text-muted">{text}</p>
@@ -41,7 +41,7 @@ export default function Welcome() {
         ))}
       </section>
 
-      <section className="mt-6 rounded-3xl bg-card p-6 sm:p-8">
+      <section className="mt-6 rounded-xl bg-card p-6 sm:p-8">
         <h2 className="text-2xl font-light">How it works</h2>
         <ol className="mt-4 grid gap-3 sm:grid-cols-5">
           {STEPS.map((s, i) => (

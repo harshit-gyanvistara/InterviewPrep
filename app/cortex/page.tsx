@@ -151,7 +151,7 @@ function BinderList({
   className: string;
 }) {
   return (
-    <div className={`flex flex-col gap-3 rounded-3xl bg-card p-4 ${className}`}>
+    <div className={`flex flex-col gap-3 rounded-xl bg-card p-4 ${className}`}>
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Binders</h2>
         <button onClick={onNew} aria-label="New binder" className="grid h-7 w-7 place-items-center rounded-full hover:bg-soft">
@@ -207,7 +207,7 @@ function PageList({
   }, [pages, query]);
 
   return (
-    <div className={`flex flex-col gap-3 rounded-3xl bg-card p-4 ${className}`}>
+    <div className={`flex flex-col gap-3 rounded-xl bg-card p-4 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <button onClick={onBack} className="grid h-7 w-7 place-items-center rounded-full hover:bg-soft lg:hidden" aria-label="Back to binders">
           <ArrowLeft size={15} />
@@ -260,7 +260,7 @@ function PageList({
 function PageEditor({ page, onBack, className }: { page?: CortexPage; onBack: () => void; className: string }) {
   if (!page) {
     return (
-      <div className={`grid place-items-center rounded-3xl bg-card p-8 text-center ${className}`}>
+      <div className={`grid place-items-center rounded-xl bg-card p-8 text-center ${className}`}>
         <div>
           <Sparkles className="mx-auto mb-3 text-muted" size={28} />
           <p className="text-sm text-muted">Pick a page, or create one, to start writing.</p>
@@ -298,7 +298,7 @@ function PageEditorInner({ page, onBack, className }: { page: CortexPage; onBack
   const words = wordCount(html);
 
   return (
-    <div className={`flex flex-col rounded-3xl bg-card p-5 ${className}`}>
+    <div className={`flex flex-col rounded-xl bg-card p-5 ${className}`}>
       <div className="mb-3 flex items-center gap-2">
         <button onClick={onBack} className="grid h-7 w-7 place-items-center rounded-full hover:bg-soft lg:hidden" aria-label="Back to pages">
           <ArrowLeft size={15} />

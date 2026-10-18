@@ -149,7 +149,7 @@ function Practice() {
                     choose();
                   }
                 }}
-                className={`cursor-pointer rounded-3xl p-5 text-left transition ${sel ? "bg-accent text-accent-ink" : "bg-card hover:bg-soft"}`}
+                className={`cursor-pointer rounded-xl p-5 text-left transition ${sel ? "bg-accent text-accent-ink" : "bg-card hover:bg-soft"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>

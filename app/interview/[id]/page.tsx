@@ -275,7 +275,7 @@ export default function InterviewRoom() {
         </div>
 
         {/* video stage */}
-        <div className="relative aspect-video overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-300/70 via-violet-200/70 to-sky-200/70 dark:from-indigo-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="relative aspect-video overflow-hidden rounded-xl border border-line bg-gradient-to-b from-accent-soft to-card">
           <div className="absolute inset-0 grid place-items-center">
             <div className={`grid h-28 w-28 place-items-center rounded-full bg-accent text-4xl font-semibold text-accent-ink sm:h-40 sm:w-40 sm:text-6xl ${speech.speaking ? "pulse-ring" : ""}`}>
               {persona.name[0]}
@@ -324,7 +324,7 @@ export default function InterviewRoom() {
         </div>
 
         {/* live caption */}
-        <div className={`rounded-3xl bg-card p-5 ${settings.captions ? "" : "hidden"}`}>
+        <div className={`rounded-xl bg-card p-5 ${settings.captions ? "" : "hidden"}`}>
           <p className="min-h-14 text-base leading-relaxed sm:text-lg">
             {last ? <span className="rounded bg-hl px-1">{last.text}</span> : <span className="text-muted">Waiting for your interviewer…</span>}
           </p>
@@ -332,7 +332,7 @@ export default function InterviewRoom() {
         </div>
 
         {isCoding && (
-          <div className="rounded-3xl bg-card p-4">
+          <div className="rounded-xl bg-card p-4">
             <div className="mb-2 flex items-center justify-between text-sm">
               <span className="font-medium">Code editor</span>
               <span className="text-xs text-muted">The interviewer reads this on every turn. Think aloud as you write.</span>
@@ -371,7 +371,7 @@ export default function InterviewRoom() {
       </div>
 
       {/* room chat / transcript */}
-      <aside className="flex h-[70vh] min-h-96 flex-col rounded-3xl bg-card p-4 lg:h-auto lg:max-h-[calc(100vh-9rem)]">
+      <aside className="flex h-[70vh] min-h-96 flex-col rounded-xl bg-card p-4 lg:h-auto lg:max-h-[calc(100vh-9rem)]">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-xl font-light">Transcript</h2>
           <span className="text-xs text-muted">{session.messages.length} turns</span>

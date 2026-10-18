@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Moon, Settings, Sun, Video } from "lucide-react";
+import { Moon, Settings, Sun } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { useAuth, useProfile } from "@/lib/db";
 import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
@@ -45,52 +46,50 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const showMobileNav = !bare && !inInterview;
 
   return (
-    <div className="mx-auto flex h-screen max-w-[1500px] flex-col p-0 sm:p-3 lg:p-6">
-      <div className="glass relative flex min-h-0 flex-1 flex-col rounded-none p-3 shadow-2xl shadow-indigo-900/10 sm:rounded-[2rem] sm:p-6">
-        <header className="flex shrink-0 items-center justify-between gap-3 pt-[env(safe-area-inset-top)]">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-accent text-accent-ink sm:h-11 sm:w-11">
-              <Video size={20} />
-            </span>
-            <span className="hidden text-lg font-semibold tracking-tight sm:block">Offerly</span>
+    <div className="relative flex h-screen flex-col bg-bg">
+      <header className="shrink-0 border-b border-line bg-card pt-[env(safe-area-inset-top)]">
+        <div className="mx-auto flex h-15 max-w-[1120px] items-center gap-6 px-4 sm:px-6">
+          <Link href="/" aria-label="Offerly home">
+            <Logo />
           </Link>
 
           {!bare && (
-          <nav className="glass hidden items-center gap-1 rounded-full p-1.5 lg:flex">
-            {NAV.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className={`rounded-full px-3 py-2 text-sm transition sm:px-5 ${
-                  active(href) ? "bg-accent text-accent-ink" : "text-muted hover:text-ink"
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
+            <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex" aria-label="Main">
+              {NAV.map(({ href, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={active(href) ? "page" : undefined}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${active(href) ? "bg-soft text-ink" : "text-muted hover:text-ink"}`}
+                >
+                  {label}
+                </Link>
+              ))}
+            </nav>
           )}
 
-          <div className="glass flex items-center gap-1 rounded-full p-1.5">
-            <button onClick={toggleTheme} aria-label="Toggle theme" className="grid h-9 w-9 place-items-center rounded-full hover:bg-soft active:scale-90">
+          <div className="ml-auto flex items-center gap-1">
+            <button onClick={toggleTheme} aria-label="Toggle theme" className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink active:scale-95">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
             {onboarded && (
               <>
-                <Link href="/settings" aria-label="Settings" className="hidden h-9 w-9 place-items-center rounded-full hover:bg-soft sm:grid">
+                <Link href="/settings" aria-label="Settings" className="hidden h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink sm:grid">
                   <Settings size={17} />
                 </Link>
-                <Link href="/settings" className="grid h-9 w-9 place-items-center rounded-full bg-accent text-sm font-semibold text-accent-ink active:scale-90" title={profile?.name}>
+                <Link href="/settings" className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent active:scale-95" title={profile?.name}>
                   {profile?.name?.[0]?.toUpperCase()}
                 </Link>
               </>
             )}
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className={`min-h-0 flex-1 overflow-y-auto ${inInterview ? "mt-5" : "mt-6 sm:mt-8"} ${showMobileNav ? "pb-20 lg:pb-0" : ""}`}>
+      <main className={`min-h-0 flex-1 overflow-y-auto ${showMobileNav ? "pb-20 lg:pb-0" : ""}`}>
+        <div className={`mx-auto px-4 sm:px-6 ${inInterview ? "max-w-[1280px] py-4 sm:py-6" : "max-w-[1120px] py-6 sm:py-10"}`}>
           {loadError ? (
-            <div className="mx-auto mt-10 max-w-md rounded-3xl bg-card p-6 text-center">
+            <div className="mx-auto mt-10 max-w-md rounded-xl border border-line bg-card p-6 text-center">
               <p className="font-medium">Couldn&apos;t reach Offerly</p>
               <p className="mt-1 text-sm text-muted">{loadError}</p>
               <button className="btn btn-primary mt-4" onClick={() => window.location.reload()}>Try again</button>
@@ -98,23 +97,23 @@ export function Shell({ children }: { children: React.ReactNode }) {
           ) : loading || redirect ? null : (
             children
           )}
-        </main>
+        </div>
+      </main>
 
-        {showMobileNav && <MobileNav />}
-      </div>
+      {showMobileNav && <MobileNav />}
     </div>
   );
 }
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <section className={`rounded-3xl bg-card p-5 shadow-sm sm:p-6 ${className}`}>{children}</section>;
+  return <section className={`rounded-xl border border-line bg-card p-5 sm:p-6 ${className}`}>{children}</section>;
 }
 
 export function PageTitle({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="mb-6">
-      <h1 className="text-3xl font-light tracking-tight sm:text-5xl">{title}</h1>
-      {sub && <p className="mt-2 text-muted">{sub}</p>}
+    <div className="mb-6 sm:mb-8">
+      <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px] sm:leading-9">{title}</h1>
+      {sub && <p className="mt-1.5 text-muted">{sub}</p>}
     </div>
   );
 }

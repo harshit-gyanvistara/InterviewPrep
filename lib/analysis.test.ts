@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSignals, verdictColor } from "./analysis";
+import { computeSignals, scoreTone, verdictColor } from "./analysis";
 import type { Message } from "./types";
 
 let n = 0;
@@ -68,11 +68,24 @@ describe("computeSignals", () => {
 
 describe("verdictColor", () => {
   it.each([
-    ["Strong Hire", "text-emerald-600"],
-    ["Hire", "text-green-600"],
-    ["Borderline", "text-amber-600"],
-    ["Not Yet", "text-rose-600"],
+    ["Strong Hire", "text-ok"],
+    ["Hire", "text-ok"],
+    ["Borderline", "text-warn"],
+    ["Not Yet", "text-danger"],
   ])("%s → %s", (verdict, cls) => {
     expect(verdictColor(verdict)).toBe(cls);
+  });
+});
+
+describe("scoreTone", () => {
+  it.each([
+    [100, "ok"],
+    [70, "ok"],
+    [69, "warn"],
+    [50, "warn"],
+    [49, "danger"],
+    [0, "danger"],
+  ] as const)("%i → %s", (score, tone) => {
+    expect(scoreTone(score)).toBe(tone);
   });
 });
