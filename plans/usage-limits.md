@@ -1,6 +1,6 @@
 # Plan: Usage limits by package
 
-**Status: proposed (2026-10-19).** Brings forward part of [implementationPlan.md](../implementationPlan.md) G1 (per-user quotas), M6 (Free/Pro tiers enforced from `usage_ledger`) and O.5 (org quotas), following D15 ([plans/organisations.md § Designed to expand](organisations.md#designed-to-expand)).
+**Status: phase 1 built (2026-10-19), with the ledger brought forward from phase 2.** Brings forward part of [implementationPlan.md](../implementationPlan.md) G1 (per-user quotas), M6 (Free/Pro tiers enforced from `usage_ledger`) and O.5 (org quotas), following D15 ([plans/organisations.md § Designed to expand](organisations.md#designed-to-expand)).
 
 ## Context
 The beta is invite-only (`BETA_ALLOWED_EMAILS`) and Gemini has a spending cap, but nothing limits how much one user uses. The rate limiter in [lib/rateLimit.ts](../lib/rateLimit.ts) stops bursts (per minute / 10 minutes); it isn't an allowance. Every Gemini call is already measured per user ([plans/usage-capture.md](usage-capture.md)): `recordUsage` in [lib/usage.ts](../lib/usage.ts) logs `ai.usage` with `userId`, but nothing is stored or checked.
@@ -23,8 +23,8 @@ authorize(req, bucket, { meter })              lib/route.ts — unchanged caller
   └─ checkEntitlement(user, meter)             lib/policies.ts — the one policy function
         ├─ packageFor(user)  → "beta"          today: everyone; M6: subscription row; O.5: org first
         ├─ limitFor(pkg, meter) → { limit, period }   lib/packages.ts (config today, table later)
-        └─ usage.count(user, meter, period)    today: limiter store; M2.2: usage_ledger
-recordUsage(...)                                adds one count per meter after a successful call
+        └─ usage_total(user, meter, since)     sums usage_ledger rows (SQL function)
+callAgent / report route → addUsage(user, meter)   inserts a usage_ledger row
 ```
 
 **Meters** are validated strings, not enums:
@@ -56,25 +56,28 @@ A missing meter means unlimited; `limit: null` means unlimited. Code never check
 | Package names, prices, numbers | `PACKAGES` config with placeholder numbers; beta is the only one in use | Edit numbers, add packages; M6 moves them to a `packages` table |
 | Who is on which package | `packageFor(user)` returns `"beta"` | Reads `subscriptions` (M6), then the user's org entitlements (O.5) |
 | What to meter | `mocks` and `ai_calls` | Add `voice_minutes`, `tokens` as new strings |
-| Where usage is stored | Counts in the limiter store (Upstash, memory locally) | `usage_ledger` rows from `recordUsage` (M2.2); `usage.count` reads the ledger |
+| Where usage is stored | `usage_ledger` rows (user, org?, meter, amount, request id) | Billing and org reports read the same rows; `org_id` gets its key in M2.10 |
 | Time zone for resets | IST for everyone | Per-user time zone from the profile |
 | Top-ups, rollovers, trials | Nothing | Extra `entitlements` rows with `source` and expiry |
 
 ## Action items
 
-### Phase 1: beta allowance (now, no database)
+### Phase 1: beta allowance (built)
+
+Changed while building: counts go straight into a `usage_ledger` table instead of the limiter store. Upstash isn't set up on staging, so memory counts would have reset on every deploy, and the ledger was the target anyway.
+
 1. `lib/packages.ts`: `Meter`, `Allowance`, `PACKAGES` (beta numbers to confirm), `periodKey()`.
 2. `lib/policies.ts`: `packageFor(user)` (returns `"beta"`) and `checkEntitlement(user, meter)` → `{ allowed, used, limit, resetsAt }`. Optional override per deployment: `PACKAGE_DEFAULT` env.
-3. `lib/usage.ts`: `countUsage(user, meter, period)` and `addUsage(user, meter)` on the limiter store, keyed `usage:{meter}:{userId}:{periodKey}`.
+3. Migration `supabase/migrations/20261019120000_usage_ledger.sql`: `usage_ledger` (users read their own rows, only the server writes) and `usage_total()` (server only). `addUsage` and `checkEntitlement` in `lib/policies.ts` use it; without `SUPABASE_SECRET_KEY` (local dev) nothing is counted.
 4. `lib/route.ts`: `authorize(req, bucket, { meter })`; routes pass their meter (`interview/turn` checks `mocks` on the first turn and `ai_calls` always; `interview/report` adds to `mocks`). `LOCAL_USER` (AUTH_MODE=off) is never limited.
 5. `GET /api/usage`: the signed-in user's meters (used, limit, resets at) for the UI.
 6. UI: remaining mocks on the dashboard and in the interview lobby; the 429 message on the interview page.
 7. Tests: per-meter limits, period rollover, mid-interview safety, unlimited meters, `LOCAL_USER`, store outage (fail open, logged, like rate limits).
 8. Docs: DECISIONS entry, FLOWS request path, `.env.example`.
 
-### Phase 2: ledger (with M2.2)
-9. `usage_ledger` table (`user_id`, `org_id?`, `meter`, `amount`, `request_id`, `created_at`); `recordUsage` inserts rows.
-10. `countUsage` reads the ledger; the limiter store goes back to rate limits only.
+### Phase 2: ledger (done in phase 1)
+9. ~~`usage_ledger` table~~ built in phase 1.
+10. Optional: also store token counts (`tokens` meter) from `recordUsage`, for exact cost per user.
 
 ### Phase 3: packages from billing (M6)
 11. `packages` and `subscriptions` tables; `packageFor` reads the active subscription; Razorpay/Stripe webhooks write it.

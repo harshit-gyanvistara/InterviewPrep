@@ -4,6 +4,7 @@ import type { DomainProfile } from "./domains";
 import type { components } from "./liveAgent.types";
 import { PERSONAS } from "./packs";
 import type { Persona } from "./types";
+import { addUsage } from "./policies";
 import { parseUsageHeader, recordUsage } from "./usage";
 
 // Server-only. Client for liveAgent, the Python AI service (liveAgent/ in this repo). Every Gemini
@@ -56,7 +57,10 @@ export async function callAgent<T>(path: string, body: unknown, opts: { user: Au
     throw new ApiError(503, `AI service unreachable at ${base}. Is liveAgent running (npm run agent)?`);
   }
 
-  recordUsage({ userId: opts.user.id, route: path, requestId, status: res.status }, parseUsageHeader(res.headers.get("X-LLM-Usage")));
+  const calls = parseUsageHeader(res.headers.get("X-LLM-Usage"));
+  recordUsage({ userId: opts.user.id, route: path, requestId, status: res.status }, calls);
+  // Counted when Gemini was actually called: a response that failed validation was still billed.
+  if (calls.length > 0 || res.ok) await addUsage(opts.user, "ai_calls", { requestId });
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, (json as { error?: string }).error || `AI service error (${res.status})`);

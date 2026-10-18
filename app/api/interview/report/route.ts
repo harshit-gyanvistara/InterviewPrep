@@ -3,6 +3,7 @@ import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { agentDomain, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
 import { PERSONAS } from "@/lib/packs";
+import { addUsage } from "@/lib/policies";
 import { authorize, parseBody } from "@/lib/route";
 import { ReportBodySchema } from "@/lib/schemas";
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
       } satisfies Agent["ReportRequest"],
       { user, timeoutMs: 115_000 },
     );
+    await addUsage(user, "mocks");
     return NextResponse.json(out);
   } catch (e) {
     return errorResponse(e);

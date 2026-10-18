@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { agentDomain, agentPersona, callAgent, errorResponse, type Agent } from "@/lib/liveAgent";
+import { requireAllowance } from "@/lib/policies";
 import { authorize, parseBody } from "@/lib/route";
 import { TurnBodySchema } from "@/lib/schemas";
 
@@ -10,6 +11,9 @@ export async function POST(req: Request) {
   try {
     const user = await authorize(req, "interview.turn");
     const body = await parseBody(req, TurnBodySchema);
+    // A mock starts with the greeting (no messages yet). Checking only then means an interview
+    // already under way can always finish; the mock is counted when its report is made.
+    if (body.messages.length === 0) await requireAllowance(user, "mocks");
 
     const { domains } = await getCatalog();
     const out = await callAgent<Agent["TurnResult"]>("/v1/interview/turn", {

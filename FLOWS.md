@@ -15,7 +15,9 @@ Browser / Android WebView
 Core: Next.js route handler
   1. authorize(req, bucket)      lib/route.ts
        requireUser()             lib/auth.ts      → 401 signed out; 503 if AUTH_MODE=off in production
+       beta list                 lib/emailPolicy.ts → 403 if not in BETA_ALLOWED_EMAILS
        enforceRateLimit()        lib/rateLimit.ts → 429 + Retry-After (per user; per IP with AUTH_MODE=off)
+       requireAllowance(ai_calls) lib/policies.ts → 429 when the package's daily AI calls are used
   2. parseBody(req, Schema)      lib/schemas.ts   → 413 over 1 MB, 400 with field issues
   3. resolve field + persona     lib/domains, catalog from Supabase (5-min cache)
   4. callAgent(path, body, {user})  lib/liveAgent.ts
@@ -27,7 +29,9 @@ Core: Next.js route handler
        prompt builder            prompts.py, limits.py
        generate_json()           gemini.py ──► Gemini (structured JSON output)
        ◄── JSON  +  X-LLM-Usage header (one record per Gemini call)
-  5. recordUsage(...)            lib/usage.ts → ai.usage log line (M2: usage_ledger row)
+     (interview/turn, first turn only: requireAllowance(mocks) → 429 when today's mocks are used)
+  5. recordUsage(...)            lib/usage.ts → ai.usage log line
+     addUsage(ai_calls)          lib/policies.ts → usage_ledger row (interview/report also adds a mock)
   6. return JSON, or errorResponse(e) → { error, issues? } with liveAgent's status
                                   (unreachable 503, timeout 504)
 ```
@@ -76,6 +80,8 @@ generate_json ─ one record per Gemini call ─► llm.usage log line (liveAgen
 ```
 
 Records cover failed calls (`ok: false`) and thinking tokens. Join the two services' lines on `requestId`. Plan: [plans/usage-capture.md](plans/usage-capture.md).
+
+**Allowances** ([plans/usage-limits.md](plans/usage-limits.md)): each user's package (`lib/packages.ts`, everyone on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST) is checked against the `usage_ledger` table. `GET /api/usage` returns used / limit / reset per meter; the dashboard and lobby show mocks left.
 
 ## 6. Deploy (staging, being set up)
 

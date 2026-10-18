@@ -86,9 +86,17 @@ describe.skipIf(!url)("account tables: row-level security", () => {
     expect((await client.from("consents").update({ version: "forged" }).eq("user_id", id)).error).not.toBeNull();
   });
 
+  it("usage_ledger: users read only their own rows and can't write or erase them", async () => {
+    const { client, id } = users.a;
+    expect((await client.from("usage_ledger").insert({ user_id: id, meter: "mocks" })).error).not.toBeNull();
+    expect((await client.from("usage_ledger").delete().eq("user_id", id)).error).not.toBeNull();
+    expect((await client.from("usage_ledger").select("*").eq("user_id", users.b.id)).data ?? []).toEqual([]);
+    expect((await client.rpc("usage_total", { p_user: id, p_meter: "mocks", p_since: new Date(0).toISOString() })).error).not.toBeNull();
+  });
+
   it("anonymous requests see nothing", async () => {
     const anon = createClient(url!, publishableKey, opts);
-    for (const table of ["users", "profiles", "consents"]) {
+    for (const table of ["users", "profiles", "consents", "usage_ledger"]) {
       const { data } = await anon.from(table).select("*");
       expect(data ?? [], table).toEqual([]);
     }

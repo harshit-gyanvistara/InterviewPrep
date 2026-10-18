@@ -302,6 +302,21 @@ export function useQuery<T>(fn: () => Promise<T>, deps: unknown[] = []) {
   return { data, loading, error };
 }
 
+export interface UsageMeter {
+  meter: "mocks" | "ai_calls";
+  used: number;
+  limit: number | null;
+  resetsAt: number | null;
+}
+
+/** The user's allowances from /api/usage; null when signed out or unavailable (never blocks a page). */
+export const useUsage = () =>
+  useQuery(async () => {
+    const res = await fetch("/api/usage", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return null;
+    return (await res.json()) as { package: string; meters: UsageMeter[] };
+  }, []);
+
 /** Who is signed in (see getAuth). */
 export const useAuth = () => useQuery(getAuth, []);
 

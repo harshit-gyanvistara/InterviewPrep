@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowRight, CalendarClock, Flame, Lightbulb, StickyNote, Target, Trophy } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
+import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { useAllPacks, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
 import { visibleBuiltInPacks } from "@/lib/packs";
@@ -79,6 +80,7 @@ export default function Dashboard() {
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.min(100, (weekCount / goal) * 100)}%` }} /></div>
           <p className="mt-2 text-xs text-muted">{weekCount >= goal ? "Weekly goal reached. Nice work." : `${goal - weekCount} more to hit your goal.`}</p>
+          <MocksLeft className="mt-1" />
         </Card>
 
         <Card className="lg:col-span-3">

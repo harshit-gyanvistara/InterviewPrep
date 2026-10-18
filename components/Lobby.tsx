@@ -2,6 +2,7 @@
 
 import { Clock, HelpCircle, Lightbulb, ListChecks, Zap } from "lucide-react";
 import { DeviceCheck } from "@/components/DeviceCheck";
+import { MocksLeft, useOutOfMocks } from "@/components/MocksLeft";
 import { Card } from "@/components/Shell";
 import { PERSONAS } from "@/lib/packs";
 import type { Pack, SessionConfig } from "@/lib/types";
@@ -14,6 +15,7 @@ const TIPS: Record<Pack["roundType"], string[]> = {
 };
 
 export function Lobby({ pack, config, onJoin, onCancel }: { pack: Pack; config: SessionConfig; onJoin: () => void; onCancel: () => void }) {
+  const outOfMocks = useOutOfMocks();
   const persona = PERSONAS[config.persona];
   return (
     <div className="mx-auto max-w-5xl">
@@ -56,8 +58,9 @@ export function Lobby({ pack, config, onJoin, onCancel }: { pack: Pack; config: 
           </Card>
           <div className="flex gap-3">
             <button onClick={onCancel} className="btn btn-ghost">Cancel</button>
-            <button onClick={onJoin} className="btn btn-primary flex-1 !py-3">Join interview</button>
+            <button onClick={onJoin} disabled={outOfMocks} className="btn btn-primary flex-1 !py-3 disabled:opacity-50">Join interview</button>
           </div>
+          <MocksLeft />
         </div>
       </div>
     </div>

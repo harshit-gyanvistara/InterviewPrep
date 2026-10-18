@@ -6,6 +6,13 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Usage allowances by package, recorded in usage_ledger
+- **Decision:** Allowances come from the user's package (`lib/packages.ts`; everyone is on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST). `checkEntitlement(user, meter)` in `lib/policies.ts` sums a new `usage_ledger` table; `authorize()` checks `ai_calls`, the first turn of a mock checks `mocks`, the report records a mock, `callAgent` records each AI call with its request id. See [plans/usage-limits.md](plans/usage-limits.md).
+- **Why:** The beta list decides who gets in, not how much they use. Packages and meters keep prices and numbers as config (D15). The ledger was brought forward from M2.2 because Upstash isn't set up on staging, so counts kept in memory would reset on every deploy.
+- **Also decided:** a mock under way can always finish (checked at start, counted at report); the ledger failing open is logged, like rate limits; users can read but never write or delete their rows.
+- **Considered:** extending the rate limiter with a 24-hour bucket (no packages, resets on deploy without Redis); counters in Redis (another service to run, no history for billing).
+- **Revisit:** M6, when subscriptions decide the package; O.5, when org entitlements come first.
+
 ## 2026-10-18 · Private beta: invite list
 - **Decision:** `BETA_ALLOWED_EMAILS` (comma-separated emails and `@domain` entries) limits who can use staging. Checked at three points: `POST /api/auth/otp` (403 before Supabase sends anything), `/auth/callback` (signs out a Google user who isn't listed), and `authorize()` (403 on every AI route, so removing someone cuts off Gemini immediately). Empty means open. Staging starts with only the owner's address.
 - **Why:** The beta runs on the owner's Gemini and Resend budgets; blocking temporary inboxes alone still lets anyone with a Gmail in.
