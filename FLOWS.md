@@ -87,7 +87,7 @@ Internet ──HTTPS──► Railway service "core"  (repo root, Next.js, publi
 core ──► Supabase (auth, profiles, catalog)        core ──► Upstash Redis (rate limits)
 ```
 
-Region: Singapore. Config lives in `railway.json` (Core) and `liveAgent/railway.json`.
+Region: Singapore. Config lives in `railway.json` (Core) and `liveAgent/railway.json`. Project `interviewprep`; staging URL: https://core-production-f5c0.up.railway.app. Hobby allows one region per service: set every other region (including `sfo`) to 0 with `railway scale`.
 
 ---
 
