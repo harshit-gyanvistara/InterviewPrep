@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarClock, Flame, Lightbulb, StickyNote, Target, Trophy } from "lucide-react";
-import { Card, PageTitle } from "@/components/Shell";
+import { ArrowRight, StickyNote } from "lucide-react";
+import { Card } from "@/components/Shell";
 import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { useAllPacks, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
 import { visibleBuiltInPacks } from "@/lib/packs";
-import { verdictTone } from "@/lib/analysis";
+import { scoreTone, verdictTone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useNotesPanel } from "@/lib/notesContext";
 import { daysUntil, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
@@ -42,73 +42,101 @@ export default function Dashboard() {
       ? { title: "You have an interview waiting", text: `${byId(lobby.config.packId)?.title} is set up. Join when you're ready.`, href: `/interview/${lobby.id}`, cta: "Open lobby" }
       : reports.length === 0
         ? { title: "Take your baseline mock", text: "15 minutes. It shows where you stand and personalises your plan.", href: `/practice?pack=${rec.pack.id}`, cta: "Start baseline" }
-        : { title: `Next up: ${rec.pack.title}`, text: rec.reason, href: `/practice?pack=${rec.pack.id}`, cta: "Practice now" };
+        : { title: rec.pack.title, text: rec.reason, href: `/practice?pack=${rec.pack.id}`, cta: "Start practice" };
+  const suggesting = !inProgress && !lobby;
+
+  const firstName = profile.name.split(" ")[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  // The latest report's three weakest skills, lowest first.
+  const focus = [...(reports[0]?.dimensions ?? [])].sort((a, b) => a.score - b.score).slice(0, 3);
+  const interviewNote = days !== null && days >= 0 ? (days === 0 ? "interview today" : `interview in ${days} day${days === 1 ? "" : "s"}`) : null;
 
   return (
-    <div>
-      <PageTitle title={`Let's talk, ${profile.name.split(" ")[0]}`} sub={`Target: ${profile.targetRole}${profile.targetCompanies ? ` · ${profile.targetCompanies}` : ""}`} />
-
-      {days !== null && days >= 0 && (
-        <div className="mb-5 flex items-center gap-3 rounded-2xl bg-hl px-5 py-3 text-sm">
-          <CalendarClock size={18} />
-          <span><b>{days === 0 ? "Your interview is today." : `${days} day${days === 1 ? "" : "s"} to your interview.`}</b> {days <= 14 ? "Focus on full mock rounds now." : "Plenty of time to build a routine."}</span>
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px] sm:leading-9">{greeting}, {firstName}</h1>
+          <p className="mt-1 text-muted">
+            {[profile.targetRole, profile.targetCompanies, interviewNote].filter(Boolean).join(" · ")}
+          </p>
         </div>
-      )}
+        <MocksLeft className="rounded-full bg-accent-soft px-3 py-1 font-medium !text-accent" />
+      </div>
 
       {!profile.jobDescription?.trim() && (
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-hl px-5 py-3 text-sm">
-          <span>Add the job description you&apos;re preparing for and we&apos;ll build interview rounds around exactly what it asks — for any profession.</span>
-          <Link href="/settings" className="btn btn-primary !py-1.5">Add job description</Link>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-card px-4 py-3 text-sm">
+          <span className="text-muted">Add the job description you&apos;re preparing for and we&apos;ll build rounds around exactly what it asks.</span>
+          <Link href="/settings" className="btn btn-ghost !py-1.5">Add job description</Link>
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted">Your next step</div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-medium">{action.title}</h2>
-              <p className="mt-1 max-w-lg text-sm text-muted">{action.text}</p>
-            </div>
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <section className="grid content-start gap-4 rounded-xl bg-card p-6 shadow-float sm:p-7">
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">Your next step</span>
+            {suggesting && <span className="rounded-full bg-soft px-2.5 py-0.5 text-xs font-medium capitalize text-muted">{rec.pack.durationMin} min · {rec.pack.roundType}</span>}
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">{action.title}</h2>
+          <p className="max-w-[52ch] text-muted">{action.text}</p>
+          <div className="flex flex-wrap gap-2.5">
             <Link href={action.href} className="btn btn-primary">{action.cta} <ArrowRight size={16} /></Link>
+            {suggesting && <Link href="/practice" className="btn btn-ghost">Choose another round</Link>}
+          </div>
+        </section>
+
+        <Card className="grid content-start gap-5">
+          <div className="grid gap-2.5">
+            <div className="flex items-baseline justify-between text-sm">
+              <h3 className="font-semibold">This week</h3>
+              <span className="tabular-nums text-muted">{Math.min(weekCount, goal)} / {goal} mocks</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-soft">
+              <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.min(100, (weekCount / goal) * 100)}%` }} />
+            </div>
+            <p className="text-xs text-muted">{weekCount >= goal ? "Weekly goal reached. Nice work." : `${goal - weekCount} more to hit your weekly goal.`}</p>
+          </div>
+          <div className="h-px bg-line" />
+          <div className="grid gap-2.5">
+            <h3 className="text-sm font-semibold">Focus areas</h3>
+            {focus.length ? (
+              focus.map((d) => (
+                <div key={d.name} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate">{d.name}</span>
+                  <TonePill tone={scoreTone(d.score * 10)}>{d.score.toFixed(1)}</TonePill>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted">Your weakest skills show here after your first mock.</p>
+            )}
           </div>
         </Card>
+      </div>
 
-        <Card>
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium">This week</span>
-            <span className="text-muted">{Math.min(weekCount, goal)} / {goal} mocks</span>
-          </div>
-          <div className="h-3 overflow-hidden rounded-full bg-soft"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${Math.min(100, (weekCount / goal) * 100)}%` }} /></div>
-          <p className="mt-2 text-xs text-muted">{weekCount >= goal ? "Weekly goal reached. Nice work." : `${goal - weekCount} more to hit your goal.`}</p>
-          <MocksLeft className="mt-1" />
-        </Card>
+      <section className="grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-card sm:grid-cols-4">
+        <Stat value={readiness ?? "–"} label="Readiness (last 3)" />
+        <Stat value={`${covered} / ${packs.length}`} label="Rounds tried" />
+        <Stat value={streak} label="Day streak" />
+        <Stat value={weak ?? "–"} label="Weakest area" small />
+      </section>
 
-        <Card className="lg:col-span-3">
-          <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
-            <Stat icon={<Trophy size={18} />} value={readiness ?? "–"} label="Readiness (last 3)" />
-            <Stat icon={<Target size={18} />} value={`${covered}/${packs.length}`} label="Rounds tried" />
-            <Stat icon={<Flame size={18} />} value={streak} label="Day streak" />
-            <Stat icon={<Lightbulb size={18} />} value={weak ?? "–"} label="Weakest area" small />
-          </div>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-medium">Recent sessions</h2>
-            <Link href="/progress" className="text-sm text-muted hover:text-ink">View all</Link>
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <section className="overflow-hidden rounded-xl border border-line bg-card">
+          <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
+            <h2 className="text-sm font-semibold">Recent reports</h2>
+            <Link href="/progress" className="text-sm font-medium text-accent">View all</Link>
           </div>
           {reports.length === 0 ? (
-            <p className="rounded-2xl bg-soft p-6 text-center text-sm text-muted">No completed mocks yet.</p>
+            <p className="px-5 py-8 text-center text-sm text-muted">No reports yet. Your first mock&apos;s report shows here.</p>
           ) : (
-            <ul className="grid gap-2">
+            <ul>
               {reports.slice(0, 5).map((r) => (
-                <li key={r.id}>
-                  <Link href={`/report/${r.sessionId}`} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:bg-soft">
+                <li key={r.id} className="border-t border-line first:border-t-0">
+                  <Link href={`/report/${r.sessionId}`} className="flex items-center gap-3.5 px-5 py-3 transition hover:bg-soft">
                     <ScoreBadge score={r.overall} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
-                      <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString()}</div>
+                      <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</div>
                     </div>
                     <TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill>
                   </Link>
@@ -116,51 +144,54 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
-        </Card>
+        </section>
 
         <Card>
-          <h2 className="mb-3 text-lg font-medium">Fix these first</h2>
+          <h2 className="mb-3 text-sm font-semibold">Fix these first</h2>
           {reports[0] ? (
-            <ol className="grid gap-2 text-sm">
+            <ol className="grid gap-3 text-sm">
               {reports[0].topFixes.map((f, i) => (
-                <li key={i} className="rounded-2xl bg-soft p-3"><span className="mr-2 font-semibold">{i + 1}.</span>{f}</li>
+                <li key={i} className="flex gap-3">
+                  <span className="font-semibold tabular-nums text-accent">{i + 1}</span>
+                  <span>{f}</span>
+                </li>
               ))}
             </ol>
           ) : (
             <p className="text-sm text-muted">Your top fixes appear here after your first report.</p>
           )}
-          <Link href="/prepare" className="mt-4 inline-block text-sm text-muted hover:text-ink">Open your prep plan →</Link>
-        </Card>
-
-        <Card className="lg:col-span-3">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-medium"><StickyNote size={18} /> Notes</h2>
-            <div className="flex items-center gap-3">
-              <button onClick={() => openPanel()} className="text-sm text-muted hover:text-ink">+ Quick note</button>
-              <Link href="/notes" className="text-sm text-muted hover:text-ink">View all</Link>
-            </div>
-          </div>
-          {notes.length === 0 ? (
-            <p className="rounded-2xl bg-soft p-6 text-center text-sm text-muted">Nothing yet. Press &quot;n&quot; anywhere in the app, or click the notes button, to jot something down — it can be attached to any interview, round or plan item.</p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {notes.slice(0, 3).map((n) => (
-                <NoteCard key={n.id} note={n} />
-              ))}
-            </div>
-          )}
+          <Link href="/prepare" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">Open your prep plan <ArrowRight size={14} /></Link>
         </Card>
       </div>
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold"><StickyNote size={16} /> Notes</h2>
+          <div className="flex items-center gap-4">
+            <button onClick={() => openPanel()} className="text-sm font-medium text-accent">New note</button>
+            <Link href="/notes" className="text-sm text-muted hover:text-ink">View all</Link>
+          </div>
+        </div>
+        {notes.length === 0 ? (
+          <p className="text-sm text-muted">Nothing yet. Press &quot;n&quot; anywhere to jot something down and attach it to an interview, round or plan item.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {notes.slice(0, 3).map((n) => (
+              <NoteCard key={n.id} note={n} />
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
 
-function Stat({ icon, value, label, small }: { icon: React.ReactNode; value: React.ReactNode; label: string; small?: boolean }) {
+/** One cell of the stats row. Dividers: between cells on a row, and above the second row on phones. */
+function Stat({ value, label, small }: { value: React.ReactNode; label: string; small?: boolean }) {
   return (
-    <div className="rounded-2xl bg-soft p-3">
-      <div className="mx-auto mb-1 grid w-fit place-items-center text-muted">{icon}</div>
-      <div className={`font-semibold ${small ? "text-sm leading-6" : "text-2xl"}`}>{value}</div>
-      <div className="text-xs text-muted">{label}</div>
+    <div className="grid content-start gap-0.5 border-line px-5 py-4 [&:nth-child(even)]:border-l [&:nth-child(n+3)]:border-t sm:[&:nth-child(n+2)]:border-l sm:[&:nth-child(n+3)]:border-t-0">
+      <div className={`font-semibold tracking-tight tabular-nums ${small ? "truncate text-base leading-[34px]" : "text-[28px] leading-[34px]"}`}>{value}</div>
+      <div className="text-[13px] text-muted">{label}</div>
     </div>
   );
 }

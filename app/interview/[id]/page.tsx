@@ -255,86 +255,110 @@ export default function InterviewRoom() {
   const left = total - elapsed;
   const last = [...session.messages].reverse().find((m) => m.role === "interviewer");
   const isCoding = pack.roundType === "coding";
+  const questionNo = session.messages.filter((m) => m.role === "interviewer").length;
+  // One clear state for the room, shown on the interviewer tile and next to the answer box.
+  const state = finishing
+    ? { label: "Scoring", cls: "bg-soft text-muted" }
+    : speech.speaking
+      ? { label: `${persona.name} is speaking`, cls: "bg-accent-soft text-accent" }
+      : busy
+        ? { label: `${persona.name} is thinking`, cls: "bg-soft text-muted" }
+        : listen.listening
+          ? { label: "Listening to you", cls: "bg-ok-soft text-ok" }
+          : { label: "Your turn", cls: "bg-ok-soft text-ok" };
 
   return (
     <div className="grid gap-5 lg:grid-cols-[1fr_380px]">
-      <div className="grid min-w-0 gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h1 className="text-2xl font-light tracking-tight sm:text-4xl">{pack.title}</h1>
-            <p className="text-sm text-muted">{persona.name} · {persona.label}{session.config.pressure ? " · Pressure mode" : ""}</p>
+      <div className="grid min-w-0 content-start gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">{pack.title}</h1>
+            <p className="text-sm text-muted">
+              {persona.name} · {persona.label}{session.config.pressure ? " · Pressure mode" : ""}
+              {questionNo > 0 ? ` · Question ${questionNo}` : ""}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <NoteChip link={{ type: "session", id: session.id, label: pack.title }} />
             {settings.showTimer && (
-              <div className={`rounded-full px-4 py-2 font-mono text-sm ${left < 60 ? "bg-danger text-white" : "bg-card"}`}>
+              <div
+                className={`rounded-lg px-3 py-1.5 font-mono text-sm font-medium tabular-nums ${left < 60 ? "bg-danger-soft text-danger" : "bg-card text-ink ring-1 ring-line"}`}
+                aria-label={left >= 0 ? `${fmt(left)} left` : `${fmt(-left)} over time`}
+              >
                 {left >= 0 ? fmt(left) : `+${fmt(-left)}`}
               </div>
             )}
           </div>
         </div>
 
-        {/* video stage */}
-        <div className="relative aspect-video overflow-hidden rounded-xl border border-line bg-gradient-to-b from-accent-soft to-card">
-          <div className="absolute inset-0 grid place-items-center">
-            <div className={`grid h-28 w-28 place-items-center rounded-full bg-accent text-4xl font-semibold text-accent-ink sm:h-40 sm:w-40 sm:text-6xl ${speech.speaking ? "pulse-ring" : ""}`}>
-              {persona.name[0]}
+        {/* stage: interviewer tile, your camera, current question */}
+        <div className="overflow-hidden rounded-xl border border-line bg-card">
+          <div className="relative grid min-h-64 place-items-center bg-gradient-to-b from-accent-soft/70 to-card px-4 py-10 sm:min-h-80">
+            <div className="grid justify-items-center gap-3 text-center">
+              <div className={`grid h-24 w-24 place-items-center rounded-full bg-accent text-4xl font-semibold text-accent-ink sm:h-32 sm:w-32 sm:text-5xl ${speech.speaking ? "pulse-ring" : ""}`}>
+                {persona.name[0]}
+              </div>
+              <div className="text-sm font-medium">{persona.name}</div>
+              <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${state.cls}`} aria-live="polite">
+                {speech.speaking ? (
+                  <span className="wave flex h-3.5 items-center text-accent">
+                    {[0, 0.15, 0.3, 0.1].map((d, i) => (
+                      <span key={i} style={{ animationDelay: `${d}s` }} />
+                    ))}
+                  </span>
+                ) : busy ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <span className={`h-1.5 w-1.5 rounded-full bg-current ${listen.listening ? "animate-pulse" : ""}`} />
+                )}
+                {state.label}
+              </span>
+            </div>
+
+            <div className="absolute right-3 top-3 h-24 w-[72px] overflow-hidden rounded-lg border border-line bg-soft sm:h-32 sm:w-24">
+              {camOn ? (
+                <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
+              ) : (
+                <div className="grid h-full place-items-center text-xl font-semibold text-muted">{profile.name[0]?.toUpperCase()}</div>
+              )}
+              <span className="absolute bottom-1 left-1 rounded bg-card/90 px-1.5 py-0.5 text-[10px] font-medium">You</span>
             </div>
           </div>
-          <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs text-white">
-            {persona.name}
-            {speech.speaking && (
-              <span className="wave flex h-4 items-center">
-                {[0, 0.15, 0.3, 0.1].map((d, i) => (
-                  <span key={i} style={{ animationDelay: `${d}s` }} />
-                ))}
-              </span>
-            )}
-          </div>
-          {busy && (
-            <div className="absolute left-4 top-12 flex items-center gap-2 rounded-full bg-black/45 px-3 py-1 text-xs text-white">
-              <Loader2 size={12} className="animate-spin" /> thinking…
+
+          {settings.captions && (
+            <div className="border-t border-line px-5 py-4 sm:px-6">
+              <div className="text-xs font-semibold text-muted">{questionNo > 0 ? `Question ${questionNo}` : "Starting"}</div>
+              <p className="mt-1 min-h-12 text-[17px] leading-7 sm:text-lg">
+                {last ? last.text : <span className="text-muted">Waiting for your interviewer…</span>}
+              </p>
+              {listen.listening && (
+                <p className="mt-2 text-sm text-ok">Your words appear in the answer box. Tap the mic again when you&apos;re done, then review and send.</p>
+              )}
             </div>
           )}
 
-          <div className="absolute right-4 top-4 h-28 w-20 overflow-hidden rounded-2xl bg-slate-800 shadow-lg sm:h-40 sm:w-32">
-            {camOn ? (
-              <video ref={videoRef} autoPlay muted playsInline className="h-full w-full -scale-x-100 object-cover" />
-            ) : (
-              <div className="grid h-full place-items-center text-2xl font-semibold text-white/80">{profile.name[0]?.toUpperCase()}</div>
-            )}
-            <span className="absolute bottom-1 left-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] text-white">You</span>
-          </div>
-
-          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/45 p-2 backdrop-blur">
-            <RoundBtn onClick={toggleCam} active={camOn} label="Camera">{camOn ? <Camera size={18} /> : <CameraOff size={18} />}</RoundBtn>
-            <RoundBtn onClick={toggleVoice} active={voice} label="Spoken interviewer">{voice ? <Volume2 size={18} /> : <VolumeX size={18} />}</RoundBtn>
+          <div className="flex items-center justify-center gap-2 border-t border-line bg-soft/60 px-4 py-3">
+            <RoundBtn onClick={toggleCam} active={camOn} label={camOn ? "Turn camera off" : "Turn camera on"}>{camOn ? <Camera size={18} /> : <CameraOff size={18} />}</RoundBtn>
+            <RoundBtn onClick={toggleVoice} active={voice} label={voice ? "Mute interviewer voice" : "Unmute interviewer voice"}>{voice ? <Volume2 size={18} /> : <VolumeX size={18} />}</RoundBtn>
             <RoundBtn
               onClick={() => (listen.listening ? listen.stop() : (speech.cancel(), listen.start(text)))}
               active={listen.listening}
+              primary
               disabled={!listen.supported || finishing}
-              label={listen.supported ? (listen.listening ? "Stop and edit" : "Speak your answer") : "Voice input not supported in this browser (use Chrome/Edge/Safari)"}
+              label={listen.supported ? (listen.listening ? "Stop and edit" : "Speak your answer") : "Voice input not supported in this browser (use Chrome, Edge or Safari)"}
             >
               {listen.listening ? <Mic size={18} /> : <MicOff size={18} />}
             </RoundBtn>
-            <button onClick={endClicked} disabled={finishing} className="grid h-11 w-14 place-items-center rounded-full bg-danger text-white disabled:opacity-50" title="End interview">
-              <PhoneOff size={18} />
+            <button onClick={endClicked} disabled={finishing} className="ml-2 inline-flex h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-white disabled:opacity-50" title="End interview">
+              <PhoneOff size={16} /> <span className="hidden sm:inline">End</span>
             </button>
           </div>
         </div>
 
-        {/* live caption */}
-        <div className={`rounded-xl bg-card p-5 ${settings.captions ? "" : "hidden"}`}>
-          <p className="min-h-14 text-base leading-relaxed sm:text-lg">
-            {last ? <span className="rounded bg-hl px-1">{last.text}</span> : <span className="text-muted">Waiting for your interviewer…</span>}
-          </p>
-          {listen.listening && <p className="mt-2 flex items-center gap-1.5 text-sm text-ok">Listening… your words are appearing in the answer box on the right. Tap the mic again when you&apos;re done to review and edit before sending.</p>}
-        </div>
-
         {isCoding && (
-          <div className="rounded-xl bg-card p-4">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-medium">Code editor</span>
+          <div className="rounded-xl border border-line bg-card p-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="font-semibold">Code editor</span>
               <span className="text-xs text-muted">The interviewer reads this on every turn. Think aloud as you write.</span>
             </div>
             <textarea
@@ -352,13 +376,13 @@ export default function InterviewRoom() {
                 }
               }}
               placeholder="// write your solution here"
-              className="min-h-56 w-full resize-y rounded-2xl bg-slate-950 p-4 font-mono text-sm text-slate-100 outline-none"
+              className="min-h-56 w-full resize-y rounded-lg border border-line bg-[#0e0f12] p-4 font-mono text-sm text-[#ededef] outline-none focus:border-accent"
             />
           </div>
         )}
 
         {error && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-danger/10 p-4 text-sm text-danger">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-danger-soft p-4 text-sm text-danger">
             <span>{error}</span>
             <button
               className="btn btn-ghost"
@@ -370,22 +394,22 @@ export default function InterviewRoom() {
         )}
       </div>
 
-      {/* room chat / transcript */}
-      <aside className="flex h-[70vh] min-h-96 flex-col rounded-xl bg-card p-4 lg:h-auto lg:max-h-[calc(100vh-9rem)]">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-light">Transcript</h2>
-          <span className="text-xs text-muted">{session.messages.length} turns</span>
+      {/* transcript and answer box */}
+      <aside className="flex h-[70vh] min-h-96 flex-col rounded-xl border border-line bg-card lg:sticky lg:top-0 lg:h-[calc(100vh-8.5rem)]">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <h2 className="text-sm font-semibold">Transcript</h2>
+          <span className="text-xs tabular-nums text-muted">{session.messages.length} turns</span>
         </div>
-        <div className="flex-1 space-y-3 overflow-y-auto pr-1">
+        <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {session.messages.map((m) => (
-            <div key={m.id} className={`group relative max-w-[92%] rounded-2xl px-4 py-3 pr-8 text-sm ${m.role === "candidate" ? "ml-auto bg-accent text-accent-ink" : "bg-soft"}`}>
-              <div className="mb-0.5 text-xs opacity-60">{m.role === "candidate" ? "You" : persona.name}</div>
+            <div key={m.id} className={`group relative max-w-[92%] rounded-xl px-3.5 py-2.5 pr-8 text-sm ${m.role === "candidate" ? "ml-auto bg-accent-soft" : "bg-soft"}`}>
+              <div className={`mb-0.5 text-xs font-medium ${m.role === "candidate" ? "text-accent" : "text-muted"}`}>{m.role === "candidate" ? "You" : persona.name}</div>
               {m.text}
               <button
                 onClick={() => openPanel({ filterLink: { type: "session", id: session.id, label: pack.title }, prefillBody: `"${m.text}"\n— ${m.role === "candidate" ? "you" : persona.name}` })}
                 aria-label="Save as note"
                 title="Save as note"
-                className={`absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full opacity-0 transition group-hover:opacity-100 ${m.role === "candidate" ? "hover:bg-black/10" : "hover:bg-card"}`}
+                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full text-muted opacity-0 transition hover:bg-card focus-visible:opacity-100 group-hover:opacity-100"
               >
                 <StickyNote size={13} />
               </button>
@@ -393,38 +417,36 @@ export default function InterviewRoom() {
           ))}
           <div ref={chatEnd} />
         </div>
-        {listen.listening && (
-          <p className="mb-1.5 flex items-center gap-1.5 text-xs text-ok">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-ok" /> Listening — tap the mic to stop and edit before sending.
-          </p>
-        )}
         <form
-          className="flex items-center gap-2"
+          className="grid gap-2 border-t border-line p-3"
           onSubmit={(e) => {
             e.preventDefault();
             submit(text);
           }}
         >
-          <input
-            className="input"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={listen.listening ? "Listening…" : "Type your answer, or use the mic, then hit send…"}
-            disabled={busy || finishing || listen.listening}
-            title={listen.listening ? "Tap the mic to stop listening before editing" : undefined}
-          />
-          <button className="btn btn-primary !px-3" disabled={!text.trim() || busy || finishing} aria-label="Send answer">
-            <Send size={16} />
-          </button>
+          <span className={`w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${state.cls}`}>{state.label}</span>
+          <div className="flex items-center gap-2">
+            <input
+              className="input"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={listen.listening ? "Listening…" : "Type your answer, or use the mic"}
+              disabled={busy || finishing || listen.listening}
+              title={listen.listening ? "Tap the mic to stop listening before editing" : undefined}
+            />
+            <button className="btn btn-primary !px-3" disabled={!text.trim() || busy || finishing} aria-label="Send answer">
+              <Send size={16} />
+            </button>
+          </div>
         </form>
       </aside>
 
       {finishing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6 text-white">
+        <div className="fixed inset-0 z-50 grid place-items-center bg-bg/85 p-6 backdrop-blur-sm">
           <div className="text-center">
-            <Loader2 className="mx-auto mb-4 animate-spin" size={36} />
+            <Loader2 className="mx-auto mb-4 animate-spin text-accent" size={36} />
             <p className="text-lg">Scoring your interview…</p>
-            <p className="mt-1 text-sm opacity-70">Writing evidence-based feedback. This takes about 20–40 seconds.</p>
+            <p className="mt-1 text-sm text-muted">Writing evidence-based feedback. This takes about 20–40 seconds.</p>
           </div>
         </div>
       )}
@@ -432,15 +454,13 @@ export default function InterviewRoom() {
   );
 }
 
-function RoundBtn({ children, onClick, active, disabled, label }: { children: React.ReactNode; onClick: () => void; active?: boolean; disabled?: boolean; label: string }) {
+function RoundBtn({ children, onClick, active, primary, disabled, label }: { children: React.ReactNode; onClick: () => void; active?: boolean; primary?: boolean; disabled?: boolean; label: string }) {
+  // The mic is the main control: filled in the accent colour; the others stay quiet until switched on.
+  const look = primary
+    ? active ? "bg-ok text-white" : "bg-accent text-accent-ink hover:opacity-90"
+    : active ? "bg-card text-ink ring-1 ring-line" : "bg-transparent text-muted ring-1 ring-line hover:bg-card hover:text-ink";
   return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={`grid h-11 w-11 place-items-center rounded-full transition disabled:opacity-40 ${active ? "bg-white text-black" : "bg-white/15 text-white hover:bg-white/25"}`}
-    >
+    <button onClick={onClick} disabled={disabled} title={label} aria-label={label} aria-pressed={active} className={`grid h-11 w-11 place-items-center rounded-full transition disabled:opacity-40 ${look}`}>
       {children}
     </button>
   );
