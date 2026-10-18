@@ -11,6 +11,8 @@ How this fits with the other docs:
 | [SPEC.md](SPEC.md) | Exact data model and API contracts of the **current** code | Before changing `lib/types.ts` or any route |
 | [IMPLEMENTATION.md](IMPLEMENTATION.md) | Narrative of what is built and why | Day 1 |
 | [DEV_PLAN.md](DEV_PLAN.md) | The **target** production architecture and phase roadmap | When planning beyond the prototype |
+| [FLOWS.md](FLOWS.md) | How requests, sign-in, interviews, usage and deploys flow; the initial plan and every deviation from it | Before changing a flow |
+| [DECISIONS.md](DECISIONS.md) | Dated log of every decision made while building, with why and when to revisit | Before re-opening a choice |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
 | [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md)) | Before working on that initiative |
 
@@ -197,7 +199,7 @@ Goal: safe to deploy publicly as a demo, even before accounts exist.
 | M1.4 Usage capture | **Done.** See [plans/usage-capture.md](plans/usage-capture.md). liveAgent records every Gemini call (failed ones too, plus `thoughtTokens`) and returns the records in an `X-LLM-Usage` header; Core's `callAgent` (now requires `user`) logs one `ai.usage` line per call with `userId`, route and a `requestId` shared with liveAgent's `llm.usage` line. `recordUsage` in `lib/usage.ts` is where M2 writes `usage_ledger` |
 | M1.5 Error tracking | Sentry (or equivalent) for routes and client |
 | M1.6 Route contract tests | **Done.** `lib/api.contract.test.ts`: every Core AI route with liveAgent mocked at `fetch`: the request each route sends (path, token, shaped body), pass-through of liveAgent 400/422/502, 503 unreachable/unconfigured, 504 timeout, 429 + Retry-After, and the health route's error shape. Response shaping (`overall` clamping, packs capped to 3) moved to liveAgent and is tested in `liveAgent/tests/test_routes.py` |
-| M1.7 Deploy | Preview deploys per PR (e.g. Vercel) + a staging environment with its own Gemini key and budget alert |
+| M1.7 Deploy | **In progress (2026-10-18).** Staging on Railway: `core` (repo root, `railway.json`) and `liveagent` (`liveAgent/railway.json`, private network only), own Gemini key and budget alert. Was "preview deploys per PR (e.g. Vercel)"; see [DECISIONS.md](DECISIONS.md) and [FLOWS.md §6](FLOWS.md#6-deploy-staging-being-set-up) |
 
 **Exit:** all routes schema-validated and rate-limited; contract tests in CI; staging URL live; cost per mock visible in logs.
 

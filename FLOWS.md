@@ -1,0 +1,111 @@
+# Flows
+
+How requests, sign-in, interviews, usage and deploys move through Offerly, and how the build has moved away from the initial plan. Screen-by-screen UX is in [USER_FLOW.md](USER_FLOW.md); exact request/response shapes are in [SPEC.md](SPEC.md); why each choice was made is in [DECISIONS.md](DECISIONS.md).
+
+Update this file in the same commit as any change to a flow below.
+
+---
+
+## 1. An AI request (every `/api/*` AI route)
+
+```
+Browser / Android WebView
+  │  POST /api/interview/turn  (session cookie)
+  ▼
+Core: Next.js route handler
+  1. authorize(req, bucket)      lib/route.ts
+       requireUser()             lib/auth.ts      → 401 signed out; 503 if AUTH_MODE=off in production
+       enforceRateLimit()        lib/rateLimit.ts → 429 + Retry-After (per user; per IP with AUTH_MODE=off)
+  2. parseBody(req, Schema)      lib/schemas.ts   → 413 over 1 MB, 400 with field issues
+  3. resolve field + persona     lib/domains, catalog from Supabase (5-min cache)
+  4. callAgent(path, body, {user})  lib/liveAgent.ts
+       │  Bearer LIVE_AGENT_TOKEN, X-Request-Id
+       ▼
+     liveAgent: FastAPI /v1/*    liveAgent/live_agent/
+       require_core (token)      → 401 / 503
+       Pydantic validation       → 400
+       prompt builder            prompts.py, limits.py
+       generate_json()           gemini.py ──► Gemini (structured JSON output)
+       ◄── JSON  +  X-LLM-Usage header (one record per Gemini call)
+  5. recordUsage(...)            lib/usage.ts → ai.usage log line (M2: usage_ledger row)
+  6. return JSON, or errorResponse(e) → { error, issues? } with liveAgent's status
+                                  (unreachable 503, timeout 504)
+```
+
+The browser never talks to liveAgent, and liveAgent never sees a database or a user's identity beyond what Core sends.
+
+## 2. Sign-in
+
+```
+Signed-out page request ──► proxy.ts ──► redirect /welcome   (API requests get 401 instead)
+
+/sign-in
+ ├─ Email:  POST /api/auth/otp  (rate-limited per IP) ──► Supabase sends an email with a code and a link
+ │     ├─ Code (web and app):  POST /api/auth/verify ──► session cookies + terms consent ──► /
+ │     └─ Link (only in the browser that asked): /auth/callback (PKCE) ──► session + consent ──► /
+ └─ Google (web only; hidden in the app via isInApp()):
+       /auth/google ──► Google ──► /auth/callback ──► session + consent ──► /
+
+Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/sign-out (no page reload).
+```
+
+`proxy.ts` only refreshes the session and redirects pages; route handlers check the user themselves, and row-level security checks again in the database. With `AUTH_MODE=off` (local work, CI) everyone is the one `local` user.
+
+## 3. Where data lives (until M2.5)
+
+| Data | Where | Notes |
+|---|---|---|
+| Profile | Supabase `profiles` (JSONB) via `/api/db/profile` | Same profile on web and app |
+| Users, terms consent | Supabase `users`, `consents` | RLS: own rows only; delete account cascades |
+| Sessions, reports, notes, roadmaps, custom packs | Browser `localStorage`, keys prefixed per user | Moves to the server in M2.2–M2.5; first sign-in in a browser adopts older un-prefixed data |
+| Fields and built-in packs | Supabase `domains`, `packs` | Code copies are the seed and the fallback |
+
+## 4. One interview
+
+1. `/practice` creates a session (`lobby`).
+2. `/interview/[id]`: Lobby → Join (`active`).
+3. Each candidate answer → `POST /api/interview/turn` (flow 1) → the interviewer's next line. The client keeps the transcript, so a refresh resumes.
+4. End (button, timer + 45 s, or the model ends it) → `scoring` → `POST /api/interview/report` (Pro model, up to 115 s). On failure it returns to `active` with the transcript kept.
+5. The client saves the report with signals from `lib/analysis.ts`; the session becomes `done`.
+
+## 5. Usage and cost
+
+```
+generate_json ─ one record per Gemini call ─► llm.usage log line (liveAgent, with requestId)
+              └─► X-LLM-Usage header ─► callAgent ─► recordUsage ─► ai.usage log line (Core, with userId)
+```
+
+Records cover failed calls (`ok: false`) and thinking tokens. Join the two services' lines on `requestId`. Plan: [plans/usage-capture.md](plans/usage-capture.md).
+
+## 6. Deploy (staging, being set up)
+
+```
+Internet ──HTTPS──► Railway service "core"  (repo root, Next.js, public domain)
+                          │  http://<liveagent private domain>:8080  (Railway private network)
+                          ▼
+                    Railway service "liveagent"  (liveAgent/Dockerfile, no public domain) ──► Gemini
+core ──► Supabase (auth, profiles, catalog)        core ──► Upstash Redis (rate limits)
+```
+
+Region: Singapore. Config lives in `railway.json` (Core) and `liveAgent/railway.json`.
+
+---
+
+## Initial plan and deviations
+
+**The initial plan** ([implementationPlan.md](implementationPlan.md), 2026-10-01): evolve the single Next.js app, with Gemini called from its route handlers (D1). Milestones in order: M0 team-ready → M1 harden the API (Zod, rate limits, limits, usage, error tracking, contract tests, deploy) → M2 accounts and server persistence → M2-Org, M3 voice, M4 engine and scoring, M5 coding round in parallel → M6 business. Orgs were "Later"; there was no mobile app.
+
+**What changed:**
+
+| # | Date | Initial plan | What we did | Why |
+|---|---|---|---|---|
+| 1 | 2026-10-04 | D1: keep Next.js route handlers as the API | All AI moved to **liveAgent**, a Python service in the same repo | One backend for web and mobile; voice and ML tooling are Python |
+| 2 | 2026-10-03 | Orgs in "Later" | Org-ready schema pulled into **M2.10**, org features into **M2-Org** | Owner: product serves individuals and organisations |
+| 3 | 2026-10-08 | M1.2 rate limiting in middleware | In each route handler (`authorize()`) | Next 16 advises against shared state in `proxy.ts` |
+| 4 | 2026-10-14 | No mobile app | **Expo Android app** wrapping the web app in a WebView | Mobile-first users |
+| 5 | 2026-10-14 | Sign-in with a browser Supabase client; magic links or Google | Server-side sign-in routes; **email code** everywhere, Google on the web only, link as a browser convenience | Google and magic links don't work inside the WebView |
+| 6 | 2026-10-14 | Finish M1 (incl. M1.7 deploy) before M2 | **M2.1 sign-in built before M1.4, M1.5 and M1.7** | Reason not recorded at the time. Side effect: sign-in hasn't run against a real Supabase project yet |
+| 7 | 2026-10-14 | M1.6 tests route-level shaping in Core | Shaping moved to liveAgent and tested there | It belongs with the prompts that produce the data |
+| 8 | 2026-10-15 | M1.3 `lib/limits.ts` | `liveAgent/live_agent/limits.py` | Prompts live in liveAgent |
+| 9 | 2026-10-18 | M1.4 log usage in `generate_json` | liveAgent measures, **Core records against the user** via a header | Core owns users and the future ledger |
+| 10 | 2026-10-18 | M1.7 "e.g. Vercel", preview deploy per PR | **Railway** for both services, liveAgent private; no PR previews | Existing Railway Hobby plan; work is committed on the branch without PRs |
