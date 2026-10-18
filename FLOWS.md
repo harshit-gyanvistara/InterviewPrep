@@ -63,6 +63,7 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 | Users, terms consent | Supabase `users`, `consents` | RLS: own rows only; delete account cascades |
 | Sessions, reports, roadmaps, stories, settings, custom packs, notes, Cortex | Supabase, one table each (`data` JSONB, key `(user_id, id)`), via `/api/db/<name>` | Cached in memory per page load; saves go through a retry queue kept in localStorage (top bar shows "Saving N changes…"). Older browser data is uploaded once on sign-in. [plans/server-history.md](plans/server-history.md) |
 | Everything, with `AUTH_MODE=off` | Browser `localStorage`, unprefixed keys | Local work and CI only |
+| Organisations, memberships, cohorts, assignments, entitlements, invites, audit log | Supabase (M2.10, no UI yet) | Members read their orgs, their own membership, and those orgs' cohorts and assignments. Everything else is server-only, through `lib/authz.ts`. [plans/org-ready-schema.md](plans/org-ready-schema.md) |
 | Fields and built-in packs | Supabase `domains`, `packs` | Code copies are the seed and the fallback |
 
 ## 4. One interview

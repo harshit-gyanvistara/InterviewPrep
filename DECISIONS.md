@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Org tables: RLS stops at membership; admin views go through code (M2.10)
+- **Decision:** Add the organisation tables (organizations, memberships, entitlements, cohorts, invites, assignments, audit_logs), with foreign keys from the existing `org_id` columns (set null on org delete) and `assignment_id` on sessions, reports and usage_ledger. RLS lets a user read only the orgs they're active in, their own memberships, and those orgs' cohorts and assignments. Entitlements, invites and audit logs have no user policies, and users can write no org table. An org admin never reads a member's sessions or reports through RLS: M2-Org routes check `can()` / `canViewMember()` in `lib/authz.ts`, read with the secret key and write `audit_logs`. Permissions are a code map (`ROLE_PERMISSIONS`). Share levels are activity < scores < full, default scores, read from the member's latest `org_share` consent. With no secret key, every check denies. See [plans/org-ready-schema.md](plans/org-ready-schema.md).
+- **Why:** "The user owns their data" (D11) holds in the database itself. Share-level rules live in one tested function instead of being copied into SQL policies. Custom roles later replace one map.
+- **Considered:** RLS policies that let admins read members' reports by share level (share logic duplicated in SQL, and harder to audit); Postgres enums for role and status (every new value would need a migration).
+- **Revisit:** If org analytics needs SQL-side aggregation across members (a security-definer view or RPC would then do the share check).
+
 ## 2026-10-19 · Honest scores for short interviews
 - **Decision:** liveAgent works out coverage (answers of 8+ words against the round's expected questions: `questionCount`, or minutes ÷ 3, at least 3) and tells the scorer. Skills with no evidence come back `assessed: false`. In code, the verdict always follows `overall`, and fewer than 3 answers (or the whole round, if smaller) gives "Too short" with `overall` capped at 40. The app shows "Too short to score" and leaves those reports out of readiness, bests, the progress chart and roadmap digests. Report prompt version is now `2026-10-19.2`. See [plans/honest-scoring.md](plans/honest-scoring.md).
 - **Why:** A one-answer test mock scored 62 "Borderline": the scorer filled unseen skills with middling scores, and the app presented that as a full report.
