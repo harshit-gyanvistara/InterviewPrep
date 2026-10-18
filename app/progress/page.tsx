@@ -7,7 +7,7 @@ import { useState } from "react";
 import { LineChart, Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { db, useAllPacks, useReports } from "@/lib/db";
-import { verdictTone } from "@/lib/analysis";
+import { isScored, verdictTone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useConfirm } from "@/lib/dialogContext";
 
@@ -25,7 +25,7 @@ export default function Progress() {
   };
   const shown = filter === "all" ? reports : reports.filter((r) => r.packId === filter);
 
-  const chrono = [...reports].reverse();
+  const chrono = reports.filter(isScored).reverse();
   const W = 640;
   const H = 180;
   const pts = chrono.map((r, i) => ({
@@ -36,7 +36,7 @@ export default function Progress() {
 
   // average per rubric dimension across all mocks
   const dims = new Map<string, number[]>();
-  reports.forEach((r) => r.dimensions.forEach((d) => dims.set(d.name, [...(dims.get(d.name) ?? []), d.score])));
+  reports.forEach((r) => r.dimensions.forEach((d) => d.assessed !== false && dims.set(d.name, [...(dims.get(d.name) ?? []), d.score])));
   const dimAvg = [...dims.entries()]
     .map(([name, v]) => ({ name, avg: v.reduce((a, b) => a + b, 0) / v.length }))
     .sort((a, b) => a.avg - b.avg);
@@ -100,7 +100,7 @@ export default function Progress() {
               {shown.map((r) => (
                 <li key={r.id} className="flex items-center gap-2">
                   <Link href={`/report/${r.sessionId}`} className="flex flex-1 items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:bg-soft">
-                    <ScoreBadge score={r.overall} />
+                    <ScoreBadge score={isScored(r) ? r.overall : null} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
                       <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString()}</div>

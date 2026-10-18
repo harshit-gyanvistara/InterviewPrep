@@ -11,7 +11,7 @@ import { TonePill } from "@/components/ScoreBadge";
 import { db, uid, useAllPacks, useNotesFor, useProfile, useQuery, useReports } from "@/lib/db";
 import { recommendPack } from "@/lib/recommend";
 import { visibleBuiltInPacks, PERSONAS } from "@/lib/packs";
-import { scoreTone, verdictTone, type Tone } from "@/lib/analysis";
+import { isScored, scoreTone, verdictTone, type Tone } from "@/lib/analysis";
 import { useNotesPanel } from "@/lib/notesContext";
 import { createPage, ensureBinder, reportToHtml } from "@/lib/cortex";
 
@@ -80,7 +80,7 @@ export default function ReportPage() {
   const saveToCortex = async () => {
     const binder = await ensureBinder("Interview Reports", "📋");
     const page = await createPage(binder.id, {
-      title: `${pack?.title ?? "Interview"} — ${report.overall}/100`,
+      title: `${pack?.title ?? "Interview"} — ${isScored(report) ? `${report.overall}/100` : "too short to score"}`,
       icon: "📋",
       contentHtml: reportToHtml({ packTitle: pack?.title ?? "Interview", overall: report.overall, verdict: report.verdict, summary: report.summary, topFixes: report.topFixes, dimensions: report.dimensions, answerReviews: report.answerReviews }),
     });
@@ -95,12 +95,21 @@ export default function ReportPage() {
   const date = new Date(report.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" });
   // Quotes from the candidate's own answers, from the dimensions that have one.
   const quotes = report.dimensions.filter((d) => d.evidence?.trim());
+  // Too few answers to score fairly (plans/honest-scoring.md): no score ring, say how much was answered.
+  const scored = isScored(report);
 
   return (
     <div className="grid gap-5">
       <article className="overflow-hidden rounded-xl bg-card shadow-float">
         <header className="grid items-center gap-6 border-b border-line p-6 sm:grid-cols-[auto_1fr] sm:gap-8 sm:p-7">
-          <ScoreRing score={report.overall} tone={tone} />
+          {scored ? (
+            <ScoreRing score={report.overall} tone={tone} />
+          ) : (
+            <div className="grid h-32 w-32 shrink-0 place-content-center gap-1 rounded-full border-[10px] border-soft text-center">
+              <span className="text-sm font-semibold text-warn">Too short<br />to score</span>
+              {report.coverage && <span className="text-xs text-muted">{report.coverage.answered} of ~{report.coverage.expected} answered</span>}
+            </div>
+          )}
           <div className="grid gap-2.5">
             <div className="flex flex-wrap gap-2">
               <TonePill tone={tone}>{report.verdict}</TonePill>
@@ -119,14 +128,15 @@ export default function ReportPage() {
             <h2 className="text-sm font-semibold">By skill</h2>
             {report.dimensions.map((d) => {
               const t = scoreTone(d.score * 10);
+              const seen = d.assessed !== false;
               return (
                 <div key={d.name} className="grid gap-1.5">
                   <div className="flex items-baseline justify-between gap-3 text-sm">
                     <span>{d.name}</span>
-                    <span className="tabular-nums">{d.score.toFixed(1)}</span>
+                    {seen ? <span className="tabular-nums">{d.score.toFixed(1)}</span> : <span className="text-xs text-muted">Not enough evidence</span>}
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-soft">
-                    <div className={`h-full rounded-full ${FILL[t]}`} style={{ width: `${Math.max(0, Math.min(10, d.score)) * 10}%` }} />
+                    {seen && <div className={`h-full rounded-full ${FILL[t]}`} style={{ width: `${Math.max(0, Math.min(10, d.score)) * 10}%` }} />}
                   </div>
                   {d.feedback && <p className="text-[13px] leading-5 text-muted">{d.feedback}</p>}
                 </div>
@@ -162,7 +172,7 @@ export default function ReportPage() {
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-soft px-6 py-4 sm:px-7">
-          <p className="text-sm text-muted">{rec && rec.pack.id !== report.packId ? `Next: ${rec.pack.title}. ${rec.reason}` : `Fix the top issues, then go again while they're fresh. Aim to beat ${report.overall}.`}</p>
+          <p className="text-sm text-muted">{rec && rec.pack.id !== report.packId ? `Next: ${rec.pack.title}. ${rec.reason}` : scored ? `Fix the top issues, then go again while they're fresh. Aim to beat ${report.overall}.` : "Answer at least 3 questions next time to get a full score."}</p>
           <button onClick={() => startSession(report.packId)} className="btn btn-primary"><Repeat size={15} /> Practise this round again</button>
         </footer>
       </article>

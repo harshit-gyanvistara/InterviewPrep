@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeSignals, scoreTone, verdictColor } from "./analysis";
+import { computeSignals, isScored, scoreTone, verdictColor, verdictTone } from "./analysis";
 import type { Message } from "./types";
 
 let n = 0;
@@ -87,5 +87,13 @@ describe("scoreTone", () => {
     [0, "danger"],
   ] as const)("%i → %s", (score, tone) => {
     expect(scoreTone(score)).toBe(tone);
+  });
+});
+
+describe("too-short reports", () => {
+  it("are left out of scores and shown as a warning", () => {
+    expect(isScored({ verdict: "Too short" })).toBe(false);
+    expect(isScored({ verdict: "Not Yet" })).toBe(true);
+    expect(verdictTone("Too short")).toBe("warn");
   });
 });

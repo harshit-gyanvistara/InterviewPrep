@@ -7,7 +7,7 @@ final code, history, digests, packs) are in test_routes.py.
 
 from live_agent import prompts
 from live_agent.limits import LIMITS
-from live_agent.models import AssistRequest, DomainIn, Pack, PersonaIn, Profile, SessionConfig
+from live_agent.models import AssistRequest, Coverage, DomainIn, Pack, PersonaIn, Profile, SessionConfig
 
 M = "☃"  # ☃
 OVER = 500  # characters past each limit
@@ -33,7 +33,7 @@ def test_interviewer_prompt_caps_resume_and_job_description():
 
 def test_scoring_prompt_caps_resume_and_job_description():
     p = long_profile(resume=LIMITS.resume_chars + OVER, job_description=LIMITS.job_description_chars + OVER)
-    assert prompts.scoring_system(PACK, CONFIG, p, DOMAIN).count(M) == LIMITS.resume_chars + LIMITS.job_description_chars
+    assert prompts.scoring_system(PACK, CONFIG, p, DOMAIN, Coverage(answered=3, expected=5, sufficient=True)).count(M) == LIMITS.resume_chars + LIMITS.job_description_chars
 
 
 def test_pack_gen_prompt_caps_resume_and_job_description():

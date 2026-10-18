@@ -12,7 +12,7 @@ from typing import Any
 
 from .gemini import ChatTurn
 from .limits import LIMITS
-from .models import AssistRequest, DomainIn, Message, Pack, PersonaIn, Profile, SessionConfig
+from .models import AssistRequest, Coverage, DomainIn, Message, Pack, PersonaIn, Profile, SessionConfig
 
 
 
@@ -21,7 +21,7 @@ from .models import AssistRequest, DomainIn, Message, Pack, PersonaIn, Profile, 
 
 PROMPT_VERSIONS = {
     "interview.turn": "2026-10-19.1",
-    "interview.report": "2026-10-19.1",
+    "interview.report": "2026-10-19.2",
 }
 
 
@@ -156,8 +156,10 @@ SCORING GUIDE
 - 0-3 weak, 4-5 below bar, 6-7 meets bar for a graduate, 8-9 strong, 10 exceptional. Most graduates land 4-7; do not inflate.
 - "overall" is 0-100 consistent with the dimension scores.
 - verdict: "Strong Hire" (>=85), "Hire" (70-84), "Borderline" (50-69), "Not Yet" (<50).
-- Every dimension needs "evidence": a short direct quote (or precise paraphrase) from the CANDIDATE's answers. If the interview was too short to judge, say so and score conservatively.
-- answerReviews: cover up to 6 of the main questions, each with TWO different answers:
+- Every dimension needs "evidence": a short direct quote (or precise paraphrase) from the CANDIDATE's answers.
+- Score only what the transcript shows. If no answer gives evidence for a dimension, set "assessed": false, "score": 0, "evidence": "", and say in "feedback" what the candidate should demonstrate next time. Never guess a middling score for something you did not see.
+- "overall" reflects the assessed dimensions only, and the COVERAGE line below: an interview that ended early cannot earn a high overall from one good answer.
+- answerReviews: cover only questions that were actually asked and answered, up to 6, each with TWO different answers:
   1. "betterAnswer": a rewrite of THIS candidate's own answer (3-5 sentences, first person, using their own facts). Never invent employers or achievements not in the transcript/resume; use placeholders like [metric] instead.
   2. "expectedAnswer": the general MODEL answer an interviewer is looking for on this exact question — what a well-prepared candidate for this role should cover (the key points, structure, or approach), written as generic guidance (e.g. "A strong answer covers X, then Y, with a concrete example of Z"), NOT tied to this candidate's specific facts. This is what they should have known to prepare, so study it for next time.
 - topFixes: exactly 3 specific, actionable fixes, most important first.
@@ -167,13 +169,15 @@ SCORING GUIDE
 """
 
 
-def scoring_system(pack: Pack, config: SessionConfig, profile: Profile, domain: DomainIn) -> str:
+def scoring_system(pack: Pack, config: SessionConfig, profile: Profile, domain: DomainIn, cov: Coverage) -> str:
+    short = "" if cov.sufficient else " This is too few to judge the round: keep scores conservative and say so in the summary."
     return (
         _SCORING_GUIDE
         + (f"{domain.scoring_context}\n" if domain.scoring_context else "")
         + "\n"
         + f"ROUND: {pack.title} ({pack.company}), {pack.role}. Persona difficulty: {config.persona}.\n"
-        + f"RUBRIC DIMENSIONS (score each 0-10, use exactly these names): {'; '.join(pack.rubric)}.\n\n"
+        + f"RUBRIC DIMENSIONS (score each 0-10, use exactly these names): {'; '.join(pack.rubric)}.\n"
+        + f"COVERAGE: the candidate gave {cov.answered} substantive answer(s); a full round has about {cov.expected} main questions.{short}\n\n"
         + profile_block(profile)
     )
 

@@ -10,7 +10,8 @@ const RULES: { re: RegExp; roundType: Pack["roundType"] }[] = [
 
 export function weakestDimension(reports: Report[]): string | undefined {
   const scores = new Map<string, number[]>();
-  reports.slice(0, 3).forEach((r) => r.dimensions.forEach((d) => scores.set(d.name, [...(scores.get(d.name) ?? []), d.score])));
+  // Skills the interview held no evidence for (assessed: false) score 0 but say nothing about weakness.
+  reports.slice(0, 3).forEach((r) => r.dimensions.forEach((d) => d.assessed !== false && scores.set(d.name, [...(scores.get(d.name) ?? []), d.score])));
   return [...scores.entries()]
     .map(([name, v]) => ({ name, avg: v.reduce((a, b) => a + b, 0) / v.length }))
     .sort((a, b) => a.avg - b.avg)[0]?.name;

@@ -111,6 +111,8 @@ export interface DimensionScore {
   score: number; // 0-10
   evidence: string;
   feedback: string;
+  /** False when the interview held no evidence for this skill; the score is then 0 and not shown. Absent on older reports. */
+  assessed?: boolean;
 }
 
 export interface AnswerReview {
@@ -139,7 +141,10 @@ export interface Report {
   packId: string;
   createdAt: number;
   overall: number; // 0-100
-  verdict: "Strong Hire" | "Hire" | "Borderline" | "Not Yet";
+  /** "Too short": too few answers to score fairly (plans/honest-scoring.md); overall is capped and left out of averages. */
+  verdict: "Strong Hire" | "Hire" | "Borderline" | "Not Yet" | "Too short";
+  /** How much of the interview happened. Absent on reports made before 2026-10-19. */
+  coverage?: { answered: number; expected: number; sufficient: boolean };
   summary: string;
   dimensions: DimensionScore[];
   strengths: string[];

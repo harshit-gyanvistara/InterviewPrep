@@ -134,6 +134,8 @@ class DimensionScore(BaseModel):
     score: float
     evidence: str
     feedback: str
+    # False when the transcript held no evidence for this dimension (plans/honest-scoring.md).
+    assessed: bool = True
 
 
 class AnswerReview(BaseModel):
@@ -145,7 +147,9 @@ class AnswerReview(BaseModel):
     expectedAnswer: str
 
 
-class ReportResult(BaseModel):
+class ScoredReport(BaseModel):
+    """What the scoring model returns."""
+
     overall: float
     verdict: Literal["Strong Hire", "Hire", "Borderline", "Not Yet"]
     summary: str
@@ -153,6 +157,21 @@ class ReportResult(BaseModel):
     topFixes: list[str]
     dimensions: list[DimensionScore]
     answerReviews: list[AnswerReview]
+
+
+class Coverage(BaseModel):
+    """How much of the interview happened (plans/honest-scoring.md)."""
+
+    answered: int
+    expected: int
+    sufficient: bool
+
+
+class ReportResult(ScoredReport):
+    """The scored report after liveAgent's rules: verdict follows overall, too-short interviews are flagged."""
+
+    verdict: Literal["Strong Hire", "Hire", "Borderline", "Not Yet", "Too short"]
+    coverage: Coverage
 
 
 class GeneratedPack(BaseModel):

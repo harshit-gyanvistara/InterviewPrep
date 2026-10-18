@@ -8,6 +8,7 @@ import { Card, PageTitle } from "@/components/Shell";
 import { NoteChip } from "@/components/NoteChip";
 import { StoryBank } from "@/components/StoryBank";
 import { db, uid, useAllPacks, useProfile, useQuery, useReports } from "@/lib/db";
+import { isScored } from "@/lib/analysis";
 import type { Roadmap } from "@/lib/types";
 
 export default function PreparePage() {
@@ -48,10 +49,10 @@ function RoadmapTab() {
     setBusy(true);
     setError(null);
     try {
-      const digests = reports.slice(0, 10).map((r) => ({
+      const digests = reports.filter(isScored).slice(0, 10).map((r) => ({
         pack: byId(r.packId)?.title,
         overall: r.overall,
-        weakDimensions: [...r.dimensions].sort((a, b) => a.score - b.score).slice(0, 2).map((d) => d.name),
+        weakDimensions: r.dimensions.filter((d) => d.assessed !== false).sort((a, b) => a.score - b.score).slice(0, 2).map((d) => d.name),
         topFixes: r.topFixes,
       }));
       const res = await fetch("/api/roadmap", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ profile, weeks, digests }) });

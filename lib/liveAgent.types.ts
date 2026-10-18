@@ -175,6 +175,18 @@ export interface components {
             /** Html */
             html: string;
         };
+        /**
+         * Coverage
+         * @description How much of the interview happened (plans/honest-scoring.md).
+         */
+        Coverage: {
+            /** Answered */
+            answered: number;
+            /** Expected */
+            expected: number;
+            /** Sufficient */
+            sufficient: boolean;
+        };
         /** DimensionScore */
         DimensionScore: {
             /** Name */
@@ -185,6 +197,11 @@ export interface components {
             evidence: string;
             /** Feedback */
             feedback: string;
+            /**
+             * Assessed
+             * @default true
+             */
+            assessed?: boolean;
         };
         /**
          * DomainIn
@@ -391,7 +408,10 @@ export interface components {
              */
             code?: string;
         };
-        /** ReportResult */
+        /**
+         * ReportResult
+         * @description The scored report after liveAgent's rules: verdict follows overall, too-short interviews are flagged.
+         */
         ReportResult: {
             /** Overall */
             overall: number;
@@ -399,7 +419,7 @@ export interface components {
              * Verdict
              * @enum {string}
              */
-            verdict: "Strong Hire" | "Hire" | "Borderline" | "Not Yet";
+            verdict: "Strong Hire" | "Hire" | "Borderline" | "Not Yet" | "Too short";
             /** Summary */
             summary: string;
             /** Strengths */
@@ -410,6 +430,7 @@ export interface components {
             dimensions: components["schemas"]["DimensionScore"][];
             /** Answerreviews */
             answerReviews: components["schemas"]["AnswerReview"][];
+            coverage: components["schemas"]["Coverage"];
         };
         /** RoadmapItem */
         RoadmapItem: {

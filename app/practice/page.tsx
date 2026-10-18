@@ -8,6 +8,7 @@ import { Card, PageTitle } from "@/components/Shell";
 import { NoteChip } from "@/components/NoteChip";
 import { QuickMockBuilder } from "@/components/QuickMock";
 import { db, uid, useAllPacks, useProfile, useReports, useSettings } from "@/lib/db";
+import { isScored } from "@/lib/analysis";
 import { useConfirm } from "@/lib/dialogContext";
 import { PERSONAS, visibleBuiltInPacks } from "@/lib/packs";
 import { recommendPack } from "@/lib/recommend";
@@ -130,7 +131,7 @@ function Practice() {
         <div className="grid gap-3 lg:col-span-2">
           {packs.map((p) => {
             const sel = packId === p.id;
-            const tried = reports.filter((r) => r.packId === p.id);
+            const tried = reports.filter((r) => r.packId === p.id && isScored(r));
             const best = tried.length ? Math.max(...tried.map((r) => r.overall)) : null;
             const choose = () => {
               setPackOverride(p.id);

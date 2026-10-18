@@ -6,15 +6,19 @@ const TONE: Record<Tone, string> = {
   danger: "bg-danger-soft text-danger",
 };
 
-/** A score in a tinted square (dashboard, progress, report lists). `max` 10 scales dimension scores. */
-export function ScoreBadge({ score, max = 100, size = 44 }: { score: number; max?: 100 | 10; size?: number }) {
-  const tone = scoreTone(max === 10 ? score * 10 : score);
+/**
+ * A score in a tinted square (dashboard, progress, report lists). `max` 10 scales dimension scores.
+ * `score` null shows a dash: an interview too short to score (plans/honest-scoring.md).
+ */
+export function ScoreBadge({ score, max = 100, size = 44 }: { score: number | null; max?: 100 | 10; size?: number }) {
+  const tone = score === null ? "warn" : scoreTone(max === 10 ? score * 10 : score);
   return (
     <span
       className={`grid shrink-0 place-items-center rounded-[10px] font-semibold tabular-nums ${TONE[tone]}`}
       style={{ width: size, height: size, fontSize: size * 0.34 }}
+      title={score === null ? "Too short to score" : undefined}
     >
-      {max === 10 ? score.toFixed(1) : Math.round(score)}
+      {score === null ? "–" : max === 10 ? score.toFixed(1) : Math.round(score)}
     </span>
   );
 }

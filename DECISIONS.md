@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Honest scores for short interviews
+- **Decision:** liveAgent works out coverage (answers of 8+ words against the round's expected questions: `questionCount`, or minutes ÷ 3, at least 3) and tells the scorer. Skills with no evidence come back `assessed: false`. In code, the verdict always follows `overall`, and fewer than 3 answers (or the whole round, if smaller) gives "Too short" with `overall` capped at 40. The app shows "Too short to score" and leaves those reports out of readiness, bests, the progress chart and roadmap digests. Report prompt version is now `2026-10-19.2`. See [plans/honest-scoring.md](plans/honest-scoring.md).
+- **Why:** A one-answer test mock scored 62 "Borderline": the scorer filled unseen skills with middling scores, and the app presented that as a full report.
+- **Considered:** A second "correction" model. It faces the same missing evidence, and it would double the scoring cost and time. Hiding `overall` entirely (null) would break every chart and type that reads it.
+- **Revisit:** Once there's a scored eval set (30–50 transcripts with human scores): measure drift and add calibration only if the numbers show it's needed.
+
 ## 2026-10-19 · The server owns the interview context; sessions record versions (M2.3, M2.6)
 - **Decision:** Signed in, `/api/interview/turn` and `/report` take only `{ sessionId, answer?, elapsedSec, code }` and load the transcript, config, profile and pack from Supabase. The turn route appends the answer (once per answer id) and the reply, and saves them. The first AI call freezes the pack into `sessions.pack_snapshot`. `prompt_versions` (from liveAgent's `X-Prompt-Version` header), `rubric_version` (a hash of the rubric) and `model_ids` sit next to it as columns that only the server writes. With `AUTH_MODE=off` the browser still sends its context. See [plans/session-versioning-and-trusted-context.md](plans/session-versioning-and-trusted-context.md).
 - **Why:** A user could edit the request and get a transcript scored that they never spoke, or swap the rubric. Old reports couldn't be explained after a pack or prompt changed. Using columns keeps the client's `data` upserts from erasing the versions.

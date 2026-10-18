@@ -278,7 +278,8 @@ Request:
 { sessionId: string; code?: string; context?: { config; profile; pack; messages } } // context only with AUTH_MODE=off
 ```
 Behavior: body validated by `ReportBodySchema` (§5.0); the transcript, config, profile and pack are loaded as in §5.1 and the report's prompt version is stamped on the session; **422** if zero candidate turns ("No candidate answers to evaluate"); builds transcript (appends final code under a `[FINAL CODE IN EDITOR]` marker, truncated 6000 chars) capped at 40,000 chars total; calls `generateJson` with `MODELS.scoring`, `temperature: 0.2`; clamps `overall` to `[0, 100]` and rounds it after the response.
-Response: `Pick<Report, "overall"|"verdict"|"summary"|"strengths"|"topFixes"> & { dimensions: DimensionScore[]; answerReviews: AnswerReview[] }` — note this is **not** a full `Report`: the caller must still attach `id`, `sessionId`, `packId`, `createdAt`, and `signals` (computed locally) before persisting.
+Coverage rules (liveAgent `scoring.py`, [plans/honest-scoring.md](plans/honest-scoring.md)): the prompt gets a COVERAGE line (answers of 8+ words against expected main questions). Dimensions without evidence come back `assessed: false`. `verdict` is recomputed from `overall`. With fewer than `min(3, expected)` answers, `verdict` is `"Too short"` and `overall` is capped at 40.
+Response: `Pick<Report, "overall"|"verdict"|"summary"|"strengths"|"topFixes"> & { dimensions: DimensionScore[]; answerReviews: AnswerReview[]; coverage: { answered; expected; sufficient } }` — note this is **not** a full `Report`: the caller must still attach `id`, `sessionId`, `packId`, `createdAt`, and `signals` (computed locally) before persisting.
 
 ### 5.3 `POST /api/pack/generate`
 Request: `{ profile: Profile }`.

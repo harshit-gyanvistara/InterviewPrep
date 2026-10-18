@@ -9,7 +9,7 @@ import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { useAllPacks, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
 import { visibleBuiltInPacks } from "@/lib/packs";
-import { scoreTone, verdictTone } from "@/lib/analysis";
+import { isScored, scoreTone, verdictTone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useNotesPanel } from "@/lib/notesContext";
 import { daysUntil, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
@@ -29,7 +29,7 @@ export default function Dashboard() {
   const inProgress = sessions.find((s) => s.status === "active" && s.messages.length > 0);
   const lobby = sessions.find((s) => s.status === "lobby");
   const rec = recommendPack(reports, packs);
-  const last3 = reports.slice(0, 3);
+  const last3 = reports.filter(isScored).slice(0, 3);
   const readiness = last3.length ? Math.round(last3.reduce((s, r) => s + r.overall, 0) / last3.length) : null;
   const weekCount = sessionsThisWeek(sessions);
   const goal = profile.weeklyGoal || 3;
@@ -141,7 +141,7 @@ export default function Dashboard() {
               {reports.slice(0, 5).map((r) => (
                 <li key={r.id} className="border-t border-line first:border-t-0">
                   <Link href={`/report/${r.sessionId}`} className="flex items-center gap-3.5 px-5 py-3 transition hover:bg-soft">
-                    <ScoreBadge score={r.overall} />
+                    <ScoreBadge score={isScored(r) ? r.overall : null} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
                       <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</div>

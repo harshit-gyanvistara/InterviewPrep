@@ -27,7 +27,9 @@ export function computeSignals(messages: Message[]): Signals {
 
 /** Score status for colour: ok (ready), warn (almost), danger (not yet). One scale for every score UI. */
 export type Tone = "ok" | "warn" | "danger";
-export const verdictTone = (v: string): Tone => (v === "Strong Hire" || v === "Hire" ? "ok" : v === "Borderline" ? "warn" : "danger");
+export const verdictTone = (v: string): Tone => (v === "Strong Hire" || v === "Hire" ? "ok" : v === "Borderline" || v === "Too short" ? "warn" : "danger");
+/** False for an interview too short to score: keep it out of averages, bests and charts (plans/honest-scoring.md). */
+export const isScored = (r: { verdict: string }) => r.verdict !== "Too short";
 /** For a 0–100 score; a 0–10 dimension score is scaled first by the caller (×10). */
 export const scoreTone = (score: number): Tone => (score >= 70 ? "ok" : score >= 50 ? "warn" : "danger");
 export const verdictColor = (v: string) => ({ ok: "text-ok", warn: "text-warn", danger: "text-danger" })[verdictTone(v)];

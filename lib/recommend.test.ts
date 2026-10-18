@@ -39,6 +39,12 @@ const coding = pack("live-coding", "coding");
 const LIBRARY = [behavioural, hr, technical, coding];
 
 describe("weakestDimension", () => {
+  it("ignores skills the interview had no evidence for", () => {
+    const r = report("a", 1, { Clarity: 6, Ownership: 0 });
+    r.dimensions[1].assessed = false;
+    expect(weakestDimension([r])).toBe("Clarity");
+  });
+
   it("returns undefined with no reports", () => {
     expect(weakestDimension([])).toBeUndefined();
   });

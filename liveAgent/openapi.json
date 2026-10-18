@@ -645,6 +645,30 @@
         ],
         "title": "AssistResult"
       },
+      "Coverage": {
+        "properties": {
+          "answered": {
+            "type": "integer",
+            "title": "Answered"
+          },
+          "expected": {
+            "type": "integer",
+            "title": "Expected"
+          },
+          "sufficient": {
+            "type": "boolean",
+            "title": "Sufficient"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answered",
+          "expected",
+          "sufficient"
+        ],
+        "title": "Coverage",
+        "description": "How much of the interview happened (plans/honest-scoring.md)."
+      },
       "DimensionScore": {
         "properties": {
           "name": {
@@ -662,6 +686,11 @@
           "feedback": {
             "type": "string",
             "title": "Feedback"
+          },
+          "assessed": {
+            "type": "boolean",
+            "title": "Assessed",
+            "default": true
           }
         },
         "type": "object",
@@ -1111,7 +1140,8 @@
               "Strong Hire",
               "Hire",
               "Borderline",
-              "Not Yet"
+              "Not Yet",
+              "Too short"
             ],
             "title": "Verdict"
           },
@@ -1146,6 +1176,9 @@
             },
             "type": "array",
             "title": "Answerreviews"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
           }
         },
         "type": "object",
@@ -1156,9 +1189,11 @@
           "strengths",
           "topFixes",
           "dimensions",
-          "answerReviews"
+          "answerReviews",
+          "coverage"
         ],
-        "title": "ReportResult"
+        "title": "ReportResult",
+        "description": "The scored report after liveAgent's rules: verdict follows overall, too-short interviews are flagged."
       },
       "RoadmapItem": {
         "properties": {

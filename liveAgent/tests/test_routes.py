@@ -11,7 +11,7 @@ from live_agent.models import (
     GeneratedPack,
     HealthOk,
     PacksResult,
-    ReportResult,
+    ScoredReport,
     RoadmapResult,
     TurnResult,
 )
@@ -101,14 +101,19 @@ def test_turn_rejects_pack_without_topics(client, fake):
     assert fake.calls == []
 
 
-def _report(overall: float) -> ReportResult:
-    return ReportResult(overall=overall, verdict="Hire", summary="s", strengths=[], topFixes=["a", "b", "c"], dimensions=[], answerReviews=[])
+ANSWER = "I designed the queue, wrote the retry logic and measured the drop in failures."
+# Three substantive answers: enough to score (plans/honest-scoring.md).
+FULL = [*MESSAGES, *[{"role": r, "text": t} for _ in range(3) for r, t in (("interviewer", "Tell me more."), ("candidate", ANSWER))]]
+
+
+def _report(overall: float, verdict: str = "Hire") -> ScoredReport:
+    return ScoredReport(overall=overall, verdict=verdict, summary="s", strengths=[], topFixes=["a", "b", "c"], dimensions=[], answerReviews=[])
 
 
 @pytest.mark.parametrize(("raw", "expected"), [(72.5, 73), (140, 100), (-3, 0)])
 def test_report_clamps_and_rounds_overall(client, fake, raw, expected):
     fake.result = _report(raw)
-    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": MESSAGES, "code": "print(1)"}
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": FULL, "code": "print(1)"}
     res = client.post("/v1/interview/report", json=body, headers=AUTH)
     assert res.status_code == 200
     assert res.json()["overall"] == expected
@@ -116,6 +121,24 @@ def test_report_clamps_and_rounds_overall(client, fake, raw, expected):
     transcript = fake.calls[0]["turns"][0]["text"]
     assert "Marcus: Hi, tell me about yourself.\nAsha: I build APIs." in transcript
     assert transcript.endswith("[FINAL CODE IN EDITOR]\nprint(1)")
+
+
+def test_report_verdict_follows_overall(client, fake):
+    fake.result = _report(88, verdict="Borderline")
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": FULL}
+    out = client.post("/v1/interview/report", json=body, headers=AUTH).json()
+    assert (out["overall"], out["verdict"]) == (88, "Strong Hire")
+    assert out["coverage"] == {"answered": 3, "expected": 7, "sufficient": True}
+    assert "COVERAGE: the candidate gave 3 substantive answer(s); a full round has about 7 main questions.\n" in fake.calls[0]["system"]
+
+
+def test_report_flags_and_caps_a_too_short_interview(client, fake):
+    fake.result = _report(62, verdict="Borderline")
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": [*MESSAGES[:1], {"role": "candidate", "text": ANSWER}]}
+    out = client.post("/v1/interview/report", json=body, headers=AUTH).json()
+    assert (out["overall"], out["verdict"]) == (40, "Too short")
+    assert out["coverage"] == {"answered": 1, "expected": 7, "sufficient": False}
+    assert "too few to judge the round" in fake.calls[0]["system"]
 
 
 def test_report_caps_transcript(client, fake):
