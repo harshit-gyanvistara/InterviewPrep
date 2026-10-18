@@ -29,3 +29,12 @@ A test mock with one answered question scored 62/100 "Borderline". The scorer di
 | Score calibration | Rules + prompt | A scored eval set (30–50 transcripts with human scores); a calibration step if measured drift remains |
 | Exact thresholds | Constants in `scoring.py` | Per-round or per-package settings |
 | Per-question reference answers | `expectedAnswer` in reviews | Pack-level reference answers the scorer compares against |
+
+## Follow-ups
+Picked up later; also tracked as M4.0 in [implementationPlan.md](../implementationPlan.md).
+
+1. **Scored eval set for reports (do first).** Seed transcripts with expected score ranges and a manual runner against the real scorer (details in M4.0). Run it on every scoring-prompt change. Replace the synthetic seeds with 30–50 human-scored real transcripts once there are users.
+2. **Score correction / calibration model: only if the eval set shows drift.** If mean signed error stays above about ±5 points, or a whole category is mis-scored after prompt fixes, add a calibration step (prompt-level or a second pass) and measure it against the same set.
+3. **Thresholds per round or package.** `MIN_SCORED_ANSWERS`, `MINUTES_PER_QUESTION` and `TOO_SHORT_CAP` are constants in `live_agent/scoring.py`; move them to pack or package settings if rounds need different rules.
+4. **"Was this fair?" feedback on reports** (M4.6) feeds the eval set with real disagreements.
+
