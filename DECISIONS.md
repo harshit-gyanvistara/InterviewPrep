@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-18 · Temporary inboxes can't sign in
+- **Decision:** `POST /api/auth/otp` refuses addresses on the `disposable-email-domains-js` list (about 5,000 domains, yopmail and mailinator among them), including their subdomains, with a 400 before Supabase is called. `BLOCKED_EMAIL_DOMAINS` adds domains per deployment without a release. See `lib/emailPolicy.ts`.
+- **Why:** Anyone can read those inboxes, so they'd let one person create unlimited free accounts and spend our Gemini and email budget. Refusing before Supabase also saves the email from the 100-a-day Resend quota.
+- **Considered:** A hand-kept list (goes stale fast); a paid email-validation API (cost and a network call on every sign-in); checking MX records (slow, and many throwaway services have valid MX).
+- **Revisit:** If real users report being blocked, or when phone OTP arrives before the public free tier. Google sign-in isn't checked, since Google accounts aren't throwaway inboxes.
+
 ## 2026-10-18 · Staging hosting: both services on Railway
 - **Decision:** Core (Next.js) and liveAgent (Python) each run as a service in one Railway project, on the owner's existing Hobby plan. liveAgent has **no public domain**; Core reaches it over Railway's private network. Region: Singapore (Railway has no India region).
 - **Why:** The account already exists, so there's one bill and one dashboard. Keeping liveAgent private is safer than exposing it with only a bearer token. liveAgent will become a long-running voice worker (M3), which serverless hosts can't run.

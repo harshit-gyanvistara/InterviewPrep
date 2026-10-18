@@ -40,7 +40,7 @@ The browser never talks to liveAgent, and liveAgent never sees a database or a u
 Signed-out page request ──► proxy.ts ──► redirect /welcome   (API requests get 401 instead)
 
 /sign-in
- ├─ Email:  POST /api/auth/otp  (rate-limited per IP) ──► Supabase sends an email with a code and a link
+ ├─ Email:  POST /api/auth/otp  (rate-limited per IP; temporary inboxes refused) ──► Supabase sends an email with a code and a link (via Resend, from no-reply@mail.build-score.com)
  │     ├─ Code (web and app):  POST /api/auth/verify ──► session cookies + terms consent ──► /
  │     └─ Link (only in the browser that asked): /auth/callback (PKCE) ──► session + consent ──► /
  └─ Google (web only; hidden in the app via isInApp()):

@@ -198,6 +198,17 @@ describe("email sign-in", () => {
     expect((await bad.json()).issues[0].path).toBe("email");
   });
 
+  it("refuses temporary inboxes without contacting Supabase", async () => {
+    accountsOn();
+    const client = signedInAs(undefined);
+    const { POST } = await import("../app/api/auth/otp/route");
+
+    const res = await POST(json({ email: "test@yopmail.com" }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Temporary inboxes/);
+    expect(client.auth.signInWithOtp).not.toHaveBeenCalled();
+  });
+
   it("maps Supabase failures: its rate limit to 429, anything else to 502", async () => {
     accountsOn();
     const client = signedInAs(undefined);

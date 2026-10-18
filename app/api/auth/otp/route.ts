@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authMode } from "@/lib/auth";
+import { isBlockedEmail } from "@/lib/emailPolicy";
 import { ApiError, errorResponse } from "@/lib/liveAgent";
 import { enforceRateLimit } from "@/lib/rateLimit";
 import { parseBody } from "@/lib/route";
@@ -17,6 +18,7 @@ export async function POST(req: Request) {
     if (authMode() !== "supabase") throw new ApiError(404, "Sign-in is turned off on this server.");
     await enforceRateLimit(req, "auth.otp");
     const { email } = await parseBody(req, EmailOtpBodySchema);
+    if (isBlockedEmail(email)) throw new ApiError(400, "Use a personal or work email. Temporary inboxes can't sign in.");
 
     const supabase = await getSupabaseForRequest();
     const { error } = await supabase.auth.signInWithOtp({
