@@ -91,7 +91,7 @@ export function OrgsSettings() {
                 <div className="text-xs text-muted">{o.role[0].toUpperCase() + o.role.slice(1)}</div>
               </div>
             </div>
-            <button className="btn btn-ghost text-danger" onClick={() => leave(o)}>Leave</button>
+            <button className="btn btn-danger" onClick={() => leave(o)}>Leave</button>
           </div>
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">What {o.name} may see of your practice</legend>
