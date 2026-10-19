@@ -69,13 +69,13 @@ export default function AdminOrgs() {
 
       <Card>
         <h2 className="mb-4 text-sm font-semibold">New organisation</h2>
-        <form onSubmit={create} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={create} className="grid items-start gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm">
             Name
             <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value, slug: slugTouched ? form.slug : slugify(e.target.value) })} placeholder="Sunrise Engineering College" />
           </label>
           <label className="grid gap-1.5 text-sm">
-            Address (offerly…/org/<b>address</b>)
+            <span>Address <span className="text-muted">(build-score.com/org/<b className="font-medium text-ink">address</b>)</span></span>
             <input className="input" required value={form.slug} onChange={(e) => (setSlugTouched(true), setForm({ ...form, slug: slugify(e.target.value) }))} placeholder="sunrise-engineering" />
           </label>
           <label className="grid gap-1.5 text-sm">
