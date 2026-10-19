@@ -15,3 +15,16 @@ $$;
 
 revoke execute on function public.usage_total_org(uuid, text, timestamptz) from public, anon, authenticated;
 grant execute on function public.usage_total_org(uuid, text, timestamptz) to service_role;
+
+-- A user's own allowance counts only their own practice: mocks done for an org use the org's plan
+-- (decision G3), so rows stamped with org_id are left out here.
+create or replace function public.usage_total(p_user uuid, p_meter text, p_since timestamptz)
+returns bigint
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(sum(amount), 0)::bigint
+  from public.usage_ledger
+  where user_id = p_user and meter = p_meter and created_at >= p_since and org_id is null;
+$$;
