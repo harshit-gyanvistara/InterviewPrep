@@ -14,7 +14,7 @@ How this fits with the other docs:
 | [FLOWS.md](FLOWS.md) | How requests, sign-in, interviews, usage and deploys flow; the initial plan and every deviation from it | Before changing a flow |
 | [DECISIONS.md](DECISIONS.md) | Dated log of every decision made while building, with why and when to revisit | Before re-opening a choice |
 | **this file** | How we get from SPEC.md (today) to DEV_PLAN.md (target), in order | Before picking up work |
-| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md), [Design refresh](plans/design-refresh.md), [History on the server](plans/server-history.md), [Session versioning and trusted context](plans/session-versioning-and-trusted-context.md), [Honest scoring](plans/honest-scoring.md), [Org-ready schema](plans/org-ready-schema.md)) | Before working on that initiative |
+| [plans/](plans/) | Focused plans for individual initiatives (e.g. [liveAgent AI service](plans/live-agent-service.md), [LLM cache → tuned-model router](plans/llm-cache-distill-router.md), [Organisations](plans/organisations.md), [Field prompts + prompt caching](plans/domain-prompts-and-caching.md), [Accounts and sign-in](plans/auth.md), [Usage capture](plans/usage-capture.md), [Usage limits by package](plans/usage-limits.md), [Design refresh](plans/design-refresh.md), [History on the server](plans/server-history.md), [Session versioning and trusted context](plans/session-versioning-and-trusted-context.md), [Honest scoring](plans/honest-scoring.md), [Org-ready schema](plans/org-ready-schema.md), [M2-Org build plan](plans/m2-org.md)) | Before working on that initiative |
 
 > The Next.js app lives at the **repo root** (`app/`, `lib/`, `components/`); the AI service is in `liveAgent/`. Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -224,7 +224,7 @@ Goal: real users, data across devices, foundation for billing and B2B.
 
 ### M2-Org — Organisations (≈ 2–3 weeks, right after M2)
 
-Goal: a college, company or institute can give Offerly to its people for learning and mock practice. Full plan: [plans/organisations.md](plans/organisations.md).
+Goal: a college, company or institute can give Offerly to its people for learning and mock practice. Full plan: [plans/organisations.md](plans/organisations.md). **Build plan, sliced (2026-10-19): [plans/m2-org.md](plans/m2-org.md)**, with default decisions G1–G6 (invite links before email, super-admins by env list, org quota for org practice).
 
 | Task | Detail |
 |---|---|
