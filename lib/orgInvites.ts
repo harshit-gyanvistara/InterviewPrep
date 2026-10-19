@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthUser } from "./auth";
-import { can, orgStore, requirePermission, type OrgStore } from "./authz";
+import { orgStore, type OrgStore } from "./authz";
 import { hashInviteToken, inviteLink, newInviteToken, newJoinCode, normalizeJoinValue } from "./invites";
 import { ApiError } from "./liveAgent";
 import { audit } from "./orgAdmin";
 import { orgSettings } from "./orgSettings";
-import { PERMISSIONS, type Permission, type ShareLevel } from "./permissions";
+import { PERMISSIONS, roleCan, type Permission, type ShareLevel } from "./permissions";
 import type { InviteCreateBody } from "./schemas";
 
 // Server-only. Invites, join codes and joining (plans/m2-org.md O.2). Every function runs on the
@@ -20,6 +20,8 @@ export interface OrgRef {
   name: string;
   slug: string;
   settings: unknown;
+  /** The caller's role here, read once per request by orgForMember. */
+  role: string;
 }
 
 export interface InviteView {
@@ -37,25 +39,31 @@ const fail = (what: string, error: { message: string } | null) => {
   if (error) throw new Error(`${what} failed: ${error.message}`);
 };
 
-/** The org with this slug, if `user` is an active member of it; 404 otherwise (non-members can't probe slugs). */
+/**
+ * The org with this slug and the caller's role in it, if they're an active member; 404 otherwise
+ * (non-members can't probe slugs). One membership read per request; the checks below use the role.
+ */
 export async function orgForMember(db: SupabaseClient, user: AuthUser, slug: string, store: OrgStore | null = orgStore()): Promise<OrgRef & { permissions: Permission[] }> {
   const { data, error } = await db.from("organizations").select("id, name, slug, settings").eq("slug", slug).maybeSingle();
   fail("organizations read", error);
   const membership = data && store ? await store.membership(data.id, user.id) : null;
-  if (!data || membership?.status !== "active") throw new ApiError(404, "Organisation not found.");
-  const permissions: Permission[] = [];
-  for (const p of PERMISSIONS) if (await can(user, p, data.id, store)) permissions.push(p);
-  return { ...data, permissions };
+  if (!data || !membership || membership.status !== "active") throw new ApiError(404, "Organisation not found.");
+  return { ...data, role: membership.role, permissions: PERMISSIONS.filter((p) => roleCan(membership.role, p)) };
+}
+
+/** 403 unless the caller's role in `org` grants `permission` (the same rule as can() in lib/authz.ts). */
+function requireRole(org: OrgRef, permission: Permission) {
+  if (!roleCan(org.role, permission)) throw new ApiError(403, "You don't have access to this.");
 }
 
 /** Owners invite owners; anyone with members.manage invites the other roles. */
-async function checkCanGrant(user: AuthUser, orgId: string, role: string, store: OrgStore | null) {
-  await requirePermission(user, "members.manage", orgId, store);
-  if (role === "owner") await requirePermission(user, "org.billing", orgId, store);
+function checkCanGrant(org: OrgRef, role: string) {
+  requireRole(org, "members.manage");
+  if (role === "owner") requireRole(org, "org.billing");
 }
 
-export async function listInvites(db: SupabaseClient, user: AuthUser, org: OrgRef, store: OrgStore | null = orgStore()): Promise<InviteView[]> {
-  await requirePermission(user, "members.manage", org.id, store);
+export async function listInvites(db: SupabaseClient, org: OrgRef): Promise<InviteView[]> {
+  requireRole(org, "members.manage");
   const { data, error } = await db.from("invites").select("id, email, role, uses, max_uses, expires_at, created_at").eq("org_id", org.id).order("created_at", { ascending: false });
   fail("invites read", error);
   const now = Date.now();
@@ -70,9 +78,8 @@ export async function createInvites(
   user: AuthUser,
   org: OrgRef,
   body: InviteCreateBody,
-  store: OrgStore | null = orgStore(),
 ): Promise<{ invites: { email: string | null; link: string; code?: string }[] }> {
-  await checkCanGrant(user, org.id, body.role, store);
+  checkCanGrant(org, body.role);
   const expires_at = new Date(Date.now() + body.expiresInDays * 86_400_000).toISOString();
 
   if (body.kind === "code") {
@@ -91,8 +98,8 @@ export async function createInvites(
 }
 
 /** Revokes an invite by expiring it now (the row stays for the audit trail). */
-export async function revokeInvite(db: SupabaseClient, user: AuthUser, org: OrgRef, inviteId: string, store: OrgStore | null = orgStore()) {
-  await requirePermission(user, "members.manage", org.id, store);
+export async function revokeInvite(db: SupabaseClient, user: AuthUser, org: OrgRef, inviteId: string) {
+  requireRole(org, "members.manage");
   const { data, error } = await db.from("invites").update({ expires_at: new Date().toISOString() }).eq("org_id", org.id).eq("id", inviteId).select("id");
   fail("invites update", error);
   if (!data?.length) throw new ApiError(404, "Invite not found.");

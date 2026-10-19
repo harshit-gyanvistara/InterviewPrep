@@ -17,7 +17,7 @@ export async function GET(_req: Request, ctx: Ctx) {
     const user = await requireUser();
     const db = adminDb();
     const org = await orgForMember(db, user, (await ctx.params).slug);
-    return NextResponse.json({ invites: await listInvites(db, user, org) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ invites: await listInvites(db, org) }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);
   }

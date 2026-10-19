@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthUser } from "./auth";
 import type { Membership, OrgStore } from "./authz";
 import { hashInviteToken, newJoinCode, normalizeJoinValue } from "./invites";
-import { createInvites, joinOrg, previewInvite, revokeInvite, type OrgRef } from "./orgInvites";
+import { createInvites, joinOrg, orgForMember, previewInvite, revokeInvite, type OrgRef } from "./orgInvites";
 import { redirectFor } from "./pages";
 import { InviteCreateBodySchema } from "./schemas";
 
@@ -16,7 +16,9 @@ const u = (id: string, email = `${id}@college.edu`): AuthUser => ({ id, email })
 const owner = u("owner");
 const admin = u("admin");
 const member = u("member");
-const ORG: OrgRef = { id: "org-1", name: "Sunrise", slug: "sunrise", settings: {} };
+const ORG: OrgRef = { id: "org-1", name: "Sunrise", slug: "sunrise", settings: {}, role: "" };
+/** ORG as seen by a caller with this role (orgForMember reads it once per request). */
+const as = (role: string): OrgRef => ({ ...ORG, role });
 
 const store = (members: Membership[]): OrgStore => ({
   membership: async (orgId, userId) => members.find((m) => m.orgId === orgId && m.userId === userId) ?? null,
@@ -77,7 +79,7 @@ describe("invite schema", () => {
 describe("createInvites", () => {
   it("lets admins invite members, with one single-use link per email and only hashes stored", async () => {
     const { db, writes } = fakeDb();
-    const out = await createInvites(db, admin, ORG, { kind: "email", emails: ["a@college.edu", "b@college.edu", "a@college.edu"], role: "member", expiresInDays: 14 }, roles);
+    const out = await createInvites(db, admin, as("admin"), { kind: "email", emails: ["a@college.edu", "b@college.edu", "a@college.edu"], role: "member", expiresInDays: 14 });
     expect(out.invites.map((i) => i.email)).toEqual(["a@college.edu", "b@college.edu"]);
     const rows = writes.find((w) => w.table === "invites")!.payload as { token_hash: string; max_uses: number; email: string }[];
     expect(rows).toHaveLength(2);
@@ -88,7 +90,7 @@ describe("createInvites", () => {
 
   it("returns a join code once and stores its hash", async () => {
     const { db, writes } = fakeDb();
-    const out = await createInvites(db, admin, ORG, { kind: "code", role: "member", expiresInDays: 14, maxUses: 60 }, roles);
+    const out = await createInvites(db, admin, as("admin"), { kind: "code", role: "member", expiresInDays: 14, maxUses: 60 });
     const { code } = out.invites[0];
     expect(code).toBeDefined();
     const row = writes.find((w) => w.table === "invites")!.payload as { token_hash: string; email: null; max_uses: number };
@@ -97,19 +99,30 @@ describe("createInvites", () => {
 
   it("refuses members, and owner invites from anyone but an owner", async () => {
     const body = { kind: "email" as const, emails: ["x@college.edu"], role: "member" as const, expiresInDays: 14 };
-    await expect(createInvites(fakeDb().db, member, ORG, body, roles)).rejects.toMatchObject({ status: 403 });
-    await expect(createInvites(fakeDb().db, admin, ORG, { ...body, role: "owner" }, roles)).rejects.toMatchObject({ status: 403 });
-    await expect(createInvites(fakeDb().db, owner, ORG, { ...body, role: "owner" }, roles)).resolves.toBeDefined();
+    await expect(createInvites(fakeDb().db, member, as("member"), body)).rejects.toMatchObject({ status: 403 });
+    await expect(createInvites(fakeDb().db, admin, as("admin"), { ...body, role: "owner" })).rejects.toMatchObject({ status: 403 });
+    await expect(createInvites(fakeDb().db, owner, as("owner"), { ...body, role: "owner" })).resolves.toBeDefined();
+  });
+});
+
+describe("orgForMember", () => {
+  it("reads the role once and lists its permissions; non-members get 404", async () => {
+    const { db } = fakeDb({ select: { organizations: { id: ORG.id, name: "Sunrise", slug: "sunrise", settings: {} } } });
+    const org = await orgForMember(db, admin, "sunrise", roles);
+    expect(org.role).toBe("admin");
+    expect(org.permissions).toContain("members.manage");
+    expect(org.permissions).not.toContain("org.billing");
+    await expect(orgForMember(db, u("stranger"), "sunrise", roles)).rejects.toMatchObject({ status: 404 });
   });
 });
 
 describe("revokeInvite", () => {
   it("expires the invite, and 404s one from another org", async () => {
     const ok = fakeDb({ updateRows: [{ id: "i1" }] });
-    await revokeInvite(ok.db, admin, ORG, "i1", roles);
+    await revokeInvite(ok.db, admin, as("admin"), "i1");
     expect(ok.writes[0]).toMatchObject({ table: "invites", op: "update" });
-    await expect(revokeInvite(fakeDb({ updateRows: [] }).db, admin, ORG, "elsewhere", roles)).rejects.toMatchObject({ status: 404 });
-    await expect(revokeInvite(fakeDb().db, member, ORG, "i1", roles)).rejects.toMatchObject({ status: 403 });
+    await expect(revokeInvite(fakeDb({ updateRows: [] }).db, admin, as("admin"), "elsewhere")).rejects.toMatchObject({ status: 404 });
+    await expect(revokeInvite(fakeDb().db, member, as("member"), "i1")).rejects.toMatchObject({ status: 403 });
   });
 });
 

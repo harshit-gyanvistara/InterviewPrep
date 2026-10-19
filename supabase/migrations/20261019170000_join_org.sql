@@ -21,7 +21,7 @@ as $$
 declare
   inv     public.invites%rowtype;
   org     public.organizations%rowtype;
-  current public.memberships%rowtype;
+  existing public.memberships%rowtype;
   domains jsonb;
   seats   integer;
   used    integer;
@@ -34,8 +34,8 @@ begin
   -- Lock the org first: every join to this org waits here, so the seat count below can't race.
   select * into org from public.organizations where id = inv.org_id for update;
 
-  select * into current from public.memberships where org_id = org.id and user_id = p_user;
-  if found and current.status = 'active' then
+  select * into existing from public.memberships where org_id = org.id and user_id = p_user;
+  if found and existing.status = 'active' then
     return jsonb_build_object('status', 'already_member', 'orgId', org.id, 'slug', org.slug);
   end if;
 

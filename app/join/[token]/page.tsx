@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
-import { Logo } from "@/components/Logo";
 import { useAuth } from "@/lib/db";
 import { PENDING_JOIN_KEY } from "@/lib/pages";
 import { SHARE_LEVELS, type ShareLevel } from "@/lib/permissions";
@@ -132,7 +131,6 @@ export default function Join() {
   return (
     <main className="grid min-h-full place-items-center px-4 py-10">
       <div className="grid w-full max-w-md gap-5">
-        <Logo />
         <div className="grid gap-4 rounded-2xl border border-line bg-card p-6 shadow-float">{body}</div>
       </div>
     </main>
