@@ -14,11 +14,17 @@ export const email = (who: string) => `e2e-${who}-${RUN}@e2e-offerly.dev`;
 const created: string[] = [];
 const orgSlugs: string[] = [];
 
-/** A confirmed account with a finished profile, so the app goes straight past onboarding. */
-export async function createUser(address: string, name: string): Promise<string> {
+/** A confirmed account with no profile yet, so the app sends it through onboarding. */
+export async function createAccount(address: string): Promise<string> {
   const existing = (await admin.auth.admin.listUsers({ perPage: 1000 })).data.users.find((u) => u.email === address);
   const id = existing?.id ?? (await admin.auth.admin.createUser({ email: address, email_confirm: true })).data.user!.id;
   if (!existing) created.push(id);
+  return id;
+}
+
+/** A confirmed account with a finished profile, so the app goes straight past onboarding. */
+export async function createUser(address: string, name: string): Promise<string> {
+  const id = await createAccount(address);
   const profile = { id: "me", name, targetRole: "Backend Developer", targetCompanies: "", jobDescription: "", experience: "fresher", resume: "", weeklyGoal: 3, onboarded: true, createdAt: Date.now() };
   const { error } = await admin.from("profiles").upsert({ user_id: id, data: profile }, { onConflict: "user_id" });
   if (error) throw error;
