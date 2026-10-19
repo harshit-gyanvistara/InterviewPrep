@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { DeviceCheck } from "@/components/DeviceCheck";
-import { db, uid, useCatalog, useProfile } from "@/lib/db";
+import { db, resetSession, uid, useAuth, useCatalog, useProfile } from "@/lib/db";
 import { inferDomain } from "@/lib/domains";
 import type { Profile } from "@/lib/types";
 
@@ -65,6 +65,7 @@ export default function Onboarding() {
 
   return (
     <div ref={rootRef} className="mx-auto max-w-2xl">
+      <SignedInAs />
       <ol className="mb-6 flex items-center justify-center gap-2 text-xs">
         {STEPS.map((s, i) => (
           <li key={s} className="flex items-center gap-2">
@@ -179,5 +180,32 @@ export default function Onboarding() {
         )}
       </Card>
     </div>
+  );
+}
+
+/**
+ * "Signed in as … Not you? Sign out": onboarding is the only page a new account can reach, so
+ * someone who signed in with the wrong email needs a way out here.
+ */
+function SignedInAs() {
+  const { data: auth } = useAuth();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  if (auth?.mode !== "supabase" || !auth.user) return null;
+
+  const signOut = async () => {
+    setBusy(true);
+    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
+    resetSession();
+    router.replace("/welcome");
+  };
+
+  return (
+    <p className="mb-4 text-center text-sm text-muted">
+      Signed in as {auth.user.email}.{" "}
+      <button className="text-accent hover:underline" onClick={signOut} disabled={busy}>
+        {busy ? "Signing out…" : "Not you? Sign out"}
+      </button>
+    </p>
   );
 }
