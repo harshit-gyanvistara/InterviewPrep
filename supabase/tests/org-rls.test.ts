@@ -115,3 +115,78 @@ describe.skipIf(!url)("organisation tables: cross-org isolation", () => {
     expect(data).toEqual({ org_id: null });
   });
 });
+
+// join_org (supabase/migrations/*_join_org.sql, plans/m2-org.md O.2): invite checks and the seat limit, atomically.
+describe.skipIf(!url)("join_org", () => {
+  let admin: SupabaseClient;
+  const people: { id: string; email: string }[] = [];
+  let orgId = "";
+  const run = Date.now();
+  const join = (hash: string, i: number, share = "scores") =>
+    admin.rpc("join_org", { p_token_hash: hash, p_user: people[i].id, p_email: people[i].email, p_share_level: share, p_consent_version: "test" }).then((r) => (r.data as { status: string }).status);
+
+  beforeAll(async () => {
+    admin = createClient(url!, secretKey, opts);
+    for (let i = 0; i < 4; i++) {
+      const email = `join-${i}-${run}@college.edu`;
+      const { data, error } = await admin.auth.admin.createUser({ email, password: `pw-${run}-${i}!`, email_confirm: true });
+      if (error) throw error;
+      people.push({ id: data.user.id, email });
+    }
+    const { data } = await admin.from("organizations").insert({ name: "Join test", slug: `join-${run}`, settings: { allowedEmailDomains: ["college.edu"] } }).select("id").single();
+    orgId = data!.id;
+    await admin.from("entitlements").insert({ org_id: orgId, key: "seats", limit: 2 });
+    await admin.from("invites").insert([
+      { org_id: orgId, token_hash: `code-${run}`, role: "member" },
+      { org_id: orgId, token_hash: `email-${run}`, email: people[3].email, role: "coach", max_uses: 1 },
+      { org_id: orgId, token_hash: `old-${run}`, role: "member", expires_at: "2000-01-01T00:00:00Z" },
+    ]);
+  });
+
+  afterAll(async () => {
+    if (!admin) return;
+    await admin.from("audit_logs").delete().eq("org_id", orgId);
+    await admin.from("organizations").delete().eq("id", orgId);
+    for (const p of people) await admin.auth.admin.deleteUser(p.id);
+  });
+
+  it("rejects unknown and expired invites", async () => {
+    expect(await join("nope", 0)).toBe("invalid");
+    expect(await join(`old-${run}`, 0)).toBe("expired");
+  });
+
+  it("enforces the seat limit even when people join at the same moment", async () => {
+    const results = await Promise.all([0, 1, 2].map((i) => join(`code-${run}`, i)));
+    expect(results.filter((s) => s === "joined")).toHaveLength(2);
+    expect(results.filter((s) => s === "no_seats")).toHaveLength(1);
+    const { count } = await admin.from("memberships").select("*", { count: "exact", head: true }).eq("org_id", orgId).eq("status", "active");
+    expect(count).toBe(2);
+  });
+
+  it("records the member's sharing consent and an audit entry, and is idempotent", async () => {
+    const { data: consents } = await admin.from("consents").select("value").eq("org_id", orgId).eq("kind", "org_share");
+    expect(consents?.length).toBe(2);
+    expect(consents?.[0].value).toEqual({ shareLevel: "scores" });
+    const { data: logs } = await admin.from("audit_logs").select("action").eq("org_id", orgId).eq("action", "member.joined");
+    expect(logs?.length).toBe(2);
+    const member = (await admin.from("memberships").select("user_id").eq("org_id", orgId).limit(1).single()).data!.user_id;
+    expect(await join(`code-${run}`, people.findIndex((p) => p.id === member))).toBe("already_member");
+  });
+
+  it("binds email invites to their address", async () => {
+    await admin.from("entitlements").update({ limit: 10 }).eq("org_id", orgId).eq("key", "seats");
+    // Person 2 may or may not have won a seat above; either way the coach invite isn't theirs.
+    expect(await join(`email-${run}`, 2)).toMatch(/^(wrong_email|already_member)$/);
+    expect(await join(`email-${run}`, 3)).toBe("joined");
+    const { data } = await admin.from("memberships").select("role").eq("user_id", people[3].id).single();
+    expect(data?.role).toBe("coach");
+  });
+
+  it("limits join codes to the org's email domains", async () => {
+    const outsider = await admin.auth.admin.createUser({ email: `join-out-${run}@gmail.com`, password: `pw-${run}-o!`, email_confirm: true });
+    const id = outsider.data.user!.id;
+    const { data } = await admin.rpc("join_org", { p_token_hash: `code-${run}`, p_user: id, p_email: `join-out-${run}@gmail.com`, p_share_level: "scores", p_consent_version: "test" });
+    expect((data as { status: string }).status).toBe("domain_not_allowed");
+    await admin.auth.admin.deleteUser(id);
+  });
+});

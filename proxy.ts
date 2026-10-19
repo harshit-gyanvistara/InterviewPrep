@@ -15,6 +15,8 @@ export function isPublicPath(path: string): boolean {
   if (path.startsWith("/api/") || path.startsWith("/auth/")) return true;
   // Link-preview bots (WhatsApp, LinkedIn, Slack) fetch the share image signed out (app/opengraph-image.tsx).
   if (path === "/opengraph-image" || path === "/twitter-image") return true;
+  // Invite links: a signed-out invitee is told to sign in, and the invite resumes afterwards.
+  if (path.startsWith("/join/")) return true;
   return PUBLIC_PAGES.some((p) => path === p || path.startsWith(`${p}/`));
 }
 

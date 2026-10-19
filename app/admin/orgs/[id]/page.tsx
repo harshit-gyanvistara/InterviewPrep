@@ -80,7 +80,10 @@ export default function AdminOrg() {
   return (
     <div className="mx-auto grid max-w-4xl gap-5">
       <div>
-        <Link href="/admin/orgs" className="text-sm text-muted hover:text-ink">← All organisations</Link>
+        <div className="flex flex-wrap justify-between gap-2 text-sm">
+          <Link href="/admin/orgs" className="text-muted hover:text-ink">← All organisations</Link>
+          <Link href={`/org/${org.slug}`} className="text-accent hover:underline">Open the organisation&apos;s page →</Link>
+        </div>
         <PageTitle title={org.name} sub={`/${org.slug} · ${org.kind} · ${org.activeMembers} active member${org.activeMembers === 1 ? "" : "s"}`} />
       </div>
 
@@ -160,7 +163,7 @@ export default function AdminOrg() {
         {note("settings")}
       </Section>
 
-      <Section title="People" hint="Owners can invite and manage everyone else once the organisation dashboard ships.">
+      <Section title="People" hint="Owners and admins invite everyone else from the organisation page.">
         {org.people.length === 0 ? (
           <p className="text-sm text-muted">No members yet.</p>
         ) : (

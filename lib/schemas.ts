@@ -201,3 +201,22 @@ export const OrgOwnerBodySchema = z.object({ email });
 
 export type OrgCreateBody = z.infer<typeof OrgCreateBodySchema>;
 export type Entitlement = z.infer<typeof EntitlementSchema>;
+
+// ---- Organisations: invites and joining (plans/m2-org.md O.2) ----
+
+/** Roles an invite can grant. Owners can be invited only by owners (checked in lib/orgInvites.ts). */
+export const INVITE_ROLES = ["member", "coach", "admin", "owner"] as const;
+
+const inviteRole = z.enum(INVITE_ROLES).default("member");
+const expiresInDays = z.number().int().min(1).max(365).default(14);
+
+export const InviteCreateBodySchema = z.discriminatedUnion("kind", [
+  // One invite per email, each usable once by that email. Also what a CSV upload sends.
+  z.object({ kind: z.literal("email"), emails: z.array(email).min(1).max(500), role: inviteRole, expiresInDays }),
+  // A reusable code; optionally capped. Join codes can be limited to the org's email domains.
+  z.object({ kind: z.literal("code"), role: inviteRole, expiresInDays, maxUses: z.number().int().min(1).max(100_000).nullable().default(null) }),
+]);
+
+export const JoinBodySchema = z.object({ shareLevel: z.enum(["activity", "scores", "full"]) });
+
+export type InviteCreateBody = z.infer<typeof InviteCreateBodySchema>;

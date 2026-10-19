@@ -229,7 +229,7 @@ Goal: a college, company or institute can give Offerly to its people for learnin
 | Task | Detail |
 |---|---|
 | O.1 Org CRUD + super-admin | **Built (2026-10-19)**: `/admin/orgs`, gated by `SUPER_ADMIN_EMAILS`; needs `SUPABASE_SECRET_KEY`. Create orgs and set their entitlements (D13); `/api/orgs` routes behind `lib/authz.ts` |
-| O.2 Members | Invites by email, CSV and join code; roles `owner/admin/coach/member`; seat limit enforced |
+| O.2 Members | **Built (2026-10-19)**: invite links, CSV paste, join codes, atomic seat limit (`join_org`), `/join` and `/org/[slug]`. Invites by email, CSV and join code; roles `owner/admin/coach/member`; seat limit enforced |
 | O.3 Consent | Sharing screen on join (`share_level`: activity / scores / full) (D11) |
 | O.4 Cohorts + assignments | Admins/coaches assign packs to cohorts with due dates; `recommendPack` puts open assignments first |
 | O.5 Quotas | Turn/report routes call `checkEntitlement()` and check allowed packs before calling Gemini; `usage_ledger` records `org_id` and `meter` |

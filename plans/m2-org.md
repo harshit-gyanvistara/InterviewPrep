@@ -37,7 +37,9 @@ Built as planned: `/admin/orgs` (list and create) and `/admin/orgs/[id]` (plan e
 - Every change is written to `audit_logs`.
 - Tests: non-super-admin gets 403; entitlement edits validated (key, limit ≥ 0 or unlimited, period).
 
-### O.2 Invites, join codes, seats (≈ 3 days)
+### O.2 Invites, join codes, seats (≈ 3 days): **built (2026-10-19)**
+Built: `join_org` database function (migration `20261019170000_join_org.sql`), `lib/orgInvites.ts`, `/api/orgs/[slug]`, `/api/orgs/[slug]/invites[/id]`, `/api/join/[token]`, the `/join/[token]` page (including the share-level choice from O.3) and `/org/[slug]` with the invite manager. Deviations: routes use the org slug, not the id; a missing `seats` entitlement means no seat limit; an invite opened while signed out is kept in the browser (`offerly.pendingJoin`) and resumed after sign-in, before onboarding. Still to do in O.3: Settings → Organisations (change share level, leave).
+
 - `/api/orgs/[orgId]/invites`: create an email invite or a reusable join code (role, cohort, expiry, max uses), list and revoke them. Needs `members.manage`.
 - Tokens are 32 random bytes shown once. Only the SHA-256 hash is stored (`invites.token_hash`). Links look like `/join/<token>`, and a join code is a short readable code mapped the same way.
 - `/join/[token]`: sign in if needed (same login), see the org name, then the consent screen (O.3), then join.

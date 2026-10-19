@@ -8,10 +8,19 @@ import { Logo } from "@/components/Logo";
 import { useAuth, useProfile } from "@/lib/db";
 import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
-import { isBarePage, redirectFor } from "@/lib/pages";
+import { PENDING_JOIN_KEY, isBarePage, redirectFor } from "@/lib/pages";
 import { MobileNav } from "@/components/MobileNav";
 import { PageSkeleton } from "@/components/Skeleton";
 import { SyncNote } from "@/components/SyncNote";
+
+/** An invite opened while signed out (lib/pages.ts). Storage can be unavailable (private mode): then there's none. */
+function pendingJoin(): string | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage.getItem(PENDING_JOIN_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -34,7 +43,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const bare = isBarePage(path);
   const onboarded = !!profile?.onboarded;
   // Never guess when the server couldn't be reached: that could send an onboarded user to onboarding.
-  const redirect = loading || loadError || !auth ? null : redirectFor(path, auth, onboarded);
+  const redirect = loading || loadError || !auth ? null : redirectFor(path, auth, onboarded, pendingJoin());
 
   // Route guard. proxy.ts already sends signed-out page loads to /welcome; this covers client-side navigation.
   useEffect(() => {

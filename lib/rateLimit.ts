@@ -24,6 +24,10 @@ export const RATE_LIMITS = {
   // Sign-in, per IP: each code request sends an email.
   "auth.otp": { limit: 5, windowSec: 600 },
   "auth.verify": { limit: 10, windowSec: 600 },
+  // Opening or using an invite, per user: join codes are short, so guessing must be slow (plans/m2-org.md O.2).
+  "org.join": { limit: 10, windowSec: 600 },
+  // Creating invites, per user.
+  "org.invite": { limit: 30, windowSec: 600 },
 } satisfies Record<string, Rule>;
 
 export type Bucket = keyof typeof RATE_LIMITS;
