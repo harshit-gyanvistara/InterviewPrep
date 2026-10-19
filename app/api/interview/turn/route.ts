@@ -3,7 +3,7 @@ import { getCatalog } from "@/lib/catalog-server";
 import { resolveDomain } from "@/lib/domains";
 import { loadInterview } from "@/lib/interviewContext";
 import { agentDomain, agentPersona, callAgentWithMeta, errorResponse, type Agent } from "@/lib/liveAgent";
-import { requireAllowance } from "@/lib/policies";
+import { requireAllowance, requireOrgAllowance } from "@/lib/policies";
 import { authorize, parseBody } from "@/lib/route";
 import { TurnBodySchema } from "@/lib/schemas";
 import type { Message } from "@/lib/types";
@@ -23,7 +23,8 @@ export async function POST(req: Request) {
       body.answer && !ctx.messages.some((m) => m.id === body.answer!.id) ? [...ctx.messages, { ...body.answer, role: "candidate" }] : ctx.messages;
     // A mock starts with the greeting (no messages yet). Checking only then means an interview
     // already under way can always finish; the mock is counted when its report is made.
-    if (messages.length === 0) await requireAllowance(user, "mocks");
+    // Practice for an org counts against the org's plan, solo practice against the user's (decision G3).
+    if (messages.length === 0) await (ctx.orgId ? requireOrgAllowance(ctx.orgId, "mocks") : requireAllowance(user, "mocks"));
 
     const { domains } = await getCatalog();
     const { data: out, meta } = await callAgentWithMeta<Agent["TurnResult"]>("/v1/interview/turn", {

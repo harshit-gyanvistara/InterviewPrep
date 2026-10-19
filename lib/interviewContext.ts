@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authMode, type AuthUser } from "./auth";
 import { getCatalog } from "./catalog-server";
 import { ApiError, type AgentMeta } from "./liveAgent";
+import { checkOrgPractice } from "./orgPractice";
 import { InterviewContextSchema, type InterviewContext } from "./schemas";
 import { getSupabaseForRequest } from "./supabase-server";
 import type { Message, Pack } from "./types";
@@ -17,12 +18,15 @@ export type InterviewCall = "turn" | "report";
 
 export interface LoadedInterview extends Omit<InterviewContext, "messages"> {
   messages: Message[];
+  /** The org this interview is practised for (server-stamped), or null for solo practice. */
+  orgId: string | null;
   /** Saves the transcript and code, and stamps the versions that produced this call. No-op with sign-in off. */
   save(change: { messages?: Message[]; code: string; call: InterviewCall; meta: AgentMeta }): Promise<void>;
 }
 
 interface SessionRow {
-  data: Record<string, unknown> & { config?: { packId?: unknown }; messages?: unknown };
+  data: Record<string, unknown> & { config?: { packId?: unknown; orgId?: unknown }; messages?: unknown };
+  org_id: string | null;
   pack_snapshot: Pack | null;
   prompt_versions: Partial<Record<InterviewCall, string>> | null;
   model_ids: string[] | null;
@@ -36,12 +40,12 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
     if (!browserContext) throw new ApiError(400, "Missing interview context.");
     // The browser's messages carry no ids here; the turn route only needs them for retries, which save nothing.
     const messages = browserContext.messages.map((m, i) => ({ ...m, id: `local-${i}`, at: 0 }));
-    return { ...browserContext, messages, save: async () => {} };
+    return { ...browserContext, messages, orgId: null, save: async () => {} };
   }
 
   const supabase = await getSupabaseForRequest();
   const [session, profile] = await Promise.all([
-    supabase.from("sessions").select("data, pack_snapshot, prompt_versions, model_ids").eq("user_id", user.id).eq("id", sessionId).maybeSingle<SessionRow>(),
+    supabase.from("sessions").select("data, org_id, pack_snapshot, prompt_versions, model_ids").eq("user_id", user.id).eq("id", sessionId).maybeSingle<SessionRow>(),
     supabase.from("profiles").select("data").eq("user_id", user.id).maybeSingle<{ data: unknown }>(),
   ]);
   if (session.error) throw new Error(`sessions read failed: ${session.error.message}`);
@@ -57,9 +61,17 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
   // Keep the stored messages whole (ids, timestamps); the parsed copy drops them.
   const stored = (Array.isArray(row.data.messages) ? row.data.messages : []) as Message[];
 
+  // Practising for an org (plans/m2-org.md O.4): checked and stamped once, on the first AI call.
+  // Afterwards the stamped column is the truth; the browser's config can't move a session.
+  const requested = row.data.config?.orgId;
+  const stampOrg = !row.org_id && stored.length === 0 && typeof requested === "string" && requested ? requested : null;
+  if (stampOrg) await checkOrgPractice(user, stampOrg, pack);
+  const orgId = row.org_id ?? stampOrg;
+
   return {
     ...parsed.data,
     messages: stored,
+    orgId,
     async save({ messages, code, call, meta }) {
       const data = { ...row.data, code, ...(messages ? { messages } : {}) };
       const { error } = await supabase
@@ -70,6 +82,7 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
           rubric_version: rubricVersion(pack.rubric),
           prompt_versions: meta.promptVersion ? { ...row.prompt_versions, [call]: meta.promptVersion } : row.prompt_versions,
           model_ids: [...new Set([...(row.model_ids ?? []), ...meta.models])],
+          ...(stampOrg ? { org_id: stampOrg } : {}),
         })
         .eq("user_id", user.id)
         .eq("id", sessionId);

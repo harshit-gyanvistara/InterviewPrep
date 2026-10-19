@@ -47,11 +47,23 @@ export async function listItems(supabase: SupabaseClient, collection: UserCollec
   return (data ?? []).map((r) => r.data);
 }
 
+/**
+ * A report belongs to the same org (and assignment) as its session, copied here on the server from
+ * the session's stamped columns, so the browser can never put a report in an org (plans/m2-org.md O.4).
+ */
+async function reportOrg(supabase: SupabaseClient, userId: string, item: { sessionId?: unknown }) {
+  if (typeof item.sessionId !== "string") return {};
+  const { data, error } = await supabase.from("sessions").select("org_id, assignment_id").eq("user_id", userId).eq("id", item.sessionId).maybeSingle();
+  if (error) throw new Error(`sessions read failed: ${error.message}`);
+  return data?.org_id ? { org_id: data.org_id, assignment_id: data.assignment_id } : {};
+}
+
 export async function putItem(supabase: SupabaseClient, collection: UserCollection, userId: string, item: { id: string }): Promise<void> {
   const { table } = USER_COLLECTIONS[collection];
+  const stamp = collection === "reports" ? await reportOrg(supabase, userId, item as { sessionId?: unknown }) : {};
   const { error } = isSingle(collection)
     ? await supabase.from(table).upsert({ user_id: userId, data: item }, { onConflict: "user_id" })
-    : await supabase.from(table).upsert({ user_id: userId, id: item.id, data: item }, { onConflict: "user_id,id" });
+    : await supabase.from(table).upsert({ user_id: userId, id: item.id, data: item, ...stamp }, { onConflict: "user_id,id" });
   if (error) throw new Error(`${table} write failed: ${error.message}`);
 }
 

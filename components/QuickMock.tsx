@@ -13,7 +13,7 @@ import type { Pack, Persona, Settings } from "@/lib/types";
  * their own question count and timer independently — a faster, more flexible alternative to
  * picking a single fixed-length round.
  */
-export function QuickMockBuilder({ packs, settings }: { packs: Pack[]; settings: Settings }) {
+export function QuickMockBuilder({ packs, settings, orgId }: { packs: Pack[]; settings: Settings; orgId?: string }) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set(packs[0] ? [packs[0].id] : []));
   const [questionCount, setQuestionCount] = useState(6);
@@ -46,7 +46,7 @@ export function QuickMockBuilder({ packs, settings }: { packs: Pack[]; settings:
       const sessionId = uid();
       await db.sessions.put({
         id: sessionId,
-        config: { packId: pack.id, persona, durationMin: minutes, pressure, questionCount },
+        config: { packId: pack.id, persona, durationMin: minutes, pressure, questionCount, ...(orgId ? { orgId } : {}) },
         messages: [],
         code: "",
         startedAt: Date.now(),

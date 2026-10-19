@@ -25,7 +25,7 @@ async function allowanceFor(user: AuthUser, meter: Meter): Promise<Allowance | u
 /** Where use is recorded. The ledger in production; tests pass an in-memory one. */
 export interface UsageStore {
   total(userId: string, meter: Meter, sinceMs: number): Promise<number>;
-  add(row: { userId: string; meter: Meter; amount: number; requestId?: string }): Promise<void>;
+  add(row: { userId: string; meter: Meter; amount: number; requestId?: string; orgId?: string | null }): Promise<void>;
 }
 
 /** The `usage_ledger` table via the secret-key client; null without SUPABASE_SECRET_KEY (local dev). */
@@ -38,8 +38,8 @@ export function ledgerStore(): UsageStore | null {
       if (error) throw new Error(`usage_total failed: ${error.message}`);
       return Number(data ?? 0);
     },
-    async add({ userId, meter, amount, requestId }) {
-      const { error } = await db.from("usage_ledger").insert({ user_id: userId, meter, amount, request_id: requestId ?? null });
+    async add({ userId, meter, amount, requestId, orgId }) {
+      const { error } = await db.from("usage_ledger").insert({ user_id: userId, meter, amount, request_id: requestId ?? null, org_id: orgId ?? null });
       if (error) throw new Error(`usage_ledger insert failed: ${error.message}`);
     },
   };
@@ -101,17 +101,80 @@ export async function requireAllowance(user: AuthUser, meter: Meter, store?: Usa
 export async function addUsage(
   user: AuthUser,
   meter: Meter,
-  { amount = 1, requestId, store = ledgerStore() }: { amount?: number; requestId?: string; store?: UsageStore | null } = {},
+  { amount = 1, requestId, orgId, store = ledgerStore() }: { amount?: number; requestId?: string; orgId?: string | null; store?: UsageStore | null } = {},
 ): Promise<void> {
   if (user === LOCAL_USER || !store) return;
   try {
-    await store.add({ userId: user.id, meter, amount, requestId });
+    await store.add({ userId: user.id, meter, amount, requestId, orgId });
   } catch (e) {
     logError(meter, e);
   }
 }
 
 // ---- Organisations (plans/org-ready-schema.md) ----
+
+/** An org's plan and use, for org quotas (plans/m2-org.md O.4). The database in production; tests pass an in-memory one. */
+export interface OrgUsageStore {
+  /** The org's `entitlements` row for this meter, or null when it has none (= unlimited). */
+  allowance(orgId: string, meter: Meter): Promise<{ limit: number | null; period: string } | null>;
+  /** Use of the meter by everyone practising for the org since a time. */
+  total(orgId: string, meter: Meter, sinceMs: number): Promise<number>;
+}
+
+export function orgUsageStore(): OrgUsageStore | null {
+  const db = getSupabaseAdmin();
+  if (!db) return null;
+  return {
+    async allowance(orgId, meter) {
+      const { data, error } = await db.from("entitlements").select("limit, period").eq("org_id", orgId).eq("key", meter).maybeSingle();
+      if (error) throw new Error(`entitlements read failed: ${error.message}`);
+      return data;
+    },
+    async total(orgId, meter, sinceMs) {
+      const { data, error } = await db.rpc("usage_total_org", { p_org: orgId, p_meter: meter, p_since: new Date(sinceMs).toISOString() });
+      if (error) throw new Error(`usage_total_org failed: ${error.message}`);
+      return Number(data ?? 0);
+    },
+  };
+}
+
+const IST_MS = 5.5 * 3600 * 1000;
+
+/** Like periodWindow, plus "year" (org plans can be yearly). */
+function orgWindow(period: string, now = Date.now()): { startsAt: number; resetsAt: number | null } {
+  if (period !== "year") return periodWindow(period === "day" || period === "month" ? period : "none", now);
+  const y = new Date(now + IST_MS).getUTCFullYear();
+  return { startsAt: Date.UTC(y, 0, 1) - IST_MS, resetsAt: Date.UTC(y + 1, 0, 1) - IST_MS };
+}
+
+/** Where an org stands on `meter`. No entitlement row = unlimited. Fails open (logged) if the database can't be read. */
+export async function checkOrgEntitlement(orgId: string, meter: Meter, store: OrgUsageStore | null = orgUsageStore()): Promise<MeterStatus> {
+  const open: MeterStatus = { meter, used: 0, limit: null, resetsAt: null, allowed: true };
+  if (!store) return open;
+  try {
+    const allowance = await store.allowance(orgId, meter);
+    if (!allowance || allowance.limit === null) return open;
+    const { startsAt, resetsAt } = orgWindow(allowance.period);
+    const used = await store.total(orgId, meter, startsAt);
+    return { meter, used, limit: allowance.limit, resetsAt, allowed: used < allowance.limit };
+  } catch (e) {
+    logError(meter, e);
+    return open;
+  }
+}
+
+const SPAN: Record<string, string> = { day: " today", month: " this month", year: " this year", none: "" };
+
+/** Throws ApiError 429 (403 when the plan includes none) when the org has used up `meter` (decision G3: org practice uses the org's plan). */
+export async function requireOrgAllowance(orgId: string, meter: Meter, store: OrgUsageStore | null = orgUsageStore()): Promise<void> {
+  const s = await checkOrgEntitlement(orgId, meter, store);
+  if (s.allowed) return;
+  console.warn(JSON.stringify({ event: "usage.blocked", meter, orgId, used: s.used, limit: s.limit }));
+  if (s.limit === 0) throw new ApiError(403, `Your organisation's plan doesn't include ${NOUN[meter]}. Practise as yourself, or ask your admin.`);
+  const period = store ? ((await store.allowance(orgId, meter).catch(() => null))?.period ?? "none") : "none";
+  const retryAfterSec = s.resetsAt ? Math.max(1, Math.ceil((s.resetsAt - Date.now()) / 1000)) : undefined;
+  throw new ApiError(429, `Your organisation has used all ${s.limit} ${NOUN[meter]}${SPAN[period] ?? ""}.${resetText(s.resetsAt)} You can still practise as yourself.`, { retryAfterSec });
+}
 
 export { DEFAULT_ORG_SETTINGS, orgSettings, type OrgSettings } from "./orgSettings";
 

@@ -40,7 +40,7 @@ describe("myOrgs", () => {
     const { db } = fakeDb({
       memberships: [
         { role: "member", organizations: { id: "a", name: "A", slug: "a" } },
-        { role: "admin", organizations: { id: "b", name: "B", slug: "b" } },
+        { role: "admin", organizations: { id: "b", name: "B", slug: "b", settings: { allowedPackIds: ["behavioural"] } } },
       ],
       // Newest first, as the query orders them.
       consents: [
@@ -49,8 +49,8 @@ describe("myOrgs", () => {
       ],
     });
     expect(await myOrgs(db, me)).toEqual([
-      { id: "a", name: "A", slug: "a", role: "member", shareLevel: "full" },
-      { id: "b", name: "B", slug: "b", role: "admin", shareLevel: "scores" },
+      { id: "a", name: "A", slug: "a", role: "member", shareLevel: "full", allowedPackIds: null },
+      { id: "b", name: "B", slug: "b", role: "admin", shareLevel: "scores", allowedPackIds: ["behavioural"] },
     ]);
   });
 });

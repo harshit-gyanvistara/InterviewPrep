@@ -476,6 +476,29 @@ export const useUsage = () =>
     return (await res.json()) as { package: string; meters: UsageMeter[] };
   }, []);
 
+/** The orgs the user belongs to (Settings → Organisations, the "Practising for" switcher); [] when none or signed out. */
+export const useMyOrgs = () =>
+  useQuery(async () => {
+    const auth = await getAuth();
+    if (auth.mode !== "supabase" || !auth.user) return [] as MyOrgSummary[];
+    const res = await fetch("/api/me/orgs", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return [] as MyOrgSummary[];
+    return ((await res.json()) as { orgs: MyOrgSummary[] }).orgs;
+  }, []);
+
+/** What the browser needs to know about one of the user's orgs. */
+export interface MyOrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
+  allowedPackIds: string[] | null;
+}
+
+/** The org the user is practising for, if they still belong to it; null means practising as themselves. */
+export const practisingFor = (settings: Settings, orgs: MyOrgSummary[] | null | undefined) =>
+  (settings.practisingFor && orgs?.find((o) => o.id === settings.practisingFor)) || null;
+
 /** Who is signed in (see getAuth). */
 export const useAuth = () => useQuery(getAuth, []);
 

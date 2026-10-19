@@ -55,7 +55,9 @@ Built: the consent screen shipped with O.2; now Settings → Organisations (`com
 - Settings → Organisations: see your orgs, change your share level (new consent row; the old one revoked), and leave the org (G5).
 - Tests: the share level change is visible to `canViewMember()` straight away; leaving revokes access.
 
-### O.4 Practising for an org: switcher, stamping, quotas (≈ 3 days) (O.5 + O.7)
+### O.4 Practising for an org: switcher, stamping, quotas (≈ 3 days) (O.5 + O.7): **built (2026-10-19)**
+Built: `components/PractisingFor.tsx` (top bar and /practice), `settings.practisingFor`, `config.orgId` on new sessions, `lib/orgPractice.ts` (`checkOrgPractice`), stamping in `lib/interviewContext.ts`, report stamping in `lib/userData.ts`, `requireOrgAllowance` / `checkOrgEntitlement` and `usage_total_org` (migration `20261019180000_org_usage.sql`). Deviations: the org is checked and stamped only on a session's first AI call, so a session never moves between orgs; a missing `mocks` entitlement means no org limit; the per-user `ai_calls` limit still applies to org practice (abuse guard), only `mocks` uses the org plan; Quick Mocks skip `allowedPackIds` (they're built from rounds /practice already filtered). Org-authored packs in /practice wait for an authoring UI.
+
 - **Switcher** in the top bar (`components/Shell.tsx`): "Practising as: Me / <Org name>". Stored per user in settings, and only shown to people with an org.
 - **Stamping:** a new session records the chosen org in its config. The turn route (server) verifies `can(user, "practice", orgId)` and the org's `allowedPackIds`, then writes `sessions.org_id` (and `assignment_id`): server-owned columns, like the versions from M2.3. Saving a report copies `org_id`/`assignment_id` from its session on the server (`/api/db/reports` PUT), so the browser never sets them.
 - **Quotas (G3):** `requireAllowance` gets the org context. Org practice checks the org's `entitlements` by summing `usage_ledger` where `org_id` matches (new `usage_total_org` function); solo practice is unchanged. Use is recorded with `org_id`.

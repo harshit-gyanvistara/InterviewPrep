@@ -7,7 +7,8 @@ import { Clock, Loader2, Sparkles, Trash2, Zap } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { NoteChip } from "@/components/NoteChip";
 import { QuickMockBuilder } from "@/components/QuickMock";
-import { db, uid, useAllPacks, useProfile, useReports, useSettings } from "@/lib/db";
+import { db, practisingFor, uid, useAllPacks, useMyOrgs, useProfile, useReports, useSettings } from "@/lib/db";
+import { PractisingFor } from "@/components/PractisingFor";
 import { isScored } from "@/lib/analysis";
 import { useConfirm } from "@/lib/dialogContext";
 import { PERSONAS, visibleBuiltInPacks } from "@/lib/packs";
@@ -30,6 +31,7 @@ function Practice() {
   const { data: profile, loading } = useProfile();
   const { data: reports = [] } = useReports();
   const { settings } = useSettings();
+  const { data: myOrgs } = useMyOrgs();
   const { custom: customPacks, catalog, loading: packsLoading } = useAllPacks();
   const confirm = useConfirm();
 
@@ -44,7 +46,11 @@ function Practice() {
   if (loading || packsLoading || !profile) return <PageSkeleton />;
 
   const builtIn = visibleBuiltInPacks(profile, catalog);
-  const packs: Pack[] = [...customPacks, ...builtIn];
+  const forOrg = practisingFor(settings, myOrgs);
+  const allPacks: Pack[] = [...customPacks, ...builtIn];
+  // Practising for an org that limits its rounds: show only those (the server checks again).
+  const orgPacks = forOrg?.allowedPackIds ? allPacks.filter((p) => forOrg.allowedPackIds!.includes(p.id) || p.source === "quick") : allPacks;
+  const packs: Pack[] = orgPacks.length ? orgPacks : allPacks;
   const mixablePacks = packs.filter((p) => p.source !== "quick"); // don't let people mix a mix
   const rec = recommendPack(reports, packs);
   const fromUrl = packs.find((p) => p.id === params.get("pack"))?.id;
@@ -87,7 +93,7 @@ function Practice() {
     const id = uid();
     await db.sessions.put({
       id,
-      config: { packId: pack.id, persona, durationMin: dur, pressure },
+      config: { packId: pack.id, persona, durationMin: dur, pressure, ...(forOrg ? { orgId: forOrg.id } : {}) },
       messages: [],
       code: "",
       startedAt: Date.now(),
@@ -99,6 +105,14 @@ function Practice() {
   return (
     <div>
       <PageTitle title="Choose your interview" sub="Pick the round, the interviewer and how hard they push. You'll get a briefing and device check before it starts." />
+      {myOrgs && myOrgs.length > 0 && (
+        <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card px-4 py-3 text-sm">
+          <PractisingFor className="-ml-2" />
+          <span className="text-muted">
+            {forOrg ? `Counts toward ${forOrg.name}'s plan, and ${forOrg.name} sees what you chose to share.` : "Your own practice: no organisation sees it."}
+          </span>
+        </div>
+      )}
 
       <Card className="mb-5 bg-hl/60">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -125,7 +139,7 @@ function Practice() {
       </div>
 
       {mode === "quick" ? (
-        <QuickMockBuilder packs={mixablePacks} settings={settings} />
+        <QuickMockBuilder packs={mixablePacks} settings={settings} orgId={forOrg?.id} />
       ) : (
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="grid gap-3 lg:col-span-2">

@@ -8,7 +8,7 @@ import { Card } from "@/components/Shell";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { TonePill } from "@/components/ScoreBadge";
-import { db, uid, useAllPacks, useNotesFor, useProfile, useQuery, useReports } from "@/lib/db";
+import { db, practisingFor, uid, useAllPacks, useMyOrgs, useNotesFor, useProfile, useQuery, useReports, useSettings } from "@/lib/db";
 import { recommendPack } from "@/lib/recommend";
 import { visibleBuiltInPacks, PERSONAS } from "@/lib/packs";
 import { isScored, scoreTone, verdictTone, type Tone } from "@/lib/analysis";
@@ -48,6 +48,8 @@ export default function ReportPage() {
   const { data: profile } = useProfile();
   const { data: allReports = [] } = useReports();
   const { custom: customPacks, catalog, byId } = useAllPacks();
+  const { settings } = useSettings();
+  const { data: myOrgs } = useMyOrgs();
   const { data, loading } = useQuery(async () => {
     const session = await db.sessions.get(id);
     const report = (await db.reports.list()).find((r) => r.sessionId === id);
@@ -73,7 +75,11 @@ export default function ReportPage() {
 
   const startSession = async (packId: string, cfg = session.config) => {
     const sid = uid();
-    await db.sessions.put({ id: sid, config: { ...cfg, packId, durationMin: packId === cfg.packId ? cfg.durationMin : (byId(packId)?.durationMin ?? cfg.durationMin) }, messages: [], code: "", startedAt: Date.now(), status: "lobby" });
+    // "Practise again" follows the current switcher, not the org the old session was for.
+    const { orgId: _previous, ...rest } = cfg;
+    void _previous;
+    const org = practisingFor(settings, myOrgs);
+    await db.sessions.put({ id: sid, config: { ...rest, ...(org ? { orgId: org.id } : {}), packId, durationMin: packId === cfg.packId ? cfg.durationMin : (byId(packId)?.durationMin ?? cfg.durationMin) }, messages: [], code: "", startedAt: Date.now(), status: "lobby" });
     router.push(`/interview/${sid}`);
   };
 

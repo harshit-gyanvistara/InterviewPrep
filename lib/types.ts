@@ -32,6 +32,8 @@ export interface Settings {
   recognitionLang: string;
   captions: boolean;
   cameraDefault: boolean;
+  /** "Practising for" switcher: an org id, or null for practising as yourself (plans/m2-org.md O.4). */
+  practisingFor?: string | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -84,6 +86,8 @@ export interface SessionConfig {
   persona: Persona;
   durationMin: number;
   pressure: boolean;
+  /** The org this is practised for, from the "Practising for" switcher; the server checks it and stamps `sessions.org_id` (plans/m2-org.md O.4). */
+  orgId?: string;
   /** Set on Quick Mock sessions: roughly how many main questions the interviewer should ask before wrapping up. */
   questionCount?: number;
 }

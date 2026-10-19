@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthUser } from "./auth";
 import { ApiError } from "./liveAgent";
 import { audit } from "./orgAdmin";
+import { orgSettings } from "./orgSettings";
 import { ORG_SHARE_CONSENT_VERSION, type OrgRef } from "./orgInvites";
 import { DEFAULT_SHARE_LEVEL, isShareLevel, type ShareLevel } from "./permissions";
 
@@ -15,6 +16,8 @@ export interface MyOrg {
   slug: string;
   role: string;
   shareLevel: ShareLevel;
+  /** Rounds the org allows (null = all), so /practice can show only those when practising for it. */
+  allowedPackIds: string[] | null;
 }
 
 const fail = (what: string, error: { message: string } | null) => {
@@ -43,11 +46,11 @@ async function shareLevels(db: SupabaseClient, userId: string, orgIds: string[])
 
 /** Every org the user is an active member of, with their role and current share level. */
 export async function myOrgs(db: SupabaseClient, user: AuthUser): Promise<MyOrg[]> {
-  const { data, error } = await db.from("memberships").select("role, organizations(id, name, slug)").eq("user_id", user.id).eq("status", "active").order("joined_at");
+  const { data, error } = await db.from("memberships").select("role, organizations(id, name, slug, settings)").eq("user_id", user.id).eq("status", "active").order("joined_at");
   fail("memberships read", error);
   const rows = (data ?? []).flatMap((m) => {
-    const o = m.organizations as unknown as { id: string; name: string; slug: string } | null;
-    return o ? [{ ...o, role: m.role as string }] : [];
+    const o = m.organizations as unknown as { id: string; name: string; slug: string; settings: unknown } | null;
+    return o ? [{ id: o.id, name: o.name, slug: o.slug, role: m.role as string, allowedPackIds: orgSettings(o).allowedPackIds }] : [];
   });
   const levels = await shareLevels(db, user.id, rows.map((r) => r.id));
   return rows.map((r) => ({ ...r, shareLevel: levels.get(r.id) ?? DEFAULT_SHARE_LEVEL }));

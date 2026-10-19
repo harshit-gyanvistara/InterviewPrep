@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Practising for an org: stamped once by the server, org plan for mocks (M2-Org O.4)
+- **Decision:** The "Practising for" choice lives in the user's settings and is copied into a new session's config. The server checks the membership, the "practice" permission and the org's allowed rounds on the session's first AI call, then stamps `sessions.org_id`. After that the column is the truth: a session never moves between orgs, and a session that started solo stays solo. Reports get `org_id`/`assignment_id` copied from their session when saved; the browser can't set them. Org practice checks the org's `mocks` entitlement (summed over `usage_ledger.org_id` by `usage_total_org`, day/month/year/none). No `mocks` row means no limit. The per-user `ai_calls` guard still applies.
+- **Why:** The browser chooses but never decides. Stamping once means a member removed mid-interview can finish it, but can't start new org sessions. Keeping `ai_calls` per user keeps abuse protection independent of an org's plan.
+- **Considered:** Re-checking membership on every turn (a removed member would lose an interview mid-way); letting the client write `org_id` (forgeable); org limits on `ai_calls` too (marketing sells mocks, not AI calls).
+- **Revisit:** If an org plan needs per-member caps, or if marketing wants AI-call pools per org.
+
 ## 2026-10-19 · Joining an org: one database function, invites kept across sign-in (M2-Org O.2)
 - **Decision:** `join_org()` (security definer, server only) does the whole join with the organisation row locked: invite valid, not expired or used up, email-bound invites match, join codes respect `allowedEmailDomains`, then the seat check (a missing `seats` row means no limit), then the membership, the `org_share` consent and the audit entry. Email invites are single-use 256-bit tokens; join codes are 10 characters (about 50 bits), case- and dash-insensitive. Both are stored only as SHA-256 hashes, and opening or using one is rate-limited to 10 per 10 minutes per user. An invite opened while signed out is kept in localStorage and resumed after sign-in, before onboarding. Org routes use the slug.
 - **Why:** Locking the org row is the simplest way to stop two people taking the last seat. Hashes mean a database leak doesn't hand out working invites. The rate limit makes guessing a code impractical. Sign-in has no return URL, and adding one would touch the email-link flow.

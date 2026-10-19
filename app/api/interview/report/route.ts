@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       { user, timeoutMs: 115_000 },
     );
     await ctx.save({ code: body.code, call: "report", meta });
-    await addUsage(user, "mocks");
+    await addUsage(user, "mocks", { orgId: ctx.orgId });
     return NextResponse.json(out);
   } catch (e) {
     return errorResponse(e);
