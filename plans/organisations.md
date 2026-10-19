@@ -93,5 +93,5 @@ Playwright E2E: admin creates an org → invites → member joins with a code �
 Decided later; "Designed to expand" shows how each one plugs in without rework.
 - **Minors:** schools and some institutes have under-18 users, which means parental consent under DPDP/GDPR.
 - **Data residency:** org contracts may require India-region storage (ties to implementationPlan Q4).
-- **Pricing:** per seat per year, per mock, or a pool of mock minutes per org.
+- **Pricing / org plans:** per seat per year, per mock, or a pool of mock minutes per org. **Owned by the marketing team (2026-10-19):** they set each org's plan by deal factors. Engineering keeps plans as `entitlements` rows and `organizations.settings`, never in code, and the super-admin page must let a non-engineer set them.
 - **Employer screening mode.**
