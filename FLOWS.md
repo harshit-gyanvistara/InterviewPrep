@@ -66,6 +66,13 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 | Organisations, memberships, cohorts, assignments, entitlements, invites, audit log | Supabase (M2.10, no UI yet) | Members read their orgs, their own membership, and those orgs' cohorts and assignments. Everything else is server-only, through `lib/authz.ts`. [plans/org-ready-schema.md](plans/org-ready-schema.md) |
 | Fields and built-in packs | Supabase `domains`, `packs` | Code copies are the seed and the fallback |
 
+## 3b. Organisations (super-admin, M2-Org O.1)
+
+1. Someone listed in `SUPER_ADMIN_EMAILS` opens `/admin/orgs` (everyone else gets 404 from the API).
+2. They create an org (name, address/slug, kind, optional owner email) and set its plan as `entitlements` rows (seats, mocks per period, any key) plus settings. Marketing does this; no SQL ([plans/m2-org.md](plans/m2-org.md)).
+3. An owner email that has an account becomes an owner straight away; otherwise it gets a one-time owner invite link (only its hash is stored).
+4. Every change is written to `audit_logs`. All of it runs on the server with the secret key.
+
 ## 4. One interview
 
 1. `/practice` creates a session (`lobby`).

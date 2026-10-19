@@ -1,4 +1,4 @@
-import { LOCAL_USER, type AuthUser } from "./auth";
+import { LOCAL_USER, authMode, requireUser, type AuthUser } from "./auth";
 import { ApiError } from "./liveAgent";
 import { DEFAULT_SHARE_LEVEL, isShareLevel, roleCan, shareAllows, type Permission, type ShareLevel } from "./permissions";
 import { getSupabaseAdmin } from "./supabase";
@@ -85,4 +85,20 @@ export async function canViewMember(
   if (!store || !(await activeMembership(store, orgId, memberId))) return false;
   const stored = await store.shareLevel(orgId, memberId);
   return shareAllows(isShareLevel(stored) ? stored : DEFAULT_SHARE_LEVEL, level);
+}
+
+// ---- Super-admin (plans/m2-org.md O.1, decision G2) ----
+
+/** Is this email in SUPER_ADMIN_EMAILS (comma-separated)? These people create orgs and set their plans. */
+export function isSuperAdmin(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const list = (process.env.SUPER_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
+  return list.includes(email.trim().toLowerCase());
+}
+
+/** The signed-in super-admin, or 404 for everyone else (signed out gets 401), so the admin area isn't advertised. */
+export async function requireSuperAdmin(): Promise<AuthUser> {
+  const user = await requireUser();
+  if (authMode() !== "supabase" || user === LOCAL_USER || !isSuperAdmin(user.email)) throw new ApiError(404, "Not found.");
+  return user;
 }

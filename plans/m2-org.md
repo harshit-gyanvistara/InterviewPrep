@@ -29,7 +29,9 @@ Org admin (/org/<slug>) ─ invites ─► Member opens link ─► signs in (sa
 
 ## Slices (each one ships on its own, tested, in this order)
 
-### O.1 Super-admin: create orgs and set plans (≈ 2 days)
+### O.1 Super-admin: create orgs and set plans (≈ 2 days): **built (2026-10-19)**
+Built as planned: `/admin/orgs` (list and create) and `/admin/orgs/[id]` (plan editor, details, settings, people, owners, audit log), `/api/admin/orgs[/...]`, `lib/orgAdmin.ts`, `requireSuperAdmin()`. An owner with no account gets an email-bound owner invite link; it works once O.2 ships `/join`.
+
 - `/admin/orgs` page, plus `/api/admin/orgs` routes, allowed only for `SUPER_ADMIN_EMAILS` (`requireSuperAdmin()` in `lib/authz.ts`).
 - Create an org (name, slug, kind), name its first owner by email (an owner invite), and edit `entitlements` (seats, mocks per period, any key) and `settings` with plain form fields, so marketing never needs SQL.
 - Every change is written to `audit_logs`.

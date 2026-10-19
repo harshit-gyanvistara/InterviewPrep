@@ -160,3 +160,44 @@ export const StoredProfileSchema = z.looseObject({
 });
 
 export type StoredProfile = z.infer<typeof StoredProfileSchema>;
+
+// ---- Organisations: super-admin (plans/m2-org.md O.1) ----
+
+/** Same rule as the `organizations.slug` check in the database. */
+export const ORG_SLUG = /^[a-z0-9][a-z0-9-]{1,62}$/;
+/** Entitlement keys are free text validated here, so marketing can add one without a migration (D15). */
+export const ENTITLEMENT_KEY = /^[a-z][a-z0-9_]{0,39}$/;
+export const ENTITLEMENT_PERIODS = ["none", "day", "month", "year"] as const;
+
+const orgName = z.string().trim().min(1, { message: "Enter a name." }).max(120);
+const orgKind = z.string().trim().toLowerCase().min(1).max(40);
+
+export const OrgCreateBodySchema = z.object({
+  name: orgName,
+  slug: z.string().trim().toLowerCase().regex(ORG_SLUG, { message: "Use 2-63 lowercase letters, digits or hyphens, starting with a letter or digit." }),
+  kind: orgKind.default("other"),
+  ownerEmail: email.optional(),
+});
+
+export const OrgUpdateBodySchema = z
+  .object({ name: orgName.optional(), kind: orgKind.optional(), settings: z.looseObject({}).optional() })
+  .refine((b) => b.name !== undefined || b.kind !== undefined || b.settings !== undefined, { message: "Nothing to update." });
+
+export const EntitlementSchema = z.object({
+  key: z.string().trim().regex(ENTITLEMENT_KEY, { message: "Use lowercase letters, digits and underscores." }),
+  /** null = unlimited. */
+  limit: z.number().int().min(0).max(10_000_000).nullable(),
+  period: z.enum(ENTITLEMENT_PERIODS),
+});
+
+export const EntitlementsBodySchema = z.object({
+  entitlements: z
+    .array(EntitlementSchema)
+    .max(30)
+    .refine((list) => new Set(list.map((e) => e.key)).size === list.length, { message: "Each key can appear once." }),
+});
+
+export const OrgOwnerBodySchema = z.object({ email });
+
+export type OrgCreateBody = z.infer<typeof OrgCreateBodySchema>;
+export type Entitlement = z.infer<typeof EntitlementSchema>;
