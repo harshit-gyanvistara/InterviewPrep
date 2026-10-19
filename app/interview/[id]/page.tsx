@@ -369,7 +369,7 @@ export default function InterviewRoom() {
             >
               {listen.listening ? <Mic size={18} /> : <MicOff size={18} />}
             </RoundBtn>
-            <button onClick={endClicked} disabled={finishing} className="ml-2 inline-flex h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-on-status disabled:opacity-50" title="End interview">
+            <button onClick={endClicked} disabled={finishing} className="ml-2 inline-flex h-11 items-center gap-2 rounded-full bg-danger px-4 text-sm font-medium text-on-status disabled:opacity-50" title="End interview" aria-label="End interview">
               <PhoneOff size={16} /> <span className="hidden sm:inline">End</span>
             </button>
           </div>

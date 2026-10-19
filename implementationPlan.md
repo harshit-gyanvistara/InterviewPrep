@@ -236,7 +236,7 @@ Goal: a college, company or institute can give Offerly to its people for learnin
 | O.6 Admin dashboard | **Built (2026-10-19)**: overview, members (roles, removal), analytics by cohort, member detail, CSV export, audit log. `app/org/[slug]/`: members, cohorts, assignments, analytics by cohort, CSV export, audit log |
 | O.7 Member UX | **Switcher built (2026-10-19)** (m2-org.md O.4); org packs in /practice still to do. Org switcher in `components/Shell.tsx`; org packs in `/practice` |
 
-**Exit:** isolation tests (org A vs. org B, share levels, removed members, seat limit, quota 429) and the admin → invite → join → assigned mock → analytics E2E are green in CI.
+**Exit:** isolation tests (org A vs. org B, share levels, removed members, seat limit, quota 429) and the admin → invite → join → assigned mock → analytics E2E are green in CI. *Status 2026-10-19: all green locally (9 E2E, 22 database tests); waiting on a CI run.*
 
 ### M3 — Voice realism (≈ 1 week spike + 3–4 weeks build, gated)
 

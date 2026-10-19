@@ -51,6 +51,9 @@ export interface MyAssignment {
   done: number;
 }
 
+/** Who assignments are for: members. Owners, admins and coaches set the work; they don't count toward it. */
+export const ASSIGNEE_ROLE = "member";
+
 const fail = (what: string, error: { message: string } | null) => {
   if (error) throw new Error(`${what} failed: ${error.message}`);
 };
@@ -131,14 +134,14 @@ export async function listAssignments(db: SupabaseClient, org: OrgRef): Promise<
   requireRole(org, "assignments.create");
   const [assignments, members] = await Promise.all([
     db.from("assignments").select("id, title, pack_id, cohort_id, due_at, target_mock_count, created_at").eq("org_id", org.id).order("created_at", { ascending: false }),
-    db.from("memberships").select("user_id, cohort_id").eq("org_id", org.id).eq("status", "active"),
+    db.from("memberships").select("user_id, cohort_id, role").eq("org_id", org.id).eq("status", "active"),
   ]);
   fail("assignments read", assignments.error);
   fail("memberships read", members.error);
   const rows = assignments.data ?? [];
   const counts = await reportCounts(db, rows.map((a) => a.id));
   return rows.map((a) => {
-    const audience = (members.data ?? []).filter((m) => !a.cohort_id || m.cohort_id === a.cohort_id);
+    const audience = (members.data ?? []).filter((m) => m.role === ASSIGNEE_ROLE && (!a.cohort_id || m.cohort_id === a.cohort_id));
     const per = counts.get(a.id) ?? new Map<string, number>();
     return {
       id: a.id,
@@ -188,7 +191,7 @@ export async function deleteAssignment(db: SupabaseClient, user: AuthUser, org: 
  * target number of times. Overdue ones are kept (marked by their due date) until done.
  */
 export async function myAssignments(db: SupabaseClient, user: AuthUser): Promise<MyAssignment[]> {
-  const { data: mems, error } = await db.from("memberships").select("org_id, cohort_id, organizations(name)").eq("user_id", user.id).eq("status", "active");
+  const { data: mems, error } = await db.from("memberships").select("org_id, cohort_id, organizations(name)").eq("user_id", user.id).eq("status", "active").eq("role", ASSIGNEE_ROLE);
   fail("memberships read", error);
   if (!mems?.length) return [];
   const { data: rows, error: e2 } = await db

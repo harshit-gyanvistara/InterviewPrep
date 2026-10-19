@@ -62,7 +62,8 @@ test("the owner creates a join code and an assignment", async () => {
   await ownerPage.getByLabel("Round").selectOption("behavioural");
   await ownerPage.getByLabel("Title (optional)").fill("Week 1");
   await ownerPage.getByRole("button", { name: "Set assignment" }).click();
-  await expect(ownerPage.getByText("0 of 1 done")).toBeVisible();
+  // Nobody to do it yet: assignments are for members, and the owner sets the work.
+  await expect(ownerPage.getByText("0 of 0 done")).toBeVisible();
 });
 
 test("a member joins with the code, sharing scores, and completes the assignment", async () => {

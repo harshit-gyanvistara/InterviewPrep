@@ -23,7 +23,7 @@ CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs all of these on e
 - Unit tests sit next to the code as `lib/<name>.test.ts` and run in Node (no DOM). Start with pure logic: `lib/recommend.ts`, `lib/analysis.ts` and `lib/packs.ts` must stay at 80%+ line coverage (CI enforces this in [vitest.config.mts](vitest.config.mts)). Add files to `coverage.include` there as you test them.
 - Pin the clock with `vi.useFakeTimers()` + `vi.setSystemTime()` for anything date-based.
 - Route tests import the route module and call its handler (see `lib/api.contract.test.ts`, `lib/auth.test.ts`). Supabase is faked at the client level there; row-level security is tested against a real local database in `supabase/tests/` (skipped unless `SUPABASE_TEST_URL` is set; CI's `database` job sets it).
-- End-to-end tests are Playwright in `e2e/` (`npm run e2e`). They need a local Supabase (`npx supabase start`, which needs Docker) and refuse any other database; see `playwright.config.ts` for the env vars. A stub liveAgent stands in for Gemini.
+- End-to-end tests are Playwright in `e2e/` (`npm run e2e`). They need a local Supabase (`npx supabase start`, which needs Docker) and refuse any other database; see `playwright.config.ts` for the env vars. A stub liveAgent stands in for Gemini. Local Supabase uses ports 553xx (`supabase/config.toml`), because Windows with Hyper-V reserves the default 543xx.
 - liveAgent tests are pytest in `liveAgent/tests/`. Gemini is always mocked; prompts are checked against goldens in `tests/fixtures/prompts.json`.
 
 ## Definition of done

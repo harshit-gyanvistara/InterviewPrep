@@ -82,9 +82,11 @@ describe("assignments for admins and coaches", () => {
         { id: "a2", org_id: ORG, title: "A only", pack_id: "p", cohort_id: COHORT_A, due_at: null, target_mock_count: 1, created_at: "t" },
       ],
       memberships: [
-        { org_id: ORG, status: "active", user_id: "u1", cohort_id: COHORT_A },
-        { org_id: ORG, status: "active", user_id: "u2", cohort_id: COHORT_B },
-        { org_id: ORG, status: "active", user_id: "u3", cohort_id: null },
+        { org_id: ORG, status: "active", user_id: "u1", cohort_id: COHORT_A, role: "member" },
+        { org_id: ORG, status: "active", user_id: "u2", cohort_id: COHORT_B, role: "member" },
+        { org_id: ORG, status: "active", user_id: "u3", cohort_id: null, role: "member" },
+        // Staff set the work; they aren't counted in it.
+        { org_id: ORG, status: "active", user_id: "coach", cohort_id: COHORT_A, role: "coach" },
       ],
       reports: [
         { assignment_id: "a1", user_id: "u1" },
@@ -111,9 +113,17 @@ describe("member cohorts", () => {
 });
 
 describe("myAssignments", () => {
+  it("are for members only: staff get none", async () => {
+    const { db } = fakeDb({
+      memberships: [{ user_id: "me", status: "active", role: "owner", org_id: ORG, cohort_id: null, organizations: { name: "Sunrise" } }],
+      assignments: [{ id: "a1", org_id: ORG, cohort_id: null, title: "All", pack_id: "p", due_at: null, target_mock_count: 1 }],
+    });
+    expect(await myAssignments(db, me)).toEqual([]);
+  });
+
   it("shows open ones for my cohort or everyone, with my progress", async () => {
     const { db } = fakeDb({
-      memberships: [{ user_id: "me", status: "active", org_id: ORG, cohort_id: COHORT_A, organizations: { name: "Sunrise" } }],
+      memberships: [{ user_id: "me", status: "active", role: "member", org_id: ORG, cohort_id: COHORT_A, organizations: { name: "Sunrise" } }],
       assignments: [
         { id: "a1", org_id: ORG, cohort_id: null, title: "All", pack_id: "p", due_at: "2026-11-01T00:00:00Z", target_mock_count: 2 },
         { id: "a2", org_id: ORG, cohort_id: COHORT_B, title: "Other cohort", pack_id: "p", due_at: null, target_mock_count: 1 },
