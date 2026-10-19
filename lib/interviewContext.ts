@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authMode, type AuthUser } from "./auth";
 import { getCatalog } from "./catalog-server";
 import { ApiError, type AgentMeta } from "./liveAgent";
-import { checkOrgPractice } from "./orgPractice";
+import { checkAssignment, checkOrgPractice } from "./orgPractice";
 import { InterviewContextSchema, type InterviewContext } from "./schemas";
 import { getSupabaseForRequest } from "./supabase-server";
 import type { Message, Pack } from "./types";
@@ -25,7 +25,7 @@ export interface LoadedInterview extends Omit<InterviewContext, "messages"> {
 }
 
 interface SessionRow {
-  data: Record<string, unknown> & { config?: { packId?: unknown; orgId?: unknown }; messages?: unknown };
+  data: Record<string, unknown> & { config?: { packId?: unknown; orgId?: unknown; assignmentId?: unknown }; messages?: unknown };
   org_id: string | null;
   pack_snapshot: Pack | null;
   prompt_versions: Partial<Record<InterviewCall, string>> | null;
@@ -66,6 +66,10 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
   const requested = row.data.config?.orgId;
   const stampOrg = !row.org_id && stored.length === 0 && typeof requested === "string" && requested ? requested : null;
   if (stampOrg) await checkOrgPractice(user, stampOrg, pack);
+  // An assignment only counts with its org, checked the same way (plans/m2-org.md O.5).
+  const requestedAssignment = row.data.config?.assignmentId;
+  const stampAssignment = stampOrg && typeof requestedAssignment === "string" && requestedAssignment ? requestedAssignment : null;
+  if (stampOrg && stampAssignment) await checkAssignment(user, stampOrg, stampAssignment, pack);
   const orgId = row.org_id ?? stampOrg;
 
   return {
@@ -83,6 +87,7 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
           prompt_versions: meta.promptVersion ? { ...row.prompt_versions, [call]: meta.promptVersion } : row.prompt_versions,
           model_ids: [...new Set([...(row.model_ids ?? []), ...meta.models])],
           ...(stampOrg ? { org_id: stampOrg } : {}),
+          ...(stampAssignment ? { assignment_id: stampAssignment } : {}),
         })
         .eq("user_id", user.id)
         .eq("id", sessionId);

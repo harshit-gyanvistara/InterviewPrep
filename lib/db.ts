@@ -486,6 +486,27 @@ export const useMyOrgs = () =>
     return ((await res.json()) as { orgs: MyOrgSummary[] }).orgs;
   }, []);
 
+/** The member's open org assignments with their progress (plans/m2-org.md O.5); [] when none or signed out. */
+export const useMyAssignments = () =>
+  useQuery(async () => {
+    const auth = await getAuth();
+    if (auth.mode !== "supabase" || !auth.user) return [] as MyAssignmentSummary[];
+    const res = await fetch("/api/me/assignments", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return [] as MyAssignmentSummary[];
+    return ((await res.json()) as { assignments: MyAssignmentSummary[] }).assignments;
+  }, []);
+
+export interface MyAssignmentSummary {
+  id: string;
+  orgId: string;
+  orgName: string;
+  title: string;
+  packId: string;
+  dueAt: string | null;
+  target: number;
+  done: number;
+}
+
 /** What the browser needs to know about one of the user's orgs. */
 export interface MyOrgSummary {
   id: string;

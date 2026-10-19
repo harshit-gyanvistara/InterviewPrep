@@ -220,3 +220,23 @@ export const InviteCreateBodySchema = z.discriminatedUnion("kind", [
 export const JoinBodySchema = z.object({ shareLevel: z.enum(["activity", "scores", "full"]) });
 
 export type InviteCreateBody = z.infer<typeof InviteCreateBodySchema>;
+
+// ---- Organisations: cohorts and assignments (plans/m2-org.md O.5) ----
+
+export const CohortCreateBodySchema = z.object({ name: z.string().trim().min(1, { message: "Enter a name." }).max(120) });
+export const CohortUpdateBodySchema = z
+  .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional() })
+  .refine((b) => b.name !== undefined || b.archived !== undefined, { message: "Nothing to update." });
+export const MemberCohortBodySchema = z.object({ cohortId: z.uuid().nullable() });
+
+export const AssignmentCreateBodySchema = z.object({
+  title: z.string().trim().min(1, { message: "Enter a title." }).max(200),
+  packId: z.string().trim().min(1).max(100),
+  /** null = everyone in the org. */
+  cohortId: z.uuid().nullable().default(null),
+  /** ISO date-time; null = no due date. */
+  dueAt: z.iso.datetime({ offset: true }).nullable().default(null),
+  targetMockCount: z.number().int().min(1).max(50).default(1),
+});
+
+export type AssignmentCreateBody = z.infer<typeof AssignmentCreateBodySchema>;

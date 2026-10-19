@@ -7,12 +7,13 @@ import { ArrowRight, Mic, StickyNote } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
-import { useAllPacks, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
+import { useAllPacks, useMyAssignments, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
 import { visibleBuiltInPacks } from "@/lib/packs";
 import { isScored, scoreTone, verdictTone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useNotesPanel } from "@/lib/notesContext";
-import { daysUntil, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
+import { daysUntil, nextAssignment, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
+import { dueText } from "@/components/org/api";
 
 export default function Dashboard() {
   const { data: profile, loading } = useProfile();
@@ -20,6 +21,7 @@ export default function Dashboard() {
   const { data: sessions = [] } = useSessions();
   const { custom: customPacks, catalog, byId, loading: packsLoading } = useAllPacks();
   const { data: notes = [] } = useNoteList();
+  const { data: assignments = [] } = useMyAssignments();
   const { openPanel } = useNotesPanel();
 
   if (loading || packsLoading || !profile) return <PageSkeleton />;
@@ -38,11 +40,20 @@ export default function Dashboard() {
   const weak = weakestDimension(reports);
   const covered = new Set(reports.map((r) => r.packId)).size;
 
+  // An open assignment from an org comes before our own suggestion (plans/m2-org.md O.5).
+  const assigned = nextAssignment(assignments);
   const action = inProgress
     ? { title: "Resume your interview", text: `${byId(inProgress.config.packId)?.title} is still open. Pick up where you left off.`, href: `/interview/${inProgress.id}`, cta: "Resume" }
     : lobby
       ? { title: "You have an interview waiting", text: `${byId(lobby.config.packId)?.title} is set up. Join when you're ready.`, href: `/interview/${lobby.id}`, cta: "Open lobby" }
-      : reports.length === 0
+      : assigned
+        ? {
+            title: `${assigned.title}`,
+            text: `Assigned by ${assigned.orgName} · ${assigned.done} of ${assigned.target} done${assigned.dueAt ? ` · ${dueText(assigned.dueAt)}` : ""}.`,
+            href: `/practice?pack=${assigned.packId}&assignment=${assigned.id}`,
+            cta: "Start assignment",
+          }
+        : reports.length === 0
         ? { title: "Take your baseline mock", text: "15 minutes. It shows where you stand and personalises your plan.", href: `/practice?pack=${rec.pack.id}`, cta: "Start baseline" }
         : { title: rec.pack.title, text: rec.reason, href: `/practice?pack=${rec.pack.id}`, cta: "Start practice" };
   const suggesting = !inProgress && !lobby;

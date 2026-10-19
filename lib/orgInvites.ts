@@ -22,6 +22,8 @@ export interface OrgRef {
   settings: unknown;
   /** The caller's role here, read once per request by orgForMember. */
   role: string;
+  /** The caller's cohort here, if any. */
+  cohortId?: string | null;
 }
 
 export interface InviteView {
@@ -48,11 +50,11 @@ export async function orgForMember(db: SupabaseClient, user: AuthUser, slug: str
   fail("organizations read", error);
   const membership = data && store ? await store.membership(data.id, user.id) : null;
   if (!data || !membership || membership.status !== "active") throw new ApiError(404, "Organisation not found.");
-  return { ...data, role: membership.role, permissions: PERMISSIONS.filter((p) => roleCan(membership.role, p)) };
+  return { ...data, role: membership.role, cohortId: membership.cohortId ?? null, permissions: PERMISSIONS.filter((p) => roleCan(membership.role, p)) };
 }
 
 /** 403 unless the caller's role in `org` grants `permission` (the same rule as can() in lib/authz.ts). */
-function requireRole(org: OrgRef, permission: Permission) {
+export function requireRole(org: OrgRef, permission: Permission) {
   if (!roleCan(org.role, permission)) throw new ApiError(403, "You don't have access to this.");
 }
 

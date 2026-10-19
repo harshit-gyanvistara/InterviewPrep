@@ -13,6 +13,8 @@ export interface Membership {
   userId: string;
   role: string;
   status: string;
+  /** The member's cohort, if any (coaches are scoped to theirs; assignments can target one). */
+  cohortId?: string | null;
 }
 
 /** Where org facts are read. The database in production (secret key); tests pass an in-memory one. */
@@ -28,9 +30,9 @@ export function orgStore(): OrgStore | null {
   if (!db) return null;
   return {
     async membership(orgId, userId) {
-      const { data, error } = await db.from("memberships").select("org_id, user_id, role, status").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
+      const { data, error } = await db.from("memberships").select("org_id, user_id, role, status, cohort_id").eq("org_id", orgId).eq("user_id", userId).maybeSingle();
       if (error) throw new Error(`memberships read failed: ${error.message}`);
-      return data && { orgId: data.org_id, userId: data.user_id, role: data.role, status: data.status };
+      return data && { orgId: data.org_id, userId: data.user_id, role: data.role, status: data.status, cohortId: data.cohort_id ?? null };
     },
     async shareLevel(orgId, userId) {
       const { data, error } = await db

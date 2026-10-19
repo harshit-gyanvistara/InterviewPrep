@@ -64,7 +64,9 @@ Built: `components/PractisingFor.tsx` (top bar and /practice), `settings.practis
 - **Org packs:** `custom_packs` with `org_id` appear in `/practice` for members of that org.
 - Tests: a non-member can't stamp an org; a disallowed pack gives 403; the org quota gives 429; solo is unaffected; a member removed mid-way can't start new org sessions.
 
-### O.5 Cohorts and assignments (≈ 2 days)
+### O.5 Cohorts and assignments (≈ 2 days): **built (2026-10-19)**
+Built: `lib/orgCohorts.ts`, routes under `/api/orgs/[slug]/{cohorts,members,assignments}` and `/api/me/assignments`, `/org/[slug]` tabs (Invites, Cohorts & members, Assignments), the member's "Assigned to you" on the org page, assignments first in the dashboard's next step, and `/practice?pack=…&assignment=…`. The server checks the assignment (same org, the member's cohort or everyone, the assigned round) and stamps `sessions.assignment_id` with the org; reports copy it. Progress counts reports per assignment. Deviations: assignments use built-in rounds only (org rounds need their authoring UI); a coach placed in a cohort sets work for that cohort only, a coach with no cohort for any; role changes and removing members wait for O.6.
+
 - Admin: create and archive cohorts, and move members between them (`cohorts.manage`).
 - Coach/admin: create an assignment (pack, cohort or everyone, due date, target mock count) (`assignments.create`).
 - Member: "Assigned to you" first on the dashboard (`recommendPack` prefers open assignments), with progress (2 of 3 done) and the due date. Starting from an assignment stamps `assignment_id`.

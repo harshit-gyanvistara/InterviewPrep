@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Assignments count through stamped reports (M2-Org O.5)
+- **Decision:** An assignment is a built-in round for everyone or one cohort, with an optional due date and a number of mocks each. A session counts toward it only if the server stamped `assignment_id` on the first AI call: same org, the member's cohort (or everyone), and the assigned round. Progress is the number of reports carrying that `assignment_id`; "done" means at least the target. Overdue assignments stay listed until done. A coach placed in a cohort can only set work for that cohort.
+- **Why:** Counting stamped reports means an assignment can't be completed from the browser, and an unfinished interview doesn't count. Keeping overdue work visible matches how placement cells chase students.
+- **Considered:** Letting the client mark progress (forgeable); counting sessions instead of reports (abandoned interviews would count); hiding overdue items (work would silently disappear).
+- **Revisit:** When orgs author their own rounds, and if "too short" reports shouldn't count toward an assignment.
+
 ## 2026-10-19 · Practising for an org: stamped once by the server, org plan for mocks (M2-Org O.4)
 - **Decision:** The "Practising for" choice lives in the user's settings and is copied into a new session's config. The server checks the membership, the "practice" permission and the org's allowed rounds on the session's first AI call, then stamps `sessions.org_id`. After that the column is the truth: a session never moves between orgs, and a session that started solo stays solo. Reports get `org_id`/`assignment_id` copied from their session when saved; the browser can't set them. Org practice checks the org's `mocks` entitlement (summed over `usage_ledger.org_id` by `usage_total_org`, day/month/year/none). No `mocks` row means no limit. The per-user `ai_calls` guard still applies. A user's own `usage_total` now leaves out rows with an `org_id`, so org practice never uses up their personal allowance.
 - **Why:** The browser chooses but never decides. Stamping once means a member removed mid-interview can finish it, but can't start new org sessions. Keeping `ai_calls` per user keeps abuse protection independent of an org's plan.

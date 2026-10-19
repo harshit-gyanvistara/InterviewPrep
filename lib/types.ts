@@ -88,6 +88,8 @@ export interface SessionConfig {
   pressure: boolean;
   /** The org this is practised for, from the "Practising for" switcher; the server checks it and stamps `sessions.org_id` (plans/m2-org.md O.4). */
   orgId?: string;
+  /** Set when started from an org assignment; the server checks it and stamps `sessions.assignment_id` (O.5). */
+  assignmentId?: string;
   /** Set on Quick Mock sessions: roughly how many main questions the interviewer should ask before wrapping up. */
   questionCount?: number;
 }

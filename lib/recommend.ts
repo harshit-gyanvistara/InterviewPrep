@@ -68,3 +68,9 @@ export function streakDays(times: number[]) {
   }
   return n;
 }
+
+/** The most urgent open assignment: the earliest due date first, then ones with no due date (plans/m2-org.md O.5). */
+export function nextAssignment<A extends { dueAt: string | null }>(assignments: A[]): A | undefined {
+  const t = (a: A) => (a.dueAt ? Date.parse(a.dueAt) : Infinity);
+  return [...assignments].sort((a, b) => t(a) - t(b))[0];
+}

@@ -10,8 +10,8 @@ import { orgForMember } from "@/lib/orgInvites";
 export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }> }) {
   try {
     const user = await requireUser();
-    const { id, name, slug, permissions } = await orgForMember(adminDb(), user, (await ctx.params).slug);
-    return NextResponse.json({ org: { id, name, slug }, permissions }, { headers: { "Cache-Control": "no-store" } });
+    const { id, name, slug, permissions, cohortId } = await orgForMember(adminDb(), user, (await ctx.params).slug);
+    return NextResponse.json({ org: { id, name, slug }, permissions, cohortId: cohortId ?? null }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     return errorResponse(e);
   }

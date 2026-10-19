@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadInterview } from "./interviewContext";
-import { checkOrgPractice } from "./orgPractice";
+import { checkAssignment, checkOrgPractice } from "./orgPractice";
 
 // Stamping the org on a session (plans/m2-org.md O.4): once, on the first AI call, after the
 // membership check; the browser's config can't move a session afterwards.
 
-vi.mock("./orgPractice", () => ({ checkOrgPractice: vi.fn(async () => {}) }));
+vi.mock("./orgPractice", () => ({ checkOrgPractice: vi.fn(async () => {}), checkAssignment: vi.fn(async () => {}) }));
 vi.mock("./supabase-server", () => ({ getSupabaseForRequest: vi.fn() }));
 vi.mock("./catalog-server", async () => {
   const { PACKS } = await import("./packs");
@@ -17,12 +17,12 @@ const ORG = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
 const user = { id: "u1", email: "u1@college.edu" };
 
-async function withSession(row: { orgId?: string; stamped?: string | null; messages?: unknown[] }) {
+async function withSession(row: { orgId?: string; assignmentId?: string; stamped?: string | null; messages?: unknown[] }) {
   const updates: Record<string, unknown>[] = [];
   const { PACKS } = await import("./packs");
   const rows: Record<string, unknown> = {
     sessions: {
-      data: { id: "s1", config: { packId: PACKS[0].id, persona: "neutral", durationMin: 15, ...(row.orgId ? { orgId: row.orgId } : {}) }, messages: row.messages ?? [] },
+      data: { id: "s1", config: { packId: PACKS[0].id, persona: "neutral", durationMin: 15, ...(row.orgId ? { orgId: row.orgId } : {}), ...(row.assignmentId ? { assignmentId: row.assignmentId } : {}) }, messages: row.messages ?? [] },
       org_id: row.stamped ?? null,
       pack_snapshot: null,
       prompt_versions: null,
@@ -51,6 +51,7 @@ beforeEach(() => {
   vi.stubEnv("SUPABASE_URL", "https://x.supabase.test");
   vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk");
   vi.mocked(checkOrgPractice).mockClear();
+  vi.mocked(checkAssignment).mockClear();
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -93,5 +94,22 @@ describe("org stamping", () => {
     expect(ctx.orgId).toBeNull();
     await ctx.save({ code: "", call: "turn", meta });
     expect(updates[0]).not.toHaveProperty("org_id");
+  });
+
+  it("stamps an assignment with its org, after checking it", async () => {
+    const A = "33333333-3333-3333-3333-333333333333";
+    const updates = await withSession({ orgId: ORG, assignmentId: A });
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(checkAssignment).toHaveBeenCalledWith(user, ORG, A, expect.anything());
+    await ctx.save({ code: "", call: "turn", meta });
+    expect(updates[0]).toMatchObject({ org_id: ORG, assignment_id: A });
+  });
+
+  it("ignores an assignment without an org", async () => {
+    const updates = await withSession({ assignmentId: "33333333-3333-3333-3333-333333333333" });
+    const ctx = await loadInterview(user, "s1", undefined);
+    await ctx.save({ code: "", call: "turn", meta });
+    expect(checkAssignment).not.toHaveBeenCalled();
+    expect(updates[0]).not.toHaveProperty("assignment_id");
   });
 });

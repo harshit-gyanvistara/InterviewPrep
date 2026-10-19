@@ -7,15 +7,21 @@ import { Clock, Loader2, Sparkles, Trash2, Zap } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { NoteChip } from "@/components/NoteChip";
 import { QuickMockBuilder } from "@/components/QuickMock";
-import { db, practisingFor, uid, useAllPacks, useMyOrgs, useProfile, useReports, useSettings } from "@/lib/db";
+import { db, practisingFor, uid, useAllPacks, useMyAssignments, useMyOrgs, useProfile, useReports, useSettings } from "@/lib/db";
+import { dueText } from "@/components/org/api";
 import { PractisingFor } from "@/components/PractisingFor";
 import { isScored } from "@/lib/analysis";
 import { useConfirm } from "@/lib/dialogContext";
 import { PERSONAS, visibleBuiltInPacks } from "@/lib/packs";
 import { recommendPack } from "@/lib/recommend";
-import type { Pack, Persona } from "@/lib/types";
+import type { Pack, Persona, Session } from "@/lib/types";
 
 const SOURCE_BADGE: Record<string, string> = { jd: "From your JD", quick: "Quick Mock" };
+
+/** A new session waiting in the lobby. Outside the component: it reads the clock, which only happens on Start. */
+function newLobbySession(config: Session["config"]): Session {
+  return { id: uid(), config, messages: [], code: "", startedAt: Date.now(), status: "lobby" };
+}
 
 export default function PracticePage() {
   return (
@@ -32,6 +38,7 @@ function Practice() {
   const { data: reports = [] } = useReports();
   const { settings } = useSettings();
   const { data: myOrgs } = useMyOrgs();
+  const { data: myAssignments } = useMyAssignments();
   const { custom: customPacks, catalog, loading: packsLoading } = useAllPacks();
   const confirm = useConfirm();
 
@@ -46,8 +53,12 @@ function Practice() {
   if (loading || packsLoading || !profile) return <PageSkeleton />;
 
   const builtIn = visibleBuiltInPacks(profile, catalog);
-  const forOrg = practisingFor(settings, myOrgs);
-  const allPacks: Pack[] = [...customPacks, ...builtIn];
+  // Started from an assignment (/practice?pack=…&assignment=…): practise for its org, its round (plans/m2-org.md O.5).
+  const assignment = myAssignments?.find((a) => a.id === params.get("assignment")) ?? null;
+  const forOrg = assignment ? (myOrgs?.find((o) => o.id === assignment.orgId) ?? null) : practisingFor(settings, myOrgs);
+  const assignedPack = assignment ? catalog.packs.find((p) => p.id === assignment.packId) : undefined;
+  // The assigned round shows even if it isn't one of this profile's usual rounds.
+  const allPacks: Pack[] = [...customPacks, ...builtIn, ...(assignedPack && !builtIn.some((p) => p.id === assignedPack.id) ? [assignedPack] : [])];
   // Practising for an org that limits its rounds: show only those (the server checks again).
   const orgPacks = forOrg?.allowedPackIds ? allPacks.filter((p) => forOrg.allowedPackIds!.includes(p.id) || p.source === "quick") : allPacks;
   const packs: Pack[] = orgPacks.length ? orgPacks : allPacks;
@@ -90,22 +101,30 @@ function Practice() {
   };
 
   const start = async () => {
-    const id = uid();
-    await db.sessions.put({
-      id,
-      config: { packId: pack.id, persona, durationMin: dur, pressure, ...(forOrg ? { orgId: forOrg.id } : {}) },
-      messages: [],
-      code: "",
-      startedAt: Date.now(),
-      status: "lobby",
+    const session = newLobbySession({
+      packId: pack.id,
+      persona,
+      durationMin: dur,
+      pressure,
+      ...(forOrg ? { orgId: forOrg.id } : {}),
+      // Counts toward the assignment only when practising its round (the server checks again).
+      ...(assignment && forOrg && pack.id === assignment.packId ? { assignmentId: assignment.id } : {}),
     });
-    router.push(`/interview/${id}`);
+    await db.sessions.put(session);
+    router.push(`/interview/${session.id}`);
   };
 
   return (
     <div>
       <PageTitle title="Choose your interview" sub="Pick the round, the interviewer and how hard they push. You'll get a briefing and device check before it starts." />
-      {myOrgs && myOrgs.length > 0 && (
+      {assignment && (
+        <div className="mb-5 rounded-xl border border-accent bg-accent-soft px-4 py-3 text-sm">
+          <b>Assignment from {assignment.orgName}:</b> {assignment.title}
+          <span className="text-muted"> · {assignment.done} of {assignment.target} done{assignment.dueAt ? ` · ${dueText(assignment.dueAt)}` : ""}</span>
+          {pack.id !== assignment.packId && <span className="block text-muted">Pick the assigned round for this to count.</span>}
+        </div>
+      )}
+      {!assignment && myOrgs && myOrgs.length > 0 && (
         <div className="mb-5 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-card px-4 py-3 text-sm">
           <PractisingFor className="-ml-2" />
           <span className="text-muted">
