@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-19 · Admin dashboard: share levels applied in one pure module, groups of 3+ (M2-Org O.6)
+- **Decision:** All dashboard data comes from rows stamped with the org's `org_id`, read on the server with the secret key after a permission check, and is cut to each member's share level in `lib/orgAnalytics.ts` (activity: mocks and dates; scores: plus results and weak skills; full: plus transcripts). Score figures for a group show only when at least 3 of its members share scores. Viewing a member and exporting CSV are audited. Owners alone change who's an owner, the last owner can't be demoted or removed, and nobody changes their own role or removes themselves here.
+- **Why:** One pure module makes "what can an admin see?" testable in one place. The group minimum stops an average of one or two people from exposing their scores. Auditing views makes access visible to the org and to us.
+- **Considered:** SQL views per share level (harder to test, logic spread out); showing small-group averages (would reveal individuals); letting admins see solo practice (breaks D11).
+- **Revisit:** If orgs need trend charts over time, or exports with per-mock rows.
+
 ## 2026-10-19 · Assignments count through stamped reports (M2-Org O.5)
 - **Decision:** An assignment is a built-in round for everyone or one cohort, with an optional due date and a number of mocks each. A session counts toward it only if the server stamped `assignment_id` on the first AI call: same org, the member's cohort (or everyone), and the assigned round. Progress is the number of reports carrying that `assignment_id`; "done" means at least the target. Overdue assignments stay listed until done. A coach placed in a cohort can only set work for that cohort.
 - **Why:** Counting stamped reports means an assignment can't be completed from the browser, and an unfinished interview doesn't count. Keeping overdue work visible matches how placement cells chase students.

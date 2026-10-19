@@ -233,7 +233,7 @@ Goal: a college, company or institute can give Offerly to its people for learnin
 | O.3 Consent | **Built (2026-10-19)**: share level chosen on join; Settings → Organisations to change it or leave. Sharing screen on join (`share_level`: activity / scores / full) (D11) |
 | O.4 Cohorts + assignments | **Built (2026-10-19)** as m2-org.md O.5. Admins/coaches assign packs to cohorts with due dates; `recommendPack` puts open assignments first |
 | O.5 Quotas | **Built (2026-10-19)** as m2-org.md O.4: org `mocks` quota for org practice, `usage_ledger.org_id`. Turn/report routes call `checkEntitlement()` and check allowed packs before calling Gemini; `usage_ledger` records `org_id` and `meter` |
-| O.6 Admin dashboard | `app/org/[slug]/`: members, cohorts, assignments, analytics by cohort, CSV export, audit log |
+| O.6 Admin dashboard | **Built (2026-10-19)**: overview, members (roles, removal), analytics by cohort, member detail, CSV export, audit log. `app/org/[slug]/`: members, cohorts, assignments, analytics by cohort, CSV export, audit log |
 | O.7 Member UX | **Switcher built (2026-10-19)** (m2-org.md O.4); org packs in /practice still to do. Org switcher in `components/Shell.tsx`; org packs in `/practice` |
 
 **Exit:** isolation tests (org A vs. org B, share levels, removed members, seat limit, quota 429) and the admin → invite → join → assigned mock → analytics E2E are green in CI.

@@ -228,6 +228,10 @@ export const CohortUpdateBodySchema = z
   .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional() })
   .refine((b) => b.name !== undefined || b.archived !== undefined, { message: "Nothing to update." });
 export const MemberCohortBodySchema = z.object({ cohortId: z.uuid().nullable() });
+/** Role and/or cohort for one member (plans/m2-org.md O.6). */
+export const MemberUpdateBodySchema = z
+  .object({ role: z.enum(INVITE_ROLES).optional(), cohortId: z.uuid().nullable().optional() })
+  .refine((b) => b.role !== undefined || b.cohortId !== undefined, { message: "Nothing to update." });
 
 export const AssignmentCreateBodySchema = z.object({
   title: z.string().trim().min(1, { message: "Enter a title." }).max(200),

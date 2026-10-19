@@ -12,12 +12,14 @@ import Link from "next/link";
 import { AssignmentsPanel } from "@/components/org/AssignmentsPanel";
 import { CohortsPanel } from "@/components/org/CohortsPanel";
 import { dueText } from "@/components/org/api";
-import { useMyAssignments } from "@/lib/db";
+import { useAuth, useMyAssignments } from "@/lib/db";
+import { AnalyticsPanel, AuditPanel, MembersPanel, OverviewPanel } from "@/components/org/DashboardPanels";
 
-// An organisation's own page (plans/m2-org.md). For now: invites and join codes for people who can
-// manage members (O.2). Members, cohorts, assignments and analytics join it in O.5–O.6.
+// An organisation's own page (plans/m2-org.md): the admin dashboard (O.6) with invites (O.2),
+// cohorts and assignments (O.5), each tab shown only to roles allowed to use it. Members without
+// any of those see what's assigned to them.
 
-type Tab = "Invites" | "Cohorts & members" | "Assignments";
+type Tab = "Overview" | "Members" | "Analytics" | "Invites" | "Cohorts" | "Assignments" | "Audit log";
 
 interface OrgInfo {
   cohortId: string | null;
@@ -60,13 +62,17 @@ export default function OrgHome() {
   const [msg, setMsg] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab | null>(null);
   const { data: mine } = useMyAssignments();
+  const { data: auth } = useAuth();
 
   const canManage = !!info?.permissions.includes("members.manage");
   // Each tab only for the roles that can use it (plans/m2-org.md O.5).
+  const can = (p: Permission) => !!info?.permissions.includes(p);
   const tabs: Tab[] = [
+    ...(can("analytics.view") ? (["Overview", "Members", "Analytics"] as const) : []),
     ...(canManage ? (["Invites"] as const) : []),
-    ...(info?.permissions.includes("cohorts.manage") ? (["Cohorts & members"] as const) : []),
-    ...(info?.permissions.includes("assignments.create") ? (["Assignments"] as const) : []),
+    ...(can("cohorts.manage") ? (["Cohorts"] as const) : []),
+    ...(can("assignments.create") ? (["Assignments"] as const) : []),
+    ...(canManage ? (["Audit log"] as const) : []),
   ];
   const current = tab && tabs.includes(tab) ? tab : tabs[0];
   const roles = ["member", "coach", "admin", ...(info?.permissions.includes("org.billing") ? ["owner"] : [])];
@@ -155,7 +161,11 @@ export default function OrgHome() {
           ))}
         </div>
       )}
-      {current === "Cohorts & members" && <CohortsPanel slug={slug} />}
+      {current === "Overview" && <OverviewPanel slug={slug} />}
+      {current === "Members" && <MembersPanel slug={slug} permissions={info.permissions} selfId={auth?.user?.id ?? null} />}
+      {current === "Analytics" && <AnalyticsPanel slug={slug} />}
+      {current === "Audit log" && <AuditPanel slug={slug} />}
+      {current === "Cohorts" && <CohortsPanel slug={slug} />}
       {current === "Assignments" && <AssignmentsPanel slug={slug} coachCohortId={info.permissions.includes("cohorts.manage") ? null : info.cohortId} />}
       {current === "Invites" && (<>
 

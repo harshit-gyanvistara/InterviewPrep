@@ -72,7 +72,9 @@ Built: `lib/orgCohorts.ts`, routes under `/api/orgs/[slug]/{cohorts,members,assi
 - Member: "Assigned to you" first on the dashboard (`recommendPack` prefers open assignments), with progress (2 of 3 done) and the due date. Starting from an assignment stamps `assignment_id`.
 - Coaches see only their own cohorts' assignments and analytics: `can()` gains an optional cohort scope (`memberships.cohort_id`).
 
-### O.6 Admin dashboard: members, analytics, member detail, export (≈ 4 days)
+### O.6 Admin dashboard: members, analytics, member detail, export (≈ 4 days): **built (2026-10-19)**
+Built: `lib/orgAnalytics.ts` (pure, share-level cuts), `lib/orgDashboard.ts`, `/api/orgs/[slug]/{dashboard,export,audit}`, `GET/PATCH/DELETE /api/orgs/[slug]/members/[userId]`, `/org/[slug]` tabs Overview · Members · Analytics · Invites · Cohorts · Assignments · Audit log (each only for roles that can use it), and `/org/[slug]/members/[userId]`. Only org-stamped practice is ever read. Choices: groups need at least 3 members sharing scores before any score shows (counts always show); too-short mocks count as activity but not in averages; a coach placed in a cohort sees only that cohort, a coach with none sees the whole org; you can't change your own role or remove yourself (leave from Settings); CSV cells are quoted and formula-safe.
+
 `app/org/[slug]/` (read `node_modules/next/dist/docs/01-app/02-guides/multi-tenant.md` first). Tabs:
 - **Overview:** active members against seats, mocks this period against the quota, assignment completion, members who haven't practised in 7 days.
 - **Members:** list with role, cohort, status, last practice and mock count, plus scores where the member shares them. Invite, change role, remove.
