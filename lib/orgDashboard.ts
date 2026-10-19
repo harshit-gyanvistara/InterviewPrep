@@ -130,7 +130,18 @@ export async function memberDetail(db: SupabaseClient, viewer: AuthUser, org: Or
       messages: ((s.data as { messages?: Message[] }).messages ?? []).map((x) => ({ role: x.role, text: x.text })),
     }));
   }
-  await audit(db, { orgId: org.id, actor: viewer, action: "member.viewed", targetUserId: memberId, details: { shareLevel: m.shareLevel } });
+  // One entry per look: a reload or a second request within a minute isn't logged again.
+  const { data: recent, error: recentError } = await db
+    .from("audit_logs")
+    .select("id")
+    .eq("org_id", org.id)
+    .eq("actor_id", viewer.id)
+    .eq("target_user_id", memberId)
+    .eq("action", "member.viewed")
+    .gte("created_at", new Date(Date.now() - 60_000).toISOString())
+    .limit(1);
+  fail("audit_logs read", recentError);
+  if (!recent?.length) await audit(db, { orgId: org.id, actor: viewer, action: "member.viewed", targetUserId: memberId, details: { shareLevel: m.shareLevel } });
   return { member: memberRow(m, data.reports), reports: mine.map((r) => visibleReport(r, m.shareLevel)), transcripts };
 }
 

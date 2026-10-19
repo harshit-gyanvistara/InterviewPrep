@@ -8,7 +8,7 @@ import { PageSkeleton } from "@/components/Skeleton";
 import { orgApi, roleLabel } from "@/components/org/api";
 import { useAllPacks } from "@/lib/db";
 import type { MemberDetail } from "@/lib/orgDashboard";
-import { SHARE_LEVEL_TEXT } from "@/lib/permissions";
+import { SHARE_LEVEL_ADMIN_TEXT, SHARE_LEVEL_TEXT } from "@/lib/permissions";
 
 // One member's practice for the organisation (plans/m2-org.md O.6), at the level they chose to
 // share. Opening this page is recorded in the org's audit log.
@@ -42,7 +42,7 @@ export default function OrgMember() {
         <Card className="!p-4"><div className="text-xs text-muted">Last practice</div><div className="text-2xl font-semibold">{m.lastPracticeAt ? new Date(m.lastPracticeAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Never"}</div></Card>
         <Card className="!p-4"><div className="text-xs text-muted">Readiness</div><div className="text-2xl font-semibold">{m.readiness ?? "–"}</div></Card>
       </div>
-      <p className="text-xs text-muted">{SHARE_LEVEL_TEXT[m.shareLevel].body} Viewing this page is recorded in the organisation&apos;s audit log.</p>
+      <p className="text-xs text-muted">{SHARE_LEVEL_ADMIN_TEXT[m.shareLevel]} Viewing this page is recorded in the organisation&apos;s audit log.</p>
 
       <Card className="grid gap-3">
         <h2 className="text-sm font-semibold">Mocks</h2>

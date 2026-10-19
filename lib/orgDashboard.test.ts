@@ -30,6 +30,7 @@ function fakeDb(tables: Record<string, Record<string, unknown>[]>) {
         eq: (k: string, v: unknown) => (filters.push([k, v]), q),
         is: (k: string, v: unknown) => (filters.push([k, v]), q),
         in: (k: string, v: unknown[]) => (filters.push([k, v]), q),
+        gte: () => q,
         order: () => q,
         limit: () => q,
         maybeSingle: async () => ({ data: rows()[0] ?? null, error: null }),
@@ -101,6 +102,13 @@ describe("memberDetail", () => {
 
     const activity = await memberDetail(fakeDb(tables("activity")).db, me, org("admin"), "u1");
     expect(activity.reports[0]).not.toHaveProperty("overall");
+  });
+
+  it("logs a repeat view within a minute only once", async () => {
+    const t = { ...tables("scores"), audit_logs: [{ org_id: ORG, actor_id: "me", target_user_id: "u1", action: "member.viewed" }] };
+    const { db, writes } = fakeDb(t);
+    await memberDetail(db, me, org("admin"), "u1");
+    expect(writes).toEqual([]);
   });
 
   it("keeps a coach to their own cohort, and members out", async () => {
