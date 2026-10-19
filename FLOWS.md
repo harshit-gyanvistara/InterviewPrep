@@ -73,7 +73,8 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 3. An owner email that has an account becomes an owner straight away; otherwise it gets a one-time owner invite link (only its hash is stored).
 4. Every change is written to `audit_logs`. All of it runs on the server with the secret key.
 5. **Inviting (O.2):** an owner/admin opens `/org/<slug>` and creates email invites (one single-use link per address; pasting a CSV works) or a reusable join code like `K7QM4-XR2PD`. Links and codes are shown once; only their hashes are stored.
-6. **Joining:** `/join/<token or code>`. Signed out: the invite is kept in the browser, the person signs in, and comes straight back. Signed in: they see the org, choose what it may see (activity / scores / full), and join. `join_org` (one database function) checks the invite, email or domain rule and seat limit with the org row locked, then adds the membership, the `org_share` consent and an audit entry.
+6. **Joining:** `/join/<token or code>`. Signed out: the invite is kept in the browser, the person signs in, and comes straight back. Signed in: they see the org, choose what it may see (activity / scores / full), and join.
+7. **Changing or leaving (O.3):** Settings → Organisations lists the member's orgs. Changing the share level revokes the old `org_share` consent and records a new one, so it takes effect at once. Leaving sets the membership to `removed` and revokes sharing; their history stays theirs. The last owner can't leave. `join_org` (one database function) checks the invite, email or domain rule and seat limit with the org row locked, then adds the membership, the `org_share` consent and an audit entry.
 
 ## 4. One interview
 

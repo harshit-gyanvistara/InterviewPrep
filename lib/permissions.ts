@@ -38,3 +38,10 @@ export const isShareLevel = (v: unknown): v is ShareLevel => typeof v === "strin
 
 /** Does a member who shares `granted` allow a viewer to see `needed`? */
 export const shareAllows = (granted: ShareLevel, needed: ShareLevel) => SHARE_LEVELS.indexOf(granted) >= SHARE_LEVELS.indexOf(needed);
+
+/** How each share level is explained to members, on the join screen and in Settings. */
+export const SHARE_LEVEL_TEXT: Record<ShareLevel, { title: string; body: string }> = {
+  activity: { title: "Activity only", body: "Which mocks you took and when. No scores, no answers." },
+  scores: { title: "Activity and scores", body: "Also your scores, verdicts and the skills to work on. Not your answers." },
+  full: { title: "Everything", body: "Also your full transcripts and resume, so a coach can give detailed feedback." },
+};

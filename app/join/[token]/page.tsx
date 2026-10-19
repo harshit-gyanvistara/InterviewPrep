@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Building2 } from "lucide-react";
 import { useAuth } from "@/lib/db";
 import { PENDING_JOIN_KEY } from "@/lib/pages";
-import { SHARE_LEVELS, type ShareLevel } from "@/lib/permissions";
+import { SHARE_LEVELS, SHARE_LEVEL_TEXT, type ShareLevel } from "@/lib/permissions";
 
 // Accepting an invite link or join code (plans/m2-org.md O.2, O.3). Signed out: keep the invite and
 // send the person to sign in; the Shell brings them back here. Signed in: show the organisation,
@@ -21,12 +21,6 @@ const PROBLEM: Record<Exclude<Preview["status"], "ok">, string> = {
   expired: "This invite has expired. Ask your organisation for a new one.",
   used_up: "This invite has already been used.",
   wrong_email: "This invite was sent to a different email address. Sign out, then sign in with the address it was sent to.",
-};
-
-const SHARE_TEXT: Record<ShareLevel, { title: string; body: string }> = {
-  activity: { title: "Activity only", body: "Which mocks you took and when. No scores, no answers." },
-  scores: { title: "Activity and scores", body: "Also your scores, verdicts and the skills to work on. Not your answers." },
-  full: { title: "Everything", body: "Also your full transcripts and resume, so a coach can give detailed feedback." },
 };
 
 const forget = () => {
@@ -117,8 +111,8 @@ export default function Join() {
             <label key={l} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${share === l ? "border-accent bg-accent-soft" : "border-line"}`}>
               <input type="radio" name="share" className="mt-1" checked={share === l} onChange={() => setShare(l)} />
               <span>
-                <span className="block text-sm font-medium">{SHARE_TEXT[l].title}</span>
-                <span className="block text-sm text-muted">{SHARE_TEXT[l].body}</span>
+                <span className="block text-sm font-medium">{SHARE_LEVEL_TEXT[l].title}</span>
+                <span className="block text-sm text-muted">{SHARE_LEVEL_TEXT[l].body}</span>
               </span>
             </label>
           ))}

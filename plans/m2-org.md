@@ -48,7 +48,9 @@ Built and tested end to end on Supabase (2026-10-19): `join_org` database functi
 - CSV upload: a list of emails → one invite link each, shown as a list to copy or download (G1).
 - Tests: expired, used-up and revoked invites; wrong email; domain rule; seat race; a member can't invite.
 
-### O.3 Consent on join (≈ 1 day)
+### O.3 Consent on join (≈ 1 day): **built (2026-10-19)**
+Built: the consent screen shipped with O.2; now Settings → Organisations (`components/OrgsSettings.tsx`), `/api/me/orgs`, and `PATCH`/`DELETE /api/orgs/[slug]/me` (`lib/orgMembership.ts`). The last owner can't leave (409); they make someone else an owner first.
+
 - Consent screen: what the org will see at each level (activity / scores / full), with the org's default preselected (G6). Writes an `org_share` consent row with a version.
 - Settings → Organisations: see your orgs, change your share level (new consent row; the old one revoked), and leave the org (G5).
 - Tests: the share level change is visible to `canViewMember()` straight away; leaving revokes access.

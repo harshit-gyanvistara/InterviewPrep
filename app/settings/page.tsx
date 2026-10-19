@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, PageTitle } from "@/components/Shell";
 import { ProfileForm } from "@/components/ProfileForm";
+import { OrgsSettings } from "@/components/OrgsSettings";
 import { db, resetSession, saveSettings, useAuth, useProfile, useSettings } from "@/lib/db";
 import { PERSONAS } from "@/lib/packs";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
@@ -12,7 +13,7 @@ import { useConfirm } from "@/lib/dialogContext";
 import { useSpeak } from "@/lib/useSpeech";
 import type { Persona, Settings as S } from "@/lib/types";
 
-const TABS = ["Profile", "Interview", "Voice & audio", "Appearance", "Data & AI"] as const;
+const TABS = ["Profile", "Interview", "Voice & audio", "Appearance", "Organisations", "Data & AI"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function Settings() {
@@ -53,6 +54,7 @@ export default function Settings() {
       )}
       {tab === "Voice & audio" && <VoiceTab settings={settings} update={update} />}
       {tab === "Appearance" && <AppearanceTab />}
+      {tab === "Organisations" && <OrgsSettings />}
       {tab === "Data & AI" && <DataTab />}
     </div>
   );
