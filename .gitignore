@@ -38,3 +38,8 @@ next-env.d.ts
 
 # Test coverage
 coverage/
+
+# Playwright end-to-end tests
+.next-e2e/
+test-results/
+playwright-report/

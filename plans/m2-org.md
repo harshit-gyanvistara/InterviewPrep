@@ -84,7 +84,9 @@ Built: `lib/orgAnalytics.ts` (pure, share-level cuts), `lib/orgDashboard.ts`, `/
 - **Audit log:** the org's own log, for owners and admins.
 - All reads go through server routes with the secret key after `can()`; RLS never opens member data (M2.10 decision).
 
-### O.7 End-to-end and exit gate (≈ 2 days)
+### O.7 End-to-end and exit gate (≈ 2 days): **written (2026-10-19), not yet run**
+Written: Playwright (`playwright.config.ts`, `e2e/org.spec.ts`, `e2e/helpers.ts`, `e2e/stub-agent.mjs`), `npm run e2e`, and a CI step in the `database` job. The app is built into `.next-e2e` and run on :3300 against a local Supabase only (the config refuses any other URL), with a stub liveAgent on :8100. Users are created with the admin API and signed in through the app's own `/api/auth/verify` with a one-time code from `generateLink`. Covers the full flow plus the five exit-gate checks; `supabase/tests/org-rls.test.ts` covers isolation in the database itself. Needs Docker to run locally.
+
 Playwright: super-admin creates org → owner invites → member joins with a code and picks "scores" → member completes an assigned mock (Gemini mocked) → admin analytics shows it, without the transcript → CSV export matches.
 Isolation tests: org A vs. org B, share levels, removed members, seat limit, quota 429 (the organisations.md exit gate).
 

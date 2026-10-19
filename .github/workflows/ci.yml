@@ -31,7 +31,7 @@ jobs:
       - run: npm run build
 
   database:
-    name: Supabase (migrations + RLS)
+    name: Supabase (migrations, RLS, end to end)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +52,22 @@ jobs:
           export SUPABASE_TEST_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
           export SUPABASE_TEST_SECRET_KEY="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
           npx vitest run supabase/tests
+      # M2-Org end to end (plans/m2-org.md O.7): builds the app, runs it against this local
+      # database with a stub liveAgent (no Gemini), and drives it with Playwright.
+      - run: npx playwright install --with-deps chromium
+      - name: End-to-end tests
+        run: |
+          eval "$(supabase status -o env)"
+          export SUPABASE_TEST_URL="$API_URL"
+          export SUPABASE_TEST_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          export SUPABASE_TEST_SECRET_KEY="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
+          npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
   live-agent:
     name: liveAgent (Python)
