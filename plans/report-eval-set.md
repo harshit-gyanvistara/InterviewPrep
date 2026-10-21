@@ -39,4 +39,4 @@ Run it on every scoring-prompt, model or thinking change, and paste the summary 
 
 The one miss in both runs: **behavioural-average** scored 35 (35, 35, 35 over 3 repeats; 40 at low thinking) against 45–68. The scorer is harsh on generic, result-free answers: it calls them "Not Yet" rather than "Borderline". Every other case, including injection and off-topic, landed in range. Low thinking scored the weak cases 5–10 points higher but still inside their ranges.
 
-Open questions for the owner: is "average" really Borderline (fix the scoring guide), or is Not Yet fair (widen the range)? Should the report switch to low thinking (~80% fewer thinking tokens, same results on this set)?
+Open questions for the owner (deferred 2026-10-21, revisit later): is "average" really Borderline (fix the scoring guide), or is Not Yet fair (widen the range)? Should the report switch to low thinking (~80% fewer thinking tokens, same results on this set)?
