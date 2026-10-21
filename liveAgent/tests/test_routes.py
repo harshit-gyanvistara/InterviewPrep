@@ -88,6 +88,7 @@ def test_turn(client, fake):
     call = fake.calls[0]
     assert call["task"] == "interview.turn"
     assert call["temperature"] == 0.8  # tough persona
+    assert call["thinking"] == "low"
     assert "YOUR NAME: Marcus" in call["system"]
     assert call["turns"][0]["text"].startswith("[The candidate has joined")
     assert call["turns"][-1]["text"].endswith("[STATE: 2 of 20 min used, about 19 min left.]")

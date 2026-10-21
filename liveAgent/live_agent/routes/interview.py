@@ -26,6 +26,8 @@ async def turn(body: TurnRequest, response: Response) -> TurnResult:
         system=interviewer_system(body.pack, body.config, body.profile, body.domain, body.persona),
         turns=to_turns(recent_window(body.messages), state),
         temperature=0.8 if body.config.persona == "tough" else 0.7,
+        # A spoken reply under 60 words: the default thinking was ~5x the reply's tokens (agent:measure).
+        thinking="low",
         schema=TurnResult,
     )
 

@@ -95,8 +95,10 @@ async def generate_json(
     turns: list[ChatTurn],
     schema: type[T],
     temperature: float = 0.7,
+    thinking: Literal["minimal", "low", "medium", "high"] | None = None,
 ) -> T:
-    """Generate a JSON object that conforms to `schema`. `task` names the caller for usage records."""
+    """Generate a JSON object that conforms to `schema`. `task` names the caller for usage records.
+    `thinking` caps the model's reasoning (billed as output); None leaves the model's default."""
     client = _get_client()
     started = time.monotonic()
     usage = None
@@ -111,6 +113,7 @@ async def generate_json(
                     response_mime_type="application/json",
                     response_schema=schema,
                     temperature=temperature,
+                    thinking_config=types.ThinkingConfig(thinking_level=thinking.upper()) if thinking else None,
                 ),
             )
         except Exception as e:  # SDK and network errors

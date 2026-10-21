@@ -7,6 +7,7 @@
 |---|---|
 | 1. Cache-friendly interviewer prompt | **Done.** `interviewerSystem` is static per session; time/questions/code go in `interviewState` on the newest message; history trimmed in steps of 20 (`recentWindow`); usage incl. `cachedTokens` logged per call from `generateJson` |
 | 2. Field profiles (medical first) | **Done.** [lib/domains/](../lib/domains/) (general, software, medical), `Profile.domain` + picker in onboarding and Settings, 3 medical packs, field hints in turn/report/pack-generate/roadmap prompts. Deferred: per-field persona overrides |
+| Measured (2026-10-21) | `npm run agent:measure`: prompts are below the implicit-cache minimum, so `cachedTokens` is 0; thinking was the biggest cost, so interview turns now run with `thinking="low"`. See [DECISIONS.md](../DECISIONS.md) |
 | Storage | **Done.** Fields and built-in packs live in Supabase (`domains`, `packs` tables), read on the server via `getCatalog()` (5-min cache) and served to pages by `/api/catalog`. The code copies seed the tables and are the fallback. See SPEC.md §8 |
 | 3. Org overlay | Not started: lands with M2-Org. `resolveDomain(profile, orgDomainId)` and `visibleBuiltInPacks(profile, orgDomainId)` already take the org's field |
 | Later: resume brief | Not started |

@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-21 · Interview turns run with low thinking; token work is driven by measurement
+- **Decision:** `generate_json` takes an optional `thinking` level (`minimal`/`low`/`medium`/`high`, else the model's default). `/v1/interview/turn` uses `low`. Other routes, including the report on the Pro model, keep the default. `npm run agent:measure` runs a scripted mock on the real models and prints each call's tokens, so token changes are checked by numbers, not guesses.
+- **Why:** The first measurement (12-answer mock, 2026-10-21) showed input is small (850–1,750 tokens per turn), nothing is cached (prompts are below Gemini's implicit-cache minimum), and thinking was the biggest cost: 4,210 thinking tokens against 762 output tokens on turns, 5,163 on the report, all billed at the output rate. With `low`, turns used 0–96 thinking tokens, latency fell from ~5 s to ~2.6 s, and replies read the same in a transcript check.
+- **Considered:** Rolling transcript summaries and a compressed candidate brief (input is only ~17% of the tokens in a mock, so little to save); an explicit Gemini cache (prompts are too small); lowering the report's thinking too (scoring quality could drop unseen, so it waits for the M4.0 eval set).
+- **Revisit:** After M4.0, try a lower thinking level on the report. Re-measure when prompts grow (org context, long mocks) and caching may start to apply.
+
 ## 2026-10-19 · Admin dashboard: share levels applied in one pure module, groups of 3+ (M2-Org O.6)
 - **Decision:** All dashboard data comes from rows stamped with the org's `org_id`, read on the server with the secret key after a permission check, and is cut to each member's share level in `lib/orgAnalytics.ts` (activity: mocks and dates; scores: plus results and weak skills; full: plus transcripts). Score figures for a group show only when at least 3 of its members share scores. Viewing a member and exporting CSV are audited. Owners alone change who's an owner, the last owner can't be demoted or removed, and nobody changes their own role or removes themselves here.
 - **Why:** One pure module makes "what can an admin see?" testable in one place. The group minimum stops an average of one or two people from exposing their scores. Auditing views makes access visible to the org and to us.

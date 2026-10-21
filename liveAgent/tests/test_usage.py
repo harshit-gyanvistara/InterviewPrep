@@ -25,9 +25,11 @@ class FakeClient:
         self.text: str | None = '{"ok": true}'
         self.usage: SimpleNamespace | None = USAGE
         self.error: Exception | None = None
+        self.configs: list = []
         self.aio = SimpleNamespace(models=SimpleNamespace(generate_content=self._generate))
 
-    async def _generate(self, **_):
+    async def _generate(self, **kwargs):
+        self.configs.append(kwargs["config"])
         if self.error:
             raise self.error
         return SimpleNamespace(text=self.text, usage_metadata=self.usage)
@@ -131,3 +133,10 @@ def test_long_request_ids_are_cut(client, sdk, capsys):
     sdk.text = '{"summary": "s", "items": []}'
     client.post("/v1/roadmap", json={"profile": PROFILE, "domain": DOMAIN, "digests": []}, headers={**AUTH, "X-Request-Id": "x" * 500})
     assert log_lines(capsys)[0]["requestId"] == "x" * 64
+
+
+def test_thinking_level_reaches_the_sdk(sdk):
+    ping()
+    asyncio.run(gemini.generate_json(task="t", model="m1", system="s", turns=[{"role": "user", "text": "hi"}], schema=HealthOk, thinking="low"))
+    assert sdk.configs[0].thinking_config is None  # model default
+    assert sdk.configs[1].thinking_config.thinking_level == "LOW"

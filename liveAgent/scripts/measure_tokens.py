@@ -70,6 +70,7 @@ def main() -> None:
     parser.add_argument("--answers", type=int, default=len(ANSWERS), help="candidate answers to give (cycles the script)")
     parser.add_argument("--duration", type=int, default=30, help="mock length in minutes")
     parser.add_argument("--no-report", action="store_true")
+    parser.add_argument("--transcript", action="store_true", help="also print the interview, to check reply quality")
     args = parser.parse_args()
 
     load_env()
@@ -113,6 +114,10 @@ def main() -> None:
     if not args.no_report:
         call("/v1/interview/report", {"config": config, "profile": profile, "pack": pack, "domain": domain,
                                       "interviewerName": persona["name"], "messages": messages, "code": ""})
+
+    if args.transcript:
+        for m in messages:
+            print(f"\n{'INTERVIEWER' if m['role'] == 'interviewer' else 'CANDIDATE'}: {m['text']}")
 
     print(f"\n{'#':>3} {'task':<18} {'model':<22} {'input':>7} {'cached':>7} {'cache%':>6} {'output':>7} {'thought':>7} {'ms':>6}")
     for n, r in enumerate(rows, 1):
