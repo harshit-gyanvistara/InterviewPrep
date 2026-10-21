@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-21 · Report eval set: synthetic seeds, ranges not points, run by hand (M4.0)
+- **Decision:** 9 hand-written transcripts with expected score *ranges* and allowed verdicts, scored by the real `/v1/interview/report` through `npm run agent:eval`. Not in CI (each run is ~9 Pro calls); CI only checks the case files. The report's thinking level can be tried through `GEMINI_REPORT_THINKING` (unset = the model's default, so behaviour is unchanged).
+- **Why:** No test touched the real scorer, so prompt, model or thinking changes could move scores unseen. Ranges absorb the model's run-to-run spread; mean signed error shows systematic bias, the number that decides whether a calibration step is needed (honest-scoring.md follow-up 2).
+- **Considered:** Exact expected scores (too brittle); running in CI (cost, and flaky against a live model); waiting for real human-scored transcripts (none yet, so they replace the seeds later).
+- **Revisit:** With 30–50 human-scored real transcripts (M4.4/M4.5).
+
 ## 2026-10-21 · Interview turns run with low thinking; token work is driven by measurement
 - **Decision:** `generate_json` takes an optional `thinking` level (`minimal`/`low`/`medium`/`high`, else the model's default). `/v1/interview/turn` uses `low`. Other routes, including the report on the Pro model, keep the default. `npm run agent:measure` runs a scripted mock on the real models and prints each call's tokens, so token changes are checked by numbers, not guesses.
 - **Why:** The first measurement (12-answer mock, 2026-10-21) showed input is small (850–1,750 tokens per turn), nothing is cached (prompts are below Gemini's implicit-cache minimum), and thinking was the biggest cost: 4,210 thinking tokens against 762 output tokens on turns, 5,163 on the report, all billed at the output rate. With `low`, turns used 0–96 thinking tokens, latency fell from ~5 s to ~2.6 s, and replies read the same in a transcript check.

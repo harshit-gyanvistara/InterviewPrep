@@ -1,0 +1,59 @@
+{
+  "description": "Relevant but generic answers, some 'we', few specifics or results.",
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Tell me about yourself."
+    },
+    {
+      "role": "candidate",
+      "text": "I'm a recent CS graduate. I did an internship at Zeta where I worked on backend stuff in Go, and I like building APIs and learning new things."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a conflict in a team."
+    },
+    {
+      "role": "candidate",
+      "text": "In a college project two of us disagreed on the database. We discussed it and in the end we went with Postgres because more people knew it. It worked out fine."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a failure."
+    },
+    {
+      "role": "candidate",
+      "text": "Once a migration I wrote caused a problem in production. We rolled it back and fixed it. I learned to be more careful with migrations."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a time you took ownership."
+    },
+    {
+      "role": "candidate",
+      "text": "We had some outdated documentation, so our team updated it. I helped write a few pages and people found it useful."
+    },
+    {
+      "role": "interviewer",
+      "text": "What motivates you?"
+    },
+    {
+      "role": "candidate",
+      "text": "I like solving problems and working with good people, and payments seems interesting because it's important."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      45,
+      68
+    ],
+    "verdicts": [
+      "Borderline",
+      "Not Yet"
+    ]
+  }
+}

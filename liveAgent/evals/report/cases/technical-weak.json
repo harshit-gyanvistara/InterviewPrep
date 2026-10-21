@@ -1,0 +1,82 @@
+{
+  "description": "Wrong or shallow technical answers, buzzwords without reasoning.",
+  "pack": {
+    "id": "eval-technical",
+    "title": "Backend Technical Round",
+    "company": "Any employer",
+    "role": "Backend Software Engineer",
+    "roundType": "technical",
+    "description": "",
+    "durationMin": 20,
+    "topics": [
+      "Idempotency",
+      "Database indexing",
+      "Caching",
+      "Handling failures"
+    ],
+    "rubric": [
+      "Technical depth",
+      "Trade-offs",
+      "Communication",
+      "Problem solving"
+    ],
+    "style": "Probe reasoning",
+    "domains": "all"
+  },
+  "config": {
+    "packId": "eval-technical"
+  },
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "How would you make a payment API idempotent?"
+    },
+    {
+      "role": "candidate",
+      "text": "I would make it idempotent by using a POST request and checking if the payment is successful, and if it fails we retry it a few times automatically."
+    },
+    {
+      "role": "interviewer",
+      "text": "A query on transactions by merchant and date is slow. What do you do?"
+    },
+    {
+      "role": "candidate",
+      "text": "I'd add indexes on all the columns so every query is fast, and maybe move to MongoDB because it's faster for big data."
+    },
+    {
+      "role": "interviewer",
+      "text": "Where would you add caching?"
+    },
+    {
+      "role": "candidate",
+      "text": "I'd put Redis in front of everything including balances, that way the database doesn't get any load and it's very fast."
+    },
+    {
+      "role": "interviewer",
+      "text": "The bank's API times out during a payout. What happens?"
+    },
+    {
+      "role": "candidate",
+      "text": "We show the user payment failed and they can try again, and our code retries the payout too so it eventually goes through."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      5,
+      40
+    ],
+    "verdicts": [
+      "Not Yet"
+    ],
+    "dimensions": {
+      "Technical depth": [
+        0,
+        4
+      ]
+    }
+  }
+}

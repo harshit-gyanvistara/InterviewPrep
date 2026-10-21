@@ -1,0 +1,78 @@
+{
+  "description": "Polite, reasonable HR answers that stay generic.",
+  "pack": {
+    "id": "eval-hr",
+    "title": "HR Round",
+    "company": "Any employer",
+    "role": "Graduate",
+    "roundType": "hr",
+    "description": "",
+    "durationMin": 15,
+    "topics": [
+      "Motivation",
+      "Strengths and weaknesses",
+      "Salary and relocation",
+      "Career goals"
+    ],
+    "rubric": [
+      "Clarity",
+      "Motivation",
+      "Professionalism",
+      "Self-awareness"
+    ],
+    "style": "Friendly",
+    "domains": "all"
+  },
+  "config": {
+    "packId": "eval-hr",
+    "durationMin": 15
+  },
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Why do you want to join us?"
+    },
+    {
+      "role": "candidate",
+      "text": "I want to work on payments because I enjoyed that at my internship, and your company is growing fast so I think I'll learn a lot."
+    },
+    {
+      "role": "interviewer",
+      "text": "What's your biggest weakness?"
+    },
+    {
+      "role": "candidate",
+      "text": "I sometimes take too long perfecting things. I'm working on it by setting time limits for myself, though I still slip sometimes."
+    },
+    {
+      "role": "interviewer",
+      "text": "Are you open to relocating to Bengaluru?"
+    },
+    {
+      "role": "candidate",
+      "text": "Yes, I'm open to relocating, I'd just need a couple of weeks' notice to arrange things."
+    },
+    {
+      "role": "interviewer",
+      "text": "Where do you see yourself in five years?"
+    },
+    {
+      "role": "candidate",
+      "text": "I'd like to be a strong backend engineer, maybe leading a small team, but I'm mostly focused on learning for now."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      50,
+      78
+    ],
+    "verdicts": [
+      "Borderline",
+      "Hire"
+    ]
+  }
+}

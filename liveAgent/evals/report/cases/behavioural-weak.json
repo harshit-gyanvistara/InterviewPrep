@@ -1,0 +1,64 @@
+{
+  "description": "Vague, evasive answers with no examples; blames others.",
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Tell me about yourself."
+    },
+    {
+      "role": "candidate",
+      "text": "I'm Asha, I studied computer science. I'm hardworking and a fast learner and I'm a team player."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a conflict in a team."
+    },
+    {
+      "role": "candidate",
+      "text": "I don't really get into conflicts. If someone disagrees I just do what they want so there are no problems, I think that's best for everyone."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a failure."
+    },
+    {
+      "role": "candidate",
+      "text": "I can't think of a real failure. Once a project went badly but that was because my teammates didn't do their part on time."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a time you took ownership."
+    },
+    {
+      "role": "candidate",
+      "text": "I always do whatever my manager assigns me, I finish my tasks and I don't usually take on extra things."
+    },
+    {
+      "role": "interviewer",
+      "text": "Why this role?"
+    },
+    {
+      "role": "candidate",
+      "text": "It's a good company and the salary is good, and I want to be a software engineer."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      10,
+      45
+    ],
+    "verdicts": [
+      "Not Yet"
+    ],
+    "dimensions": {
+      "Ownership": [
+        0,
+        4
+      ]
+    }
+  }
+}

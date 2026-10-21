@@ -1,0 +1,59 @@
+{
+  "description": "Specific STAR answers with numbers, clear personal ownership and honest reflection.",
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Hi Asha, I'm Liam. Tell me about yourself."
+    },
+    {
+      "role": "candidate",
+      "text": "I graduated in CS this year. At Zeta I owned the nightly reconciliation job for card payments: I rewrote it in Go to stream both files instead of loading them, which cut runtime from six hours to twenty minutes and let ops close books before 9 am."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a conflict in a team."
+    },
+    {
+      "role": "candidate",
+      "text": "My mentor wanted to patch duplicate refunds with a retry check in the client. I thought the fix belonged on the server, so I asked for a day, wrote a one-page comparison and reproduced the race in a test. We agreed on idempotency keys with a unique index; duplicates went from about 40 a month to zero. I also learned to bring data before opinions."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a failure."
+    },
+    {
+      "role": "candidate",
+      "text": "I shipped a migration that added a column with a default and locked the refunds table for two minutes in production. I flagged it in the incident channel myself, helped roll back, wrote the postmortem, and added a checklist item and a CI lint for locking migrations. Nobody on the team has hit it since."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a time you took ownership beyond your role."
+    },
+    {
+      "role": "candidate",
+      "text": "Our on-call runbooks were outdated, so in my last month I interviewed three on-call engineers, rewrote six runbooks and ran a game day. Mean time to acknowledge dropped from 15 to 6 minutes the next quarter."
+    },
+    {
+      "role": "interviewer",
+      "text": "What would you do differently next time?"
+    },
+    {
+      "role": "candidate",
+      "text": "I'd involve the ops team earlier. On the reconciliation rewrite I only asked them for feedback at the end, and we had to redo the mismatch report format, which cost a week."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      75,
+      95
+    ],
+    "verdicts": [
+      "Hire",
+      "Strong Hire"
+    ]
+  }
+}

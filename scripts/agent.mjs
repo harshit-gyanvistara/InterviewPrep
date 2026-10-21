@@ -4,6 +4,7 @@
 //   node scripts/agent.mjs test     run its pytest suite
 //   node scripts/agent.mjs openapi  rewrite liveAgent/openapi.json
 //   node scripts/agent.mjs measure  run a scripted mock on real Gemini and print token usage
+//   node scripts/agent.mjs eval     score the report eval set with the real scorer
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -41,10 +42,13 @@ switch (process.argv[2]) {
   case "measure":
     python("scripts/measure_tokens.py", ...process.argv.slice(3));
     break;
+  case "eval":
+    python("scripts/eval_report.py", ...process.argv.slice(3));
+    break;
   case "openapi":
     python("scripts/export_openapi.py");
     break;
   default:
-    console.error("Usage: node scripts/agent.mjs setup|serve|test|measure|openapi");
+    console.error("Usage: node scripts/agent.mjs setup|serve|test|measure|eval|openapi");
     process.exit(1);
 }

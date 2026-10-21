@@ -1,0 +1,50 @@
+{
+  "description": "Long, fluent answers that never address the questions.",
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Tell me about yourself."
+    },
+    {
+      "role": "candidate",
+      "text": "Well, I think the most important thing in tech today is AI. Everyone is talking about large language models and I believe in five years every company will be an AI company, which is exciting for the industry."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a conflict in a team."
+    },
+    {
+      "role": "candidate",
+      "text": "Teams are really interesting. I read a book about how Google studied teams and found psychological safety matters most. I think companies should invest more in team culture and offsites."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a failure."
+    },
+    {
+      "role": "candidate",
+      "text": "Failure is just a step to success, as they say. Many famous founders failed many times before they succeeded, like Steve Jobs who was fired from Apple."
+    },
+    {
+      "role": "interviewer",
+      "text": "Can you give me a specific example from your own work?"
+    },
+    {
+      "role": "candidate",
+      "text": "I think specific examples are less important than having the right mindset, and my mindset is to always keep growing and stay positive."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      5,
+      40
+    ],
+    "verdicts": [
+      "Not Yet"
+    ]
+  }
+}

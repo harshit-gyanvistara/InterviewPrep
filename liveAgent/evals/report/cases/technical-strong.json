@@ -1,0 +1,77 @@
+{
+  "description": "Correct, deep answers with trade-offs on payments backend topics.",
+  "pack": {
+    "id": "eval-technical",
+    "title": "Backend Technical Round",
+    "company": "Any employer",
+    "role": "Backend Software Engineer",
+    "roundType": "technical",
+    "description": "",
+    "durationMin": 20,
+    "topics": [
+      "Idempotency",
+      "Database indexing",
+      "Caching",
+      "Handling failures"
+    ],
+    "rubric": [
+      "Technical depth",
+      "Trade-offs",
+      "Communication",
+      "Problem solving"
+    ],
+    "style": "Probe reasoning",
+    "domains": "all"
+  },
+  "config": {
+    "packId": "eval-technical"
+  },
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "How would you make a payment API idempotent?"
+    },
+    {
+      "role": "candidate",
+      "text": "The client sends an idempotency key per logical operation. On the server I insert the key with a request hash in the same transaction as the payment, under a unique constraint. A retry with the same key and hash returns the stored response; same key with a different body is a 422. Keys expire after, say, 24 hours. The subtle part is the in-flight case: a second request while the first is running should get a 409 or wait, not run twice."
+    },
+    {
+      "role": "interviewer",
+      "text": "A query on transactions by merchant and date is slow. What do you do?"
+    },
+    {
+      "role": "candidate",
+      "text": "First EXPLAIN ANALYZE to see if it's a seq scan or a bad estimate. For merchant_id equality plus a created_at range, a composite B-tree index on (merchant_id, created_at) serves both and the ordering. If we only read a few columns, INCLUDE them for an index-only scan. The trade-off is write amplification on a hot insert table, so I'd check the write rate, and on very large tables consider partitioning by month."
+    },
+    {
+      "role": "interviewer",
+      "text": "Where would you add caching, and what are the risks?"
+    },
+    {
+      "role": "candidate",
+      "text": "I'd cache read-heavy, slow-changing data like merchant config, with a TTL and invalidation on update. I would not cache balances or payment state, because stale reads there cause double spends. Risks are stampedes on expiry, which I'd handle with jittered TTLs or request coalescing, and inconsistency between cache and DB on writes."
+    },
+    {
+      "role": "interviewer",
+      "text": "The bank's API times out during a payout. What happens?"
+    },
+    {
+      "role": "candidate",
+      "text": "A timeout means unknown outcome, not failure, so we must not blindly retry. Mark the payout pending, retry with the same bank reference so the bank can dedupe, and run a status-check job; reconciliation with the bank's settlement file is the final source of truth. The user sees 'processing' instead of a false failure."
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      78,
+      98
+    ],
+    "verdicts": [
+      "Hire",
+      "Strong Hire"
+    ]
+  }
+}

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import APIRouter, Response
 
 from ..gemini import MODELS, ApiError, generate_json
@@ -49,6 +51,8 @@ async def report(body: ReportRequest, response: Response) -> ReportResult:
         system=scoring_system(body.pack, body.config, body.profile, body.domain, cov),
         turns=[{"role": "user", "text": f"TRANSCRIPT\n{transcript[: LIMITS.transcript_chars]}"}],
         temperature=0.2,
+        # Unset keeps the model's default; `npm run agent:eval -- --thinking low` tries others.
+        thinking=os.environ.get("GEMINI_REPORT_THINKING") or None,
         schema=ScoredReport,
     )
     return apply_rules(scored, cov)

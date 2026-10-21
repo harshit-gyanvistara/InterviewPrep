@@ -1,0 +1,50 @@
+{
+  "profile": {
+    "id": "eval",
+    "name": "Asha Rao",
+    "targetRole": "Backend Software Engineer",
+    "targetCompanies": "Razorpay",
+    "jobDescription": "Build payment APIs in Go and Postgres. Own on-call. Design idempotent services.",
+    "experience": "fresher",
+    "resume": "B.Tech CSE 2025. Backend intern at Zeta: ledger reconciliation job in Go, idempotency keys on refunds. Hackathon winner (PayLater).",
+    "onboarded": true
+  },
+  "pack": {
+    "id": "eval-behavioural",
+    "title": "Behavioural Round",
+    "company": "Any employer",
+    "role": "Graduate",
+    "roundType": "behavioural",
+    "description": "",
+    "durationMin": 20,
+    "topics": [
+      "Tell me about yourself",
+      "A conflict in a team",
+      "A failure and what you learned",
+      "Ownership"
+    ],
+    "rubric": [
+      "Clarity",
+      "Ownership",
+      "Impact",
+      "Self-awareness"
+    ],
+    "style": "Calm and probing",
+    "domains": "all"
+  },
+  "config": {
+    "packId": "eval-behavioural",
+    "persona": "neutral",
+    "durationMin": 20,
+    "pressure": false
+  },
+  "domain": {
+    "id": "general",
+    "interviewerContext": "",
+    "scoringContext": "",
+    "roundHints": "",
+    "roadmapHints": "",
+    "version": 1
+  },
+  "interviewerName": "Liam"
+}

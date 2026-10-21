@@ -1,0 +1,38 @@
+{
+  "description": "Candidate leaves after one real answer; the rules must flag it and cap at 40.",
+  "messages": [
+    {
+      "role": "interviewer",
+      "text": "Tell me about yourself."
+    },
+    {
+      "role": "candidate",
+      "text": "I'm a CS graduate and I interned at Zeta working on payments in Go, which I really enjoyed."
+    },
+    {
+      "role": "interviewer",
+      "text": "Tell me about a conflict in a team."
+    },
+    {
+      "role": "candidate",
+      "text": "Sorry, I have to go now."
+    },
+    {
+      "role": "interviewer",
+      "text": "Should we reschedule?"
+    },
+    {
+      "role": "interviewer",
+      "text": "Thanks, that's all from me. The team will be in touch."
+    }
+  ],
+  "expect": {
+    "overall": [
+      0,
+      40
+    ],
+    "verdicts": [
+      "Too short"
+    ]
+  }
+}

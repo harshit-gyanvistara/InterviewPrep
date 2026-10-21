@@ -13,6 +13,7 @@
     "agent": "node scripts/agent.mjs serve",
     "agent:test": "node scripts/agent.mjs test",
     "agent:measure": "node scripts/agent.mjs measure",
+    "agent:eval": "node scripts/agent.mjs eval",
     "agent:types": "node scripts/agent.mjs openapi && openapi-typescript liveAgent/openapi.json -o lib/liveAgent.types.ts --default-non-nullable false",
     "test": "vitest run",
     "test:watch": "vitest",
