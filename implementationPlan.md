@@ -6,6 +6,7 @@ How this fits with the other docs:
 
 | Doc | Answers | Read it when |
 |---|---|---|
+| [docs/](docs/README.md) | Onboarding set: project structure, features, roadmap, testing, which docs are current | Day 1, first |
 | [PITCH.md](PITCH.md) | Why the product exists, who it is for | Day 1, skim |
 | [USER_FLOW.md](USER_FLOW.md) | What the user sees, screen by screen | Day 1, before touching UI |
 | [SPEC.md](SPEC.md) | Exact data model and API contracts of the **current** code | Before changing `lib/types.ts` or any route |

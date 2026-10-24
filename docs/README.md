@@ -1,0 +1,75 @@
+# Start here: Offerly for new team members
+
+Offerly is an AI mock-interview platform. A candidate signs in, tells us the role they want, and practises with an AI interviewer by voice or text. When the interview ends they get a scored report with evidence, fixes and better answers. Colleges, companies and institutes can give Offerly to their people and track their practice.
+
+This folder is the onboarding set. It summarises the project and links to the detailed docs. When the two disagree, the detailed doc wins; please fix this folder in the same commit.
+
+*Last checked against the code: 2026-10-24 (commit `3d20747`, branch `proposal-1`).*
+
+## The onboarding docs
+
+| Doc | What it covers |
+|---|---|
+| [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) | The services, every top-level folder, where code goes, the rules of the codebase |
+| [FEATURES.md](FEATURES.md) | What the product does today, for candidates and for organisations, and what's still missing |
+| [ROADMAP.md](ROADMAP.md) | Where each milestone stands, what we build next, the long-term plans, open business questions |
+| [TESTING.md](TESTING.md) | Every kind of test we have, how to run it, what CI checks, and the testing still to build |
+
+## Your first week
+
+1. **Day 1, the product.** Read [FEATURES.md](FEATURES.md), then skim [PITCH.md](../PITCH.md) (why the product exists) and [USER_FLOW.md](../USER_FLOW.md) (screen by screen).
+2. **Day 1, the code.** Read [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md), then [FLOWS.md](../FLOWS.md): how a request, a sign-in and an interview move through the system.
+3. **Day 2, run it.** Follow [README.md § Run](../README.md#run). Without Supabase keys the app runs with sign-in off (one local user), which is enough to start. You need your own Gemini key for the AI to answer.
+4. **Day 2, use it.** Do one full mock and one Quick Mock, read the report, and open Settings → Data & AI → AI connection test.
+5. **Day 3, trace one interview** through the code: `app/interview/[id]/page.tsx` → `app/api/interview/turn/route.ts` → `lib/liveAgent.ts` → `liveAgent/live_agent/routes/interview.py` → `liveAgent/live_agent/prompts.py`.
+6. **Day 3, tests.** Run `npm test` and `npm run agent:test`. Read [TESTING.md](TESTING.md).
+7. **Then** read [ROADMAP.md](ROADMAP.md) and [DECISIONS.md](../DECISIONS.md), and pick a first task with the owner.
+
+## All the docs, and which are current
+
+| Doc | Status | Read it for |
+|---|---|---|
+| [README.md](../README.md) | Current | How to run, set up Supabase, scripts |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Current | Setup, checks before you push, definition of done |
+| [FLOWS.md](../FLOWS.md) | Current, kept up to date with every flow change | Request, sign-in, data, org, interview, usage and deploy flows; how the build moved from the first plan |
+| [DECISIONS.md](../DECISIONS.md) | Current, one entry per decision | Why something is the way it is, before you change it |
+| [implementationPlan.md](../implementationPlan.md) | Current for milestones (Part 4) and decisions D1–D15 (Part 3). Part 1.1 and the 1.2 diagram still describe the early browser-only prototype | The milestone plan and its status |
+| [plans/](../plans/) | Current; each file has a status line | One file per initiative (auth, orgs, usage limits, scoring, ...) |
+| [SPEC.md](../SPEC.md) | Current | Exact data types and API contracts |
+| [USER_FLOW.md](../USER_FLOW.md) | Mostly current; §10 "Not built yet" is out of date (history is on the server now) | What the user sees |
+| [liveAgent/README.md](../liveAgent/README.md) | Current | The Python AI service |
+| [mobile/README.md](../mobile/README.md) | Current | The Android/iOS shell app |
+| [PITCH.md](../PITCH.md) | Vision draft; nothing in it is final | Why, who for, business model ideas |
+| [DEV_PLAN.md](../DEV_PLAN.md) | Target architecture from before the build; the real path is in implementationPlan.md and FLOWS.md | The long-term shape we may grow into |
+| [IMPLEMENTATION.md](../IMPLEMENTATION.md) | **Out of date.** Written for the browser-only prototype ("no auth, no database"). Accounts, server storage and orgs now exist | History only |
+
+## Words we use
+
+| Word | Meaning |
+|---|---|
+| **Core** | The Next.js app at the repo root: pages, `/api/*` routes, accounts, data, quotas, orgs |
+| **liveAgent** | The Python (FastAPI) AI service in `liveAgent/`. The only place that talks to Gemini |
+| **Pack / round** | One kind of interview (e.g. Behavioural, Live Coding): topics, rubric, style. Data, not prompts |
+| **Persona** | The interviewer's manner: friendly, neutral or tough |
+| **Field / domain** | The candidate's profession (general, software, medical). Shapes prompts and which rounds show |
+| **Session** | One interview: `lobby → active → scoring → done` |
+| **Report** | The scored result of a session |
+| **Quick Mock** | A short mock mixed from several packs, with a question budget |
+| **JD pack** | Rounds generated by AI from a pasted job description |
+| **Too short** | A report with too few real answers to score; shown without a number and left out of averages |
+| **Package** | A user's allowance (beta, free, pro): mocks and AI calls per day |
+| **Entitlements** | An org's plan as data rows (seats, mocks per period), set by marketing |
+| **Share level** | What an org may see about a member: activity, scores or full |
+| **Super-admin** | Offerly staff listed in `SUPER_ADMIN_EMAILS`, who create orgs at `/admin/orgs` |
+| **`AUTH_MODE=off`** | Local mode with no sign-in and one local user; data stays in the browser |
+| **Golden** | A saved copy of a prompt; the test fails if a prompt changes without updating it |
+| **Eval set** | Hand-written transcripts with expected score ranges, run against the real scorer |
+
+## How we work
+
+- Work is committed on the `proposal-1` branch. `main` is the base branch.
+- Every decision gets a dated entry in [DECISIONS.md](../DECISIONS.md), and every flow change updates [FLOWS.md](../FLOWS.md), in the same commit as the change.
+- Every new initiative gets a plan in [plans/](../plans/), linked from [implementationPlan.md](../implementationPlan.md).
+- Business choices (prices, plan names, limits, minors, data residency) are deferred. Code is built so they become configuration later, not rewrites (decision D15). Don't block work waiting on them.
+- https://build-score.com is a **demo** deployment, not for real users yet. Production hardening is one checklist done at rollout ([ROADMAP.md § Rollout checklist](ROADMAP.md#rollout-checklist)).
+- Next.js here is version 16, with breaking changes from most tutorials. Read the guide in `node_modules/next/dist/docs/` before writing routes, middleware (`proxy.ts`), caching or config.

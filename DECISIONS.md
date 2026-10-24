@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-24 · Onboarding docs for new team members live in docs/
+- **Decision:** `docs/` holds a short onboarding set: a start-here page with a first-week guide, a glossary and which docs are current, plus PROJECT_STRUCTURE, FEATURES, ROADMAP and TESTING. They summarise and link; FLOWS.md, DECISIONS.md, SPEC.md, implementationPlan.md and plans/ stay the source of truth, and win when the two disagree.
+- **Why:** New members need one place to start. The detail is spread over a dozen docs, and some (IMPLEMENTATION.md, implementationPlan.md Part 1.1) still describe the browser-only prototype.
+- **Considered:** Rewriting the older docs instead (larger change, and they still record history); one long onboarding file (harder to keep current).
+- **Revisit:** If the summaries drift from the code, fold them back into fewer files.
+
 ## 2026-10-24 · The report scores with low thinking
 - **Decision:** `/v1/interview/report` uses thinking level `low` by default. `GEMINI_REPORT_THINKING` overrides it (`default` gives the model's own level). The scoring guide is unchanged.
 - **Why:** On the eval set, low thinking passed the same 8 of 9 cases as the default (mean signed error -0.6 and -0.8 against -1.1) with about 300-500 thinking tokens per report instead of about 1,600-2,300, all billed at the output rate. Describing each score band in the guide was tried to lift the "average" case and moved nothing, so it was dropped.

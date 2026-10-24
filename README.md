@@ -1,5 +1,7 @@
 # Offerly — interview prep platform (MVP)
 
+New to the team? Start with [docs/README.md](docs/README.md): project structure, features, roadmap and testing.
+
 Two services:
 - **Core**: Next.js (App Router) + Tailwind at the repo root. Accounts (email code, Google on the web) and the user's profile in Supabase; the rest of the user's data in browser `localStorage` behind `lib/db.ts`; the field and pack catalog in Supabase too. Without Supabase it runs with no accounts (`AUTH_MODE=off`) on the code defaults.
 - **liveAgent**: the Python AI service in [`liveAgent/`](liveAgent/README.md) (FastAPI + Gemini). Every AI feature goes Browser → Core `/api/*` → liveAgent → Gemini. Only liveAgent holds the Gemini key.

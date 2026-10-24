@@ -1,6 +1,6 @@
 # Contributing to Offerly
 
-Start with [implementationPlan.md](implementationPlan.md). It explains how the system works today, what we build next and in what order, and lists good first tasks (Part 5).
+New here? Read [docs/README.md](docs/README.md) first: a first-week guide, the project structure, features, roadmap and testing. Then [implementationPlan.md](implementationPlan.md). It explains how the system works today, what we build next and in what order, and lists good first tasks (Part 5).
 
 ## Setup
 
