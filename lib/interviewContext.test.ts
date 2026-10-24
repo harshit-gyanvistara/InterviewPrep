@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadInterview } from "./interviewContext";
+import { memberContext } from "./orgContextServer";
 import { checkAssignment, checkOrgPractice } from "./orgPractice";
 
 // Stamping the org on a session (plans/m2-org.md O.4): once, on the first AI call, after the
@@ -8,6 +9,8 @@ import { checkAssignment, checkOrgPractice } from "./orgPractice";
 
 vi.mock("./orgPractice", () => ({ checkOrgPractice: vi.fn(async () => {}), checkAssignment: vi.fn(async () => {}) }));
 vi.mock("./supabase-server", () => ({ getSupabaseForRequest: vi.fn() }));
+vi.mock("./supabase", () => ({ getSupabaseAdmin: vi.fn(() => ({})) }));
+vi.mock("./orgContextServer", () => ({ memberContext: vi.fn(async () => null) }));
 vi.mock("./catalog-server", async () => {
   const { PACKS } = await import("./packs");
   return { getCatalog: async () => ({ packs: PACKS, domains: [] }) };
@@ -17,7 +20,7 @@ const ORG = "11111111-1111-1111-1111-111111111111";
 const OTHER = "22222222-2222-2222-2222-222222222222";
 const user = { id: "u1", email: "u1@college.edu" };
 
-async function withSession(row: { orgId?: string; assignmentId?: string; stamped?: string | null; messages?: unknown[] }) {
+async function withSession(row: { orgId?: string; assignmentId?: string; stamped?: string | null; messages?: unknown[]; snapshot?: unknown }) {
   const updates: Record<string, unknown>[] = [];
   const { PACKS } = await import("./packs");
   const rows: Record<string, unknown> = {
@@ -25,6 +28,7 @@ async function withSession(row: { orgId?: string; assignmentId?: string; stamped
       data: { id: "s1", config: { packId: PACKS[0].id, persona: "neutral", durationMin: 15, ...(row.orgId ? { orgId: row.orgId } : {}), ...(row.assignmentId ? { assignmentId: row.assignmentId } : {}) }, messages: row.messages ?? [] },
       org_id: row.stamped ?? null,
       pack_snapshot: null,
+      context_snapshot: row.snapshot ?? null,
       prompt_versions: null,
       model_ids: [],
     },
@@ -52,6 +56,7 @@ beforeEach(() => {
   vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "pk");
   vi.mocked(checkOrgPractice).mockClear();
   vi.mocked(checkAssignment).mockClear();
+  vi.mocked(memberContext).mockReset().mockResolvedValue(null);
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -111,5 +116,52 @@ describe("org stamping", () => {
     await ctx.save({ code: "", call: "turn", meta });
     expect(checkAssignment).not.toHaveBeenCalled();
     expect(updates[0]).not.toHaveProperty("assignment_id");
+  });
+});
+
+// The org's context for the interview, frozen when the session is stamped (plans/b2b-college.md B.8).
+describe("org context", () => {
+  const merged = { orgName: "Sunrise", companies: "TCS", roles: "", techStack: "Java", notes: "" };
+
+  it("is read once with the stamp and saved on the session", async () => {
+    vi.mocked(memberContext).mockResolvedValue(merged);
+    const updates = await withSession({ orgId: ORG });
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(memberContext).toHaveBeenCalledWith(expect.anything(), ORG, "u1");
+    expect(ctx.orgContext).toEqual(merged);
+    await ctx.save({ code: "", call: "turn", meta });
+    expect(updates[0]).toMatchObject({ org_id: ORG, context_snapshot: merged });
+  });
+
+  it("is never read again: a later call uses the frozen copy even if the org edits its context", async () => {
+    vi.mocked(memberContext).mockResolvedValue({ ...merged, companies: "CHANGED" });
+    await withSession({ orgId: ORG, stamped: ORG, snapshot: merged, messages: [{ id: "m1", role: "interviewer", text: "Hi", at: 0 }] });
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(ctx.orgContext).toEqual(merged);
+    expect(memberContext).not.toHaveBeenCalled();
+  });
+
+  it("stays empty for a session stamped when the org had no context, even if it adds some later", async () => {
+    vi.mocked(memberContext).mockResolvedValue(merged);
+    await withSession({ orgId: ORG, stamped: ORG, messages: [{ id: "m1", role: "interviewer", text: "Hi", at: 0 }] });
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(ctx.orgContext).toBeNull();
+  });
+
+  it("records no context when the org has none", async () => {
+    const updates = await withSession({ orgId: ORG });
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(ctx.orgContext).toBeNull();
+    await ctx.save({ code: "", call: "turn", meta });
+    expect(updates[0]).toHaveProperty("context_snapshot", null);
+  });
+
+  it("solo practice carries none and never reads an org", async () => {
+    const updates = await withSession({});
+    const ctx = await loadInterview(user, "s1", undefined);
+    expect(ctx.orgContext).toBeNull();
+    expect(memberContext).not.toHaveBeenCalled();
+    await ctx.save({ code: "", call: "turn", meta });
+    expect(updates[0]).not.toHaveProperty("context_snapshot");
   });
 });

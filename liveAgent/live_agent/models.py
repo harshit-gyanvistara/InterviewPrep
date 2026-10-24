@@ -36,6 +36,18 @@ class Profile(ApiModel):
     resume: str = ""
 
 
+class OrgContext(ApiModel):
+    """What the candidate's organisation (a college, a company) wants the round to reflect. Core merges
+    the organisation's and the candidate's section's settings and sends them only for practice done
+    for an organisation, so solo practice never carries one."""
+
+    org_name: str = ""
+    companies: str = ""
+    roles: str = ""
+    tech_stack: str = ""
+    notes: str = ""
+
+
 class Pack(ApiModel):
     title: str
     company: str = ""
@@ -86,6 +98,7 @@ class TurnRequest(ApiModel):
     pack: Pack
     persona: PersonaIn
     domain: DomainIn
+    org_context: OrgContext | None = None
     messages: list[Message] = []
     elapsed_sec: Number = 0
     code: str = ""
@@ -96,6 +109,7 @@ class ReportRequest(ApiModel):
     profile: Profile
     pack: Pack
     domain: DomainIn
+    org_context: OrgContext | None = None
     interviewer_name: str
     messages: list[Message] = []
     code: str = ""

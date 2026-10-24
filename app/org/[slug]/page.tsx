@@ -2,15 +2,20 @@
 
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Copy, Download, KeyRound, Mail } from "lucide-react";
+import { Copy, Download, FileSpreadsheet, KeyRound, Mail } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { PageSkeleton } from "@/components/Skeleton";
+import { parseInviteRows } from "@/lib/bulkInvite";
 import { useConfirm } from "@/lib/dialogContext";
 import type { InviteView } from "@/lib/orgInvites";
 import type { Permission } from "@/lib/permissions";
 import Link from "next/link";
 import { AssignmentsPanel } from "@/components/org/AssignmentsPanel";
 import { CohortsPanel } from "@/components/org/CohortsPanel";
+import { ContextPanel } from "@/components/org/ContextPanel";
+import { PacksPanel } from "@/components/org/PacksPanel";
+import { SetupCard } from "@/components/org/SetupCard";
+import { TrajectoriesPanel } from "@/components/org/TrajectoriesPanel";
 import { dueText } from "@/components/org/api";
 import { useAuth, useMyAssignments } from "@/lib/db";
 import { AnalyticsPanel, AuditPanel, MembersPanel, OverviewPanel } from "@/components/org/DashboardPanels";
@@ -19,15 +24,17 @@ import { AnalyticsPanel, AuditPanel, MembersPanel, OverviewPanel } from "@/compo
 // cohorts and assignments (O.5), each tab shown only to roles allowed to use it. Members without
 // any of those see what's assigned to them.
 
-type Tab = "Overview" | "Members" | "Analytics" | "Invites" | "Cohorts" | "Assignments" | "Audit log";
+type Tab = "Overview" | "Members" | "Analytics" | "Invites" | "Cohorts" | "Rounds" | "Context" | "Plans" | "Assignments" | "Audit log";
 
 interface OrgInfo {
+  kit: { id: string; version: number } | null;
+  studentFields: { key: string; label: string; required: boolean }[];
   cohortId: string | null;
   org: { id: string; name: string; slug: string };
   permissions: Permission[];
 }
 
-type Created = { email: string | null; link: string; code?: string };
+type Created = { email: string | null; link: string; code?: string; section?: string | null };
 
 const EMAIL_RE = /[^\s,;<>"']+@[^\s,;<>"']+\.[^\s,;<>"']+/g;
 /** Every email address in pasted text: one per line, comma-separated, or a CSV export with other columns. */
@@ -60,6 +67,8 @@ export default function OrgHome() {
   const [created, setCreated] = useState<Created[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [bulkText, setBulkText] = useState("");
+  const [prefill, setPrefill] = useState<Record<string, string>>({});
   const [tab, setTab] = useState<Tab | null>(null);
   const { data: mine } = useMyAssignments();
   const { data: auth } = useAuth();
@@ -71,7 +80,9 @@ export default function OrgHome() {
     ...(can("analytics.view") ? (["Overview", "Members", "Analytics"] as const) : []),
     ...(canManage ? (["Invites"] as const) : []),
     ...(can("cohorts.manage") ? (["Cohorts"] as const) : []),
-    ...(can("assignments.create") ? (["Assignments"] as const) : []),
+    ...(can("packs.create") ? (["Rounds"] as const) : []),
+    ...(can("settings.manage") ? (["Context"] as const) : []),
+    ...(can("assignments.create") ? (["Plans", "Assignments"] as const) : []),
     ...(canManage ? (["Audit log"] as const) : []),
   ];
   const current = tab && tabs.includes(tab) ? tab : tabs[0];
@@ -96,7 +107,8 @@ export default function OrgHome() {
     setBusy(true);
     setMsg(null);
     try {
-      const out = await api<{ invites: Created[] }>(`/api/orgs/${slug}/invites`, { method: "POST", body });
+      const attributes = Object.fromEntries(Object.entries(prefill).filter(([, v]) => v.trim()));
+      const out = await api<{ invites: Created[] }>(`/api/orgs/${slug}/invites`, { method: "POST", body: { ...(body as object), attributes } });
       setCreated(out.invites.map((i) => ({ ...i, link: `${location.origin}${i.link}` })));
       setEmails("");
       await load();
@@ -108,9 +120,26 @@ export default function OrgHome() {
   };
 
   const found = emailsIn(emails);
+  const bulk = parseInviteRows(bulkText, info?.studentFields ?? []);
+
+  const createBulk = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const out = await api<{ invites: Created[]; sectionsCreated: number }>(`/api/orgs/${slug}/invites/bulk`, { method: "POST", body: { rows: bulk.rows, role: "member" } });
+      setCreated(out.invites.map((i) => ({ ...i, link: `${location.origin}${i.link}` })));
+      setBulkText("");
+      setMsg(out.sectionsCreated ? `Created ${out.sectionsCreated} new section${out.sectionsCreated === 1 ? "" : "s"}.` : null);
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Couldn't create invites.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const downloadCsv = () => {
-    const rows = [["email", "invite link"], ...created.map((c) => [c.email ?? "", c.link])];
+    const rows = [["email", "section", "invite link"], ...created.map((c) => [c.email ?? "", c.section ?? "", c.link])];
     const blob = new Blob([rows.map((r) => r.map((v) => `"${v.replace(/"/g, '""')}"`).join(",")).join("\n")], { type: "text/csv" });
     const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${slug}-invites.csv` });
     a.click();
@@ -161,13 +190,32 @@ export default function OrgHome() {
           ))}
         </div>
       )}
-      {current === "Overview" && <OverviewPanel slug={slug} />}
+      {current === "Overview" && <SetupCard slug={slug} kit={info.kit} canApply={can("settings.manage")} onApplied={load} />}
+      {current === "Overview" && <OverviewPanel slug={slug} canNudge={can("assignments.create")} />}
       {current === "Members" && <MembersPanel slug={slug} permissions={info.permissions} selfId={auth?.user?.id ?? null} />}
       {current === "Analytics" && <AnalyticsPanel slug={slug} />}
       {current === "Audit log" && <AuditPanel slug={slug} />}
       {current === "Cohorts" && <CohortsPanel slug={slug} />}
-      {current === "Assignments" && <AssignmentsPanel slug={slug} coachCohortId={info.permissions.includes("cohorts.manage") ? null : info.cohortId} />}
+      {current === "Rounds" && <PacksPanel slug={slug} />}
+      {current === "Context" && <ContextPanel slug={slug} />}
+      {current === "Plans" && <TrajectoriesPanel slug={slug} orgId={info.org.id} coachCohortId={info.permissions.includes("cohorts.manage") ? null : info.cohortId} />}
+      {current === "Assignments" && <AssignmentsPanel slug={slug} orgId={info.org.id} coachCohortId={info.permissions.includes("cohorts.manage") ? null : info.cohortId} />}
       {current === "Invites" && (<>
+
+      {info.studentFields.length > 0 && (
+        <Card className="grid gap-3">
+          <h2 className="text-sm font-semibold">Pre-fill details (optional)</h2>
+          <p className="text-sm text-muted">Anything you fill in here is set on every invite or code you create next, and the person can&apos;t change it. Leave a box empty to let them answer it.</p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {info.studentFields.map((f) => (
+              <label key={f.key} className="grid gap-1.5 text-sm">
+                <span className="text-muted">{f.label}</span>
+                <input className="input" maxLength={80} value={prefill[f.key] ?? ""} onChange={(e) => setPrefill({ ...prefill, [f.key]: e.target.value })} />
+              </label>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card className="grid content-start gap-3">
@@ -197,6 +245,38 @@ export default function OrgHome() {
         </Card>
       </div>
 
+      <Card className="grid gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold"><FileSpreadsheet size={16} /> Bulk import (CSV)</h2>
+        <p className="text-sm text-muted">
+          One person per line: email, then their section like <b>CSE / 2027 / A</b> (missing sections are created), then any details
+          {info.studentFields.length ? ` (${info.studentFields.map((f) => f.label).join(", ")})` : ""}. A header row is optional. Up to 500 people.
+        </p>
+        <input
+          type="file"
+          accept=".csv,.tsv,.txt,text/csv"
+          aria-label="Choose a CSV file"
+          className="text-sm"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (file) setBulkText(await file.text());
+            e.target.value = "";
+          }}
+        />
+        <textarea className="input min-h-24 font-mono text-xs" value={bulkText} onChange={(e) => setBulkText(e.target.value)} placeholder={"email,section,branch\nasha@college.edu,CSE / 2027 / A,CSE\nravi@college.edu,ECE / 2027 / B,ECE"} aria-label="Pasted list" />
+        {bulkText.trim() && (
+          <div className="grid gap-1 text-sm">
+            <span>{bulk.rows.length} {bulk.rows.length === 1 ? "person" : "people"} ready{bulk.errors.length ? `, ${bulk.errors.length} line${bulk.errors.length === 1 ? "" : "s"} to fix` : ""}.</span>
+            {bulk.errors.slice(0, 5).map((er) => <span key={`${er.line}-${er.message}`} className="text-danger">{er.line ? `Line ${er.line}: ` : ""}{er.message}</span>)}
+            {bulk.errors.length > 5 && <span className="text-muted">…and {bulk.errors.length - 5} more.</span>}
+          </div>
+        )}
+        <div>
+          <button className="btn btn-primary" disabled={busy || bulk.rows.length === 0} onClick={createBulk}>
+            {bulk.rows.length ? `Invite ${bulk.rows.length} ${bulk.rows.length === 1 ? "person" : "people"}` : "Invite"}
+          </button>
+        </div>
+      </Card>
+
       {msg && <p className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{msg}</p>}
 
       {created.length > 0 && (
@@ -208,7 +288,7 @@ export default function OrgHome() {
           <ul className="grid gap-2">
             {created.map((c) => (
               <li key={c.link} className="flex flex-wrap items-center gap-2 rounded-xl border border-line px-3 py-2 text-sm">
-                <span className="min-w-0 flex-1 truncate">{c.code ? <b className="tracking-widest">{c.code}</b> : c.email}<span className="ml-2 text-muted">{c.link}</span></span>
+                <span className="min-w-0 flex-1 truncate">{c.code ? <b className="tracking-widest">{c.code}</b> : c.email}{c.section && <span className="ml-2 text-muted">· {c.section}</span>}<span className="ml-2 text-muted">{c.link}</span></span>
                 <button className="btn btn-ghost" onClick={() => navigator.clipboard.writeText(c.code ? `${c.link}\nCode: ${c.code}` : c.link)} aria-label="Copy"><Copy size={14} /> Copy</button>
               </li>
             ))}

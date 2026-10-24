@@ -937,6 +937,38 @@
         ],
         "title": "ModelsHealth"
       },
+      "OrgContext": {
+        "properties": {
+          "orgName": {
+            "type": "string",
+            "title": "Orgname",
+            "default": ""
+          },
+          "companies": {
+            "type": "string",
+            "title": "Companies",
+            "default": ""
+          },
+          "roles": {
+            "type": "string",
+            "title": "Roles",
+            "default": ""
+          },
+          "techStack": {
+            "type": "string",
+            "title": "Techstack",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "OrgContext",
+        "description": "What the candidate's organisation (a college, a company) wants the round to reflect. Core merges\nthe organisation's and the candidate's section's settings and sends them only for practice done\nfor an organisation, so solo practice never carries one."
+      },
       "Pack": {
         "properties": {
           "title": {
@@ -1099,6 +1131,16 @@
           },
           "domain": {
             "$ref": "#/components/schemas/DomainIn"
+          },
+          "orgContext": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrgContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "interviewerName": {
             "type": "string",
@@ -1348,6 +1390,16 @@
           },
           "domain": {
             "$ref": "#/components/schemas/DomainIn"
+          },
+          "orgContext": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrgContext"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "messages": {
             "items": {

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, type Binder, type CortexPage, type Note, type NoteLink, type Pack, type Profile, type Report, type Roadmap, type Session, type Settings, type Story } from "./types";
 import { DEFAULT_CATALOG, type Catalog } from "./catalog";
+import type { PlanView } from "./orgTrajectories";
 
 /**
  * Storage layer. Everything goes through `db`, which is async and collection-based, so moving a
@@ -34,6 +35,10 @@ export interface AuthState {
   mode: "supabase" | "off";
   user: { id: string; email: string | null } | null;
   google: boolean;
+  /** The local-development sign-in shortcut is on (DEV_LOGIN=on, never in production). */
+  devLogin?: boolean;
+  /** The signed-in email is in SUPER_ADMIN_EMAILS, so /admin/orgs is theirs. */
+  superAdmin?: boolean;
   /** /api/auth/me failed (offline, server down); the Shell offers a retry instead of guessing. */
   error?: string;
 }
@@ -486,6 +491,26 @@ export const useMyOrgs = () =>
     return ((await res.json()) as { orgs: MyOrgSummary[] }).orgs;
   }, []);
 
+/** Rounds owned by the user's orgs (archived ones flagged); [] when none or signed out. */
+export const useOrgPacks = () =>
+  useQuery(async () => {
+    const auth = await getAuth();
+    if (auth.mode !== "supabase" || !auth.user) return [] as Pack[];
+    const res = await fetch("/api/me/org-packs", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return [] as Pack[];
+    return ((await res.json()) as { packs: Pack[] }).packs;
+  }, []);
+
+/** The member's plans of stages (plans/b2b-college.md B.6), each with their progress; [] when none or signed out. */
+export const useMyPlans = () =>
+  useQuery(async () => {
+    const auth = await getAuth();
+    if (auth.mode !== "supabase" || !auth.user) return [] as PlanView[];
+    const res = await fetch("/api/me/plan", { cache: "no-store" }).catch(() => null);
+    if (!res?.ok) return [] as PlanView[];
+    return ((await res.json()) as { plans: PlanView[] }).plans;
+  }, []);
+
 /** The member's open org assignments with their progress (plans/m2-org.md O.5); [] when none or signed out. */
 export const useMyAssignments = () =>
   useQuery(async () => {
@@ -514,6 +539,9 @@ export interface MyOrgSummary {
   slug: string;
   role: string;
   allowedPackIds: string[] | null;
+  /** What the org asks members for, and this member's answers. */
+  studentFields: { key: string; label: string; required: boolean }[];
+  attributes: Record<string, string>;
 }
 
 /** The org the user is practising for, if they still belong to it; null means practising as themselves. */
@@ -570,12 +598,13 @@ export function useCatalog() {
   return { catalog, loading };
 }
 
-/** All packs available to this browser: the built-in library plus anything generated from a job description. */
+/** All packs available to this browser: the built-in library, anything generated from a job description, and the rounds of the user's orgs. */
 export function useAllPacks() {
   const { data: custom = [], loading } = useCustomPacks();
   const { catalog, loading: catalogLoading } = useCatalog();
-  const all = [...catalog.packs, ...custom];
-  return { all, custom, catalog, byId: (id: string) => all.find((p) => p.id === id), loading: loading || catalogLoading };
+  const { data: orgPacks = [], loading: orgPacksLoading } = useOrgPacks();
+  const all = [...catalog.packs, ...custom, ...orgPacks];
+  return { all, custom, orgPacks, catalog, byId: (id: string) => all.find((p) => p.id === id), loading: loading || catalogLoading || orgPacksLoading };
 }
 
 /** All notes, pinned first then most recently updated. */

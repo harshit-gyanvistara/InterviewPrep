@@ -56,6 +56,81 @@ export const PackSchema = z.object({
   style: medium.default(""),
 });
 
+// ---- Organisation rounds (plans/b2b-college.md B.5) ----
+
+// Unlike the loose Pack schema used for interview requests, an org round is authored by hand: no blank titles or list items.
+const filled = short.trim().min(1, { message: "Don't leave this blank." });
+const orgPackTopics = z.array(filled).min(1).max(LIMITS.listItems);
+const orgDuration = z.number().int().min(5).max(120);
+
+/** A new org round: everything a Pack needs, with the optional text fields defaulting to empty. */
+export const OrgPackCreateBodySchema = z.object({
+  title: filled,
+  company: short.default(""),
+  role: short.default(""),
+  roundType: z.enum(ROUND_TYPES),
+  description: medium.default(""),
+  durationMin: orgDuration,
+  topics: orgPackTopics,
+  rubric: orgPackTopics,
+  style: medium.default(""),
+});
+
+/** Changes to an org round: any of the fields, or archiving it. (No defaults here, or an edit would blank what it left out.) */
+export const OrgPackUpdateBodySchema = z
+  .object({
+    title: filled.optional(),
+    company: short.optional(),
+    role: short.optional(),
+    roundType: z.enum(ROUND_TYPES).optional(),
+    description: medium.optional(),
+    durationMin: orgDuration.optional(),
+    topics: orgPackTopics.optional(),
+    rubric: orgPackTopics.optional(),
+    style: medium.optional(),
+    archived: z.boolean().optional(),
+  })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "Nothing to update." });
+
+export type OrgPackCreateBody = z.infer<typeof OrgPackCreateBodySchema>;
+export type OrgPackUpdateBody = z.infer<typeof OrgPackUpdateBodySchema>;
+
+// ---- Trajectories (plans/b2b-college.md B.6) ----
+
+export const TrajectoryStageSchema = z.object({
+  title: filled.max(120),
+  packId: z.string().trim().min(1).max(100),
+  targetCount: z.number().int().min(1).max(50).default(1),
+  /** Days after the plan is given out that this stage is due; null = no due date. */
+  dueDays: z.number().int().min(0).max(730).nullable().default(null),
+  /** Score to reach for a mock to count (0 to 100); null = any mock counts. */
+  gateScore: z.number().int().min(0).max(100).nullable().default(null),
+  mandatory: z.boolean().default(true),
+});
+
+export const TrajectoryBodySchema = z.object({
+  name: filled.max(120),
+  description: medium.default(""),
+  stages: z.array(TrajectoryStageSchema).min(1).max(12),
+});
+
+export const TrajectoryUpdateBodySchema = z
+  .object({ name: filled.max(120).optional(), description: medium.optional(), stages: z.array(TrajectoryStageSchema).min(1).max(12).optional(), archived: z.boolean().optional() })
+  .refine((b) => Object.values(b).some((v) => v !== undefined), { message: "Nothing to update." });
+
+/** Give a plan to everyone, a cohort (and the sections below it) or a group. */
+export const TrajectoryAssignBodySchema = z
+  .object({
+    cohortId: z.uuid().nullable().default(null),
+    groupId: z.uuid().nullable().default(null),
+    /** ISO date-time the plan starts; defaults to now. Stage due dates count from here. */
+    startsAt: z.iso.datetime({ offset: true }).optional(),
+  })
+  .refine((b) => !(b.cohortId && b.groupId), { message: "Pick a cohort or a group, not both." });
+
+export type TrajectoryBody = z.infer<typeof TrajectoryBodySchema>;
+export type TrajectoryAssignBody = z.infer<typeof TrajectoryAssignBodySchema>;
+
 export const SessionConfigSchema = z.object({
   persona: PersonaSchema,
   durationMin: z.number().positive().max(240),
@@ -134,6 +209,8 @@ const email = z.string().trim().toLowerCase().pipe(z.email({ message: "Enter a v
 
 export const EmailOtpBodySchema = z.object({ email });
 
+export const DevLoginBodySchema = z.object({ email });
+
 export const VerifyOtpBodySchema = z.object({
   email,
   // Supabase codes are 6 digits by default; the project can configure up to 10.
@@ -177,7 +254,28 @@ export const OrgCreateBodySchema = z.object({
   slug: z.string().trim().toLowerCase().regex(ORG_SLUG, { message: "Use 2-63 lowercase letters, digits or hyphens, starting with a letter or digit." }),
   kind: orgKind.default("other"),
   ownerEmail: email.optional(),
+  /** A starter kit to apply straight away (lib/starterKits.ts). */
+  kitId: z.string().trim().min(1).max(60).optional(),
 });
+
+/** The four context fields an org (or one of its sections) can set; anything left out is cleared. */
+export const ContextBodySchema = z.object({
+  context: z.object({
+    companies: z.string().max(1500).default(""),
+    roles: z.string().max(1500).default(""),
+    techStack: z.string().max(1500).default(""),
+    notes: z.string().max(1500).default(""),
+  }),
+});
+
+export const NudgeBodySchema = z.object({
+  targets: z.array(z.object({ userId: z.string().min(1).max(64), assignmentId: z.uuid() })).min(1).max(50),
+});
+
+export const WaiverBodySchema = z.object({ assignmentId: z.uuid(), reason: z.string().trim().min(3, { message: "Give a reason." }).max(300) });
+export const WaiverRemoveBodySchema = z.object({ assignmentId: z.uuid() });
+
+export const KitBodySchema = z.object({ kitId: z.string().trim().min(1).max(60) });
 
 export const OrgUpdateBodySchema = z
   .object({ name: orgName.optional(), kind: orgKind.optional(), settings: z.looseObject({}).optional() })
@@ -210,23 +308,46 @@ export const INVITE_ROLES = ["member", "coach", "admin", "owner"] as const;
 const inviteRole = z.enum(INVITE_ROLES).default("member");
 const expiresInDays = z.number().int().min(1).max(365).default(14);
 
+/** Member details by field key (branch, year, ...). Which keys are allowed depends on the org, so the server checks that. */
+const attributes = z
+  .record(z.string().regex(/^[a-z][a-z0-9_]{0,31}$/), z.string().trim().max(80))
+  .refine((a) => Object.keys(a).length <= 6, { message: "Too many details." })
+  .default({});
+
 export const InviteCreateBodySchema = z.discriminatedUnion("kind", [
   // One invite per email, each usable once by that email. Also what a CSV upload sends.
-  z.object({ kind: z.literal("email"), emails: z.array(email).min(1).max(500), role: inviteRole, expiresInDays }),
+  z.object({ kind: z.literal("email"), emails: z.array(email).min(1).max(500), role: inviteRole, expiresInDays, attributes }),
   // A reusable code; optionally capped. Join codes can be limited to the org's email domains.
-  z.object({ kind: z.literal("code"), role: inviteRole, expiresInDays, maxUses: z.number().int().min(1).max(100_000).nullable().default(null) }),
+  z.object({ kind: z.literal("code"), role: inviteRole, expiresInDays, maxUses: z.number().int().min(1).max(100_000).nullable().default(null), attributes }),
 ]);
 
-export const JoinBodySchema = z.object({ shareLevel: z.enum(["activity", "scores", "full"]) });
+/** Many people at once, each optionally placed in a section (a path from the top) and with details pre-filled. */
+export const BulkInviteBodySchema = z.object({
+  rows: z
+    .array(z.object({ email, section: z.array(z.string().trim().min(1).max(120)).max(3).nullable().default(null), attributes }))
+    .min(1)
+    .max(500),
+  role: inviteRole,
+  expiresInDays,
+});
+
+export const JoinBodySchema = z.object({ shareLevel: z.enum(["activity", "scores", "full"]), attributes });
 
 export type InviteCreateBody = z.infer<typeof InviteCreateBodySchema>;
+export type BulkInviteBody = z.infer<typeof BulkInviteBodySchema>;
 
 // ---- Organisations: cohorts and assignments (plans/m2-org.md O.5) ----
 
-export const CohortCreateBodySchema = z.object({ name: z.string().trim().min(1, { message: "Enter a name." }).max(120) });
+export const CohortCreateBodySchema = z.object({ name: z.string().trim().min(1, { message: "Enter a name." }).max(120), parentId: z.uuid().nullable().default(null) });
 export const CohortUpdateBodySchema = z
-  .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional() })
-  .refine((b) => b.name !== undefined || b.archived !== undefined, { message: "Nothing to update." });
+  .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional(), parentId: z.uuid().nullable().optional() })
+  .refine((b) => b.name !== undefined || b.archived !== undefined || b.parentId !== undefined, { message: "Nothing to update." });
+
+/** Ad-hoc groups: a name, and optionally the full list of members (replaces the current list). */
+export const GroupCreateBodySchema = z.object({ name: z.string().trim().min(1, { message: "Enter a name." }).max(120), memberIds: z.array(z.uuid()).max(2000).default([]) });
+export const GroupUpdateBodySchema = z
+  .object({ name: z.string().trim().min(1).max(120).optional(), archived: z.boolean().optional(), memberIds: z.array(z.uuid()).max(2000).optional() })
+  .refine((b) => b.name !== undefined || b.archived !== undefined || b.memberIds !== undefined, { message: "Nothing to update." });
 export const MemberCohortBodySchema = z.object({ cohortId: z.uuid().nullable() });
 /** Role and/or cohort for one member (plans/m2-org.md O.6). */
 export const MemberUpdateBodySchema = z
@@ -236,11 +357,13 @@ export const MemberUpdateBodySchema = z
 export const AssignmentCreateBodySchema = z.object({
   title: z.string().trim().min(1, { message: "Enter a title." }).max(200),
   packId: z.string().trim().min(1).max(100),
-  /** null = everyone in the org. */
+  /** null = everyone in the org (unless a group is chosen). A cohort covers its sections below it too. */
   cohortId: z.uuid().nullable().default(null),
+  /** A group instead of a cohort. */
+  groupId: z.uuid().nullable().default(null),
   /** ISO date-time; null = no due date. */
   dueAt: z.iso.datetime({ offset: true }).nullable().default(null),
   targetMockCount: z.number().int().min(1).max(50).default(1),
-});
+}).refine((b) => !(b.cohortId && b.groupId), { message: "Pick a cohort or a group, not both." });
 
 export type AssignmentCreateBody = z.infer<typeof AssignmentCreateBodySchema>;

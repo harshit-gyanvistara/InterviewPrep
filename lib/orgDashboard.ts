@@ -5,6 +5,7 @@ import { audit } from "./orgAdmin";
 import { analytics, inactive, memberRow, membersCsv, visibleReport, type CohortStats, type MemberRow, type OrgMember, type OrgReport, type VisibleReport } from "./orgAnalytics";
 import { listAssignments, setMemberCohort, type AssignmentView } from "./orgCohorts";
 import { requireRole, type OrgRef } from "./orgInvites";
+import { descendantIds, pathLabel, type CohortNode } from "./orgSections";
 import { DEFAULT_SHARE_LEVEL, isShareLevel, roleCan, shareAllows, type ShareLevel } from "./permissions";
 import { checkOrgEntitlement, type MeterStatus } from "./policies";
 import type { Message } from "./types";
@@ -29,24 +30,25 @@ export interface Dashboard {
   };
   members: MemberRow[];
   analytics: CohortStats[];
-  cohorts: { id: string; name: string }[];
+  /** Active cohorts, named by their full path ("CSE / 2027 / A"). */
+  cohorts: { id: string; name: string; parentId: string | null }[];
 }
 
-interface OrgData {
+export interface OrgData {
   members: OrgMember[];
   reports: OrgReport[];
-  cohorts: { id: string; name: string }[];
+  cohorts: { id: string; name: string; parentId: string | null }[];
 }
 
-/** A coach placed in a cohort sees only that cohort; everyone else with access sees the whole org. */
-const scope = (org: OrgRef) => (org.role === "coach" && org.cohortId ? org.cohortId : null);
+/** A coach placed in a cohort sees that cohort and the sections below it; everyone else with access sees the whole org. */
+const scope = (org: OrgRef, nodes: CohortNode[]): Set<string> | null => (org.role === "coach" && org.cohortId ? new Set(descendantIds(nodes, org.cohortId)) : null);
 
-async function loadOrg(db: SupabaseClient, org: OrgRef): Promise<OrgData> {
+export async function loadOrg(db: SupabaseClient, org: OrgRef): Promise<OrgData> {
   const [mems, consents, reps, cohorts] = await Promise.all([
     db.from("memberships").select("user_id, role, cohort_id, joined_at, users(email)").eq("org_id", org.id).eq("status", "active").order("joined_at"),
     db.from("consents").select("user_id, value, granted_at").eq("org_id", org.id).eq("kind", "org_share").is("revoked_at", null).order("granted_at", { ascending: false }),
     db.from("reports").select("user_id, data").eq("org_id", org.id),
-    db.from("cohorts").select("id, name").eq("org_id", org.id).eq("archived", false).order("created_at"),
+    db.from("cohorts").select("id, name, parent_id, archived").eq("org_id", org.id).order("created_at"),
   ]);
   fail("memberships read", mems.error);
   fail("consents read", consents.error);
@@ -58,10 +60,11 @@ async function loadOrg(db: SupabaseClient, org: OrgRef): Promise<OrgData> {
     const l = (c.value as { shareLevel?: unknown } | null)?.shareLevel;
     if (!level.has(c.user_id) && isShareLevel(l)) level.set(c.user_id, l);
   }
-  const only = scope(org);
+  const nodes: CohortNode[] = (cohorts.data ?? []).map((c) => ({ id: c.id, name: c.name, parentId: c.parent_id ?? null, archived: !!c.archived }));
+  const only = scope(org, nodes);
   const members: OrgMember[] = (mems.data ?? [])
     .map((m) => ({ userId: m.user_id, email: emailOf(m.users), role: m.role, cohortId: m.cohort_id, joinedAt: m.joined_at, shareLevel: level.get(m.user_id) ?? DEFAULT_SHARE_LEVEL }))
-    .filter((m) => !only || m.cohortId === only);
+    .filter((m) => !only || (m.cohortId !== null && only.has(m.cohortId)));
   const ids = new Set(members.map((m) => m.userId));
   const reports: OrgReport[] = (reps.data ?? [])
     .filter((r) => ids.has(r.user_id))
@@ -79,7 +82,8 @@ async function loadOrg(db: SupabaseClient, org: OrgRef): Promise<OrgData> {
         fillerRate: typeof signals?.fillerRate === "number" ? signals.fillerRate : null,
       };
     });
-  return { members, reports, cohorts: (cohorts.data ?? []).filter((c) => !only || c.id === only) };
+  const shown = nodes.filter((c) => !c.archived && (!only || only.has(c.id))).map((c) => ({ id: c.id, name: pathLabel(nodes, c.id), parentId: c.parentId }));
+  return { members, reports, cohorts: shown };
 }
 
 export async function dashboard(db: SupabaseClient, org: OrgRef): Promise<Dashboard> {

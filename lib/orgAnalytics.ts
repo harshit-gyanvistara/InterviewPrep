@@ -1,3 +1,4 @@
+import { descendantIds, treeOrder } from "./orgSections";
 import { shareAllows, type ShareLevel } from "./permissions";
 
 // Client-safe, pure. What an org's admins see about their members (plans/m2-org.md O.6), always
@@ -123,10 +124,17 @@ export function groupStats(cohortId: string | null, name: string, members: OrgMe
   };
 }
 
-/** Stats for the whole org, then each cohort, then members in no cohort (when there are any). */
-export function analytics(members: OrgMember[], reports: OrgReport[], cohorts: { id: string; name: string }[], now = Date.now()): CohortStats[] {
+/**
+ * Stats for the whole org, then each cohort in tree order (a cohort counts everyone in it and in
+ * the sections below it), then members in no cohort (when there are any).
+ */
+export function analytics(members: OrgMember[], reports: OrgReport[], cohorts: { id: string; name: string; parentId?: string | null }[], now = Date.now()): CohortStats[] {
   const out = [groupStats(null, "Everyone", members, reports, now)];
-  for (const c of cohorts) out.push(groupStats(c.id, c.name, members.filter((m) => m.cohortId === c.id), reports, now));
+  const nodes = cohorts.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId ?? null }));
+  for (const c of treeOrder(nodes)) {
+    const within = new Set(descendantIds(nodes, c.id));
+    out.push(groupStats(c.id, c.name, members.filter((m) => m.cohortId !== null && within.has(m.cohortId)), reports, now));
+  }
   const none = members.filter((m) => !m.cohortId);
   if (cohorts.length && none.length) out.push(groupStats(null, "No cohort", none, reports, now));
   return out;

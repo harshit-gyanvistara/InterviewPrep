@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 import type { AuthUser } from "./auth";
-import { createAssignment, listAssignments, myAssignments, setMemberCohort } from "./orgCohorts";
+import { createAssignment, createCohort, createGroup, listAssignments, listCohorts, myAssignments, setMemberCohort, updateCohort, updateGroup } from "./orgCohorts";
 import type { OrgRef } from "./orgInvites";
 import { checkAssignment, type OrgPracticeDeps } from "./orgPractice";
 import { PACKS } from "./packs";
@@ -53,7 +53,7 @@ function fakeDb(tables: Record<string, Record<string, unknown>[]>) {
 }
 
 describe("assignments for admins and coaches", () => {
-  const body = { title: "Week 1", packId: PACKS[0].id, cohortId: null, dueAt: null, targetMockCount: 2 };
+  const body = { title: "Week 1", packId: PACKS[0].id, cohortId: null, groupId: null, dueAt: null, targetMockCount: 2 };
 
   it("lets admins set one for everyone, and audits it", async () => {
     const { db, writes } = fakeDb({});
@@ -73,6 +73,14 @@ describe("assignments for admins and coaches", () => {
     await expect(createAssignment(fakeDb({}).db, me, org("member"), body)).rejects.toMatchObject({ status: 403 });
     await expect(createAssignment(fakeDb({}).db, me, org("admin"), { ...body, packId: "made-up" })).rejects.toMatchObject({ status: 400 });
     await expect(createAssignment(fakeDb({ cohorts: [] }).db, me, org("admin"), { ...body, cohortId: COHORT_A })).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("accepts one of the org's own rounds, but not an archived one or another org's", async () => {
+    const mine = { ...body, packId: "org-1" };
+    const tables = { org_packs: [{ id: "org-1", org_id: ORG, archived: false }, { id: "org-2", org_id: ORG, archived: true }, { id: "org-3", org_id: "other", archived: false }] };
+    await expect(createAssignment(fakeDb(tables).db, me, org("admin"), mine)).resolves.toBeDefined();
+    await expect(createAssignment(fakeDb(tables).db, me, org("admin"), { ...mine, packId: "org-2" })).rejects.toMatchObject({ status: 400 });
+    await expect(createAssignment(fakeDb(tables).db, me, org("admin"), { ...mine, packId: "org-3" })).rejects.toMatchObject({ status: 400 });
   });
 
   it("counts who has finished, against the right audience", async () => {
@@ -135,19 +143,21 @@ describe("myAssignments", () => {
       ],
     });
     expect(await myAssignments(db, me)).toEqual([
-      { id: "a1", orgId: ORG, orgName: "Sunrise", title: "All", packId: "p", dueAt: "2026-11-01T00:00:00Z", target: 2, done: 1 },
+      { id: "a1", orgId: ORG, orgName: "Sunrise", title: "All", packId: "p", dueAt: "2026-11-01T00:00:00Z", target: 2, done: 1, gateScore: null },
     ]);
   });
 });
 
+const deps = (a: { org_id: string; cohort_id: string | null; group_id?: string | null; pack_id: string } | null, cohortId: string | null = COHORT_A, extra: Partial<OrgPracticeDeps> = {}): OrgPracticeDeps => ({
+  store: { membership: async () => ({ orgId: ORG, userId: "me", role: "member", status: "active", cohortId }), shareLevel: async () => undefined },
+  settings: async () => ({}),
+  assignment: async () => (a ? { group_id: null, ...a } : null),
+  cohorts: async () => [],
+  inGroup: async () => false,
+  ...extra,
+});
 describe("checkAssignment", () => {
   const pack = { id: "behavioural" } as Pack;
-  const deps = (a: { org_id: string; cohort_id: string | null; pack_id: string } | null, cohortId: string | null = COHORT_A): OrgPracticeDeps => ({
-    store: { membership: async () => ({ orgId: ORG, userId: "me", role: "member", status: "active", cohortId }), shareLevel: async () => undefined },
-    settings: async () => ({}),
-    assignment: async () => a,
-  });
-
   it("accepts the assigned round for my cohort or everyone", async () => {
     await expect(checkAssignment(me, ORG, ASSIGN, pack, deps({ org_id: ORG, cohort_id: null, pack_id: "behavioural" }))).resolves.toBeUndefined();
     await expect(checkAssignment(me, ORG, ASSIGN, pack, deps({ org_id: ORG, cohort_id: COHORT_A, pack_id: "behavioural" }))).resolves.toBeUndefined();
@@ -173,5 +183,150 @@ describe("nextAssignment", () => {
     expect(nextAssignment([a, b, c])?.id).toBe("c");
     expect(nextAssignment([a])?.id).toBe("a");
     expect(nextAssignment([])).toBeUndefined();
+  });
+});
+
+// ---- sections and groups (plans/b2b-college.md B.2) ----
+
+const DEPT = "dddddddd-dddd-dddd-dddd-dddddddddddd";
+const YEAR = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee";
+const SECTION = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+const OTHER_DEPT = "99999999-9999-9999-9999-999999999999";
+const GROUP = "12121212-1212-1212-1212-121212121212";
+const treeRows = [
+  { id: DEPT, org_id: ORG, name: "CSE", parent_id: null, archived: false },
+  { id: YEAR, org_id: ORG, name: "2027", parent_id: DEPT, archived: false },
+  { id: SECTION, org_id: ORG, name: "A", parent_id: YEAR, archived: false },
+  { id: OTHER_DEPT, org_id: ORG, name: "ECE", parent_id: null, archived: false },
+];
+const nodes = treeRows.map((c) => ({ id: c.id, name: c.name, parentId: c.parent_id }));
+
+describe("cohort tree", () => {
+  it("lists cohorts in tree order with paths and roll-up counts", async () => {
+    const { db } = fakeDb({
+      cohorts: [treeRows[3], treeRows[2], treeRows[1], treeRows[0]],
+      memberships: [
+        { org_id: ORG, status: "active", user_id: "u1", cohort_id: SECTION },
+        { org_id: ORG, status: "active", user_id: "u2", cohort_id: SECTION },
+        { org_id: ORG, status: "active", user_id: "u3", cohort_id: DEPT },
+      ],
+    });
+    const out = await listCohorts(db, org("admin"));
+    expect(out.map((c) => c.path)).toEqual(["ECE", "CSE", "CSE / 2027", "CSE / 2027 / A"]);
+    const cse = out.find((c) => c.id === DEPT)!;
+    expect([cse.members, cse.membersTotal]).toEqual([1, 3]);
+    expect(out.find((c) => c.id === SECTION)).toMatchObject({ path: "CSE / 2027 / A", members: 2, membersTotal: 2 });
+  });
+
+  it("creates a section under a parent and refuses bad parents and depth", async () => {
+    const { db, writes } = fakeDb({ cohorts: treeRows });
+    await createCohort(db, me, org("admin"), "B", YEAR);
+    expect(writes[0].payload).toMatchObject({ name: "B", parent_id: YEAR });
+    await expect(createCohort(fakeDb({ cohorts: treeRows }).db, me, org("admin"), "x", SECTION)).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/3 levels/) });
+    await expect(createCohort(fakeDb({ cohorts: treeRows }).db, me, org("admin"), "x", "00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({ status: 400 });
+    await expect(createCohort(fakeDb({ cohorts: treeRows }).db, me, org("coach"), "x", null)).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("moves a section but never into itself or below", async () => {
+    await expect(updateCohort(fakeDb({ cohorts: treeRows }).db, me, org("admin"), DEPT, { parentId: SECTION })).rejects.toMatchObject({ status: 400 });
+    const { db, writes } = fakeDb({ cohorts: treeRows });
+    await updateCohort(db, me, org("admin"), YEAR, { parentId: OTHER_DEPT });
+    expect(writes[0].payload).toEqual({ parent_id: OTHER_DEPT });
+    await expect(updateCohort(fakeDb({ cohorts: treeRows }).db, me, org("admin"), "00000000-0000-0000-0000-000000000000", { parentId: null })).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("an assignment for a department covers its sections, and a coach may assign below their own cohort", async () => {
+    const body = { title: "t", packId: PACKS[0].id, cohortId: SECTION, groupId: null, dueAt: null, targetMockCount: 1 };
+    await expect(createAssignment(fakeDb({ cohorts: treeRows }).db, me, org("coach", DEPT), body)).resolves.toBeDefined();
+    await expect(createAssignment(fakeDb({ cohorts: treeRows }).db, me, org("coach", YEAR), { ...body, cohortId: OTHER_DEPT })).rejects.toMatchObject({ status: 403 });
+    await expect(createAssignment(fakeDb({ cohorts: treeRows }).db, me, org("coach", SECTION), { ...body, cohortId: YEAR })).rejects.toMatchObject({ status: 403 });
+
+    const { db } = fakeDb({
+      cohorts: treeRows,
+      assignments: [{ id: "a1", org_id: ORG, title: "CSE", pack_id: "p", cohort_id: DEPT, group_id: null, due_at: null, target_mock_count: 1, created_at: "t" }],
+      memberships: [
+        { org_id: ORG, status: "active", user_id: "u1", cohort_id: SECTION, role: "member" },
+        { org_id: ORG, status: "active", user_id: "u2", cohort_id: OTHER_DEPT, role: "member" },
+        { org_id: ORG, status: "active", user_id: "u3", cohort_id: null, role: "member" },
+      ],
+    });
+    expect((await listAssignments(db, org("admin")))[0]).toMatchObject({ assignedTo: 1 });
+  });
+
+  it("shows a member the work set for a department above their section", async () => {
+    const { db } = fakeDb({
+      cohorts: treeRows,
+      memberships: [{ user_id: "me", status: "active", role: "member", org_id: ORG, cohort_id: SECTION, organizations: { name: "Sunrise" } }],
+      assignments: [
+        { id: "a1", org_id: ORG, cohort_id: DEPT, group_id: null, title: "CSE work", pack_id: "p", due_at: null, target_mock_count: 1 },
+        { id: "a2", org_id: ORG, cohort_id: OTHER_DEPT, group_id: null, title: "ECE work", pack_id: "p", due_at: null, target_mock_count: 1 },
+      ],
+    });
+    expect((await myAssignments(db, me)).map((a) => a.title)).toEqual(["CSE work"]);
+  });
+
+  it("checkAssignment accepts a department assignment for a section inside it", async () => {
+    const pack = { id: "behavioural" } as Pack;
+    const mk = (cohort_id: string) => deps({ org_id: ORG, cohort_id, pack_id: "behavioural" }, SECTION, { cohorts: async () => nodes });
+    await expect(checkAssignment(me, ORG, ASSIGN, pack, mk(DEPT))).resolves.toBeUndefined();
+    await expect(checkAssignment(me, ORG, ASSIGN, pack, mk(OTHER_DEPT))).rejects.toMatchObject({ status: 403 });
+  });
+});
+
+describe("groups", () => {
+  it("creates a group with only active members of this org", async () => {
+    const { db, writes } = fakeDb({ memberships: [{ org_id: ORG, status: "active", user_id: "u1" }, { org_id: ORG, status: "removed", user_id: "u2" }] });
+    await createGroup(db, me, org("admin"), "Amazon drive", ["u1", "u2", "stranger"]);
+    const added = writes.find((w) => w.table === "group_members" && w.op === "insert")!.payload as { user_id: string }[];
+    expect(added.map((r) => r.user_id)).toEqual(["u1"]);
+    await expect(createGroup(fakeDb({}).db, me, org("coach"), "x", [])).rejects.toMatchObject({ status: 403 });
+  });
+
+  it("replaces the member list by adding and removing only the difference", async () => {
+    const { db, writes } = fakeDb({
+      groups: [{ id: GROUP, org_id: ORG }],
+      memberships: [{ org_id: ORG, status: "active", user_id: "u1" }, { org_id: ORG, status: "active", user_id: "u3" }],
+      group_members: [{ group_id: GROUP, user_id: "u1" }, { group_id: GROUP, user_id: "u2" }],
+    });
+    await updateGroup(db, me, org("admin"), GROUP, { memberIds: ["u1", "u3"] });
+    expect(writes.find((w) => w.op === "insert" && w.table === "group_members")!.payload).toEqual([{ group_id: GROUP, user_id: "u3", org_id: ORG }]);
+    expect(writes.some((w) => w.op === "delete" && w.table === "group_members")).toBe(true);
+    await expect(updateGroup(fakeDb({ groups: [] }).db, me, org("admin"), GROUP, { name: "x" })).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("assigns to a group: only its members count, admins only, never alongside a cohort", async () => {
+    const body = { title: "t", packId: PACKS[0].id, cohortId: null, groupId: GROUP, dueAt: null, targetMockCount: 1 };
+    await expect(createAssignment(fakeDb({ groups: [{ id: GROUP, org_id: ORG, archived: false }] }).db, me, org("admin"), body)).resolves.toBeDefined();
+    await expect(createAssignment(fakeDb({ groups: [] }).db, me, org("admin"), body)).rejects.toMatchObject({ status: 404 });
+    await expect(createAssignment(fakeDb({ groups: [{ id: GROUP, org_id: ORG, archived: false }] }).db, me, org("coach"), body)).rejects.toMatchObject({ status: 403 });
+
+    const { db } = fakeDb({
+      assignments: [{ id: "a1", org_id: ORG, title: "Drive", pack_id: "p", cohort_id: null, group_id: GROUP, due_at: null, target_mock_count: 1, created_at: "t" }],
+      memberships: [
+        { org_id: ORG, status: "active", user_id: "u1", cohort_id: null, role: "member" },
+        { org_id: ORG, status: "active", user_id: "u2", cohort_id: null, role: "member" },
+      ],
+      group_members: [{ group_id: GROUP, user_id: "u1", org_id: ORG }],
+    });
+    expect((await listAssignments(db, org("admin")))[0]).toMatchObject({ groupId: GROUP, assignedTo: 1 });
+
+    const mine = fakeDb({
+      memberships: [{ user_id: "me", status: "active", role: "member", org_id: ORG, cohort_id: null, organizations: { name: "Sunrise" } }],
+      assignments: [{ id: "a1", org_id: ORG, cohort_id: null, group_id: GROUP, title: "Drive", pack_id: "p", due_at: null, target_mock_count: 1 }],
+      group_members: [{ group_id: GROUP, user_id: "me", org_id: ORG }],
+    });
+    expect((await myAssignments(mine.db, me)).map((a) => a.title)).toEqual(["Drive"]);
+    const notMine = fakeDb({
+      memberships: [{ user_id: "me", status: "active", role: "member", org_id: ORG, cohort_id: null, organizations: { name: "Sunrise" } }],
+      assignments: [{ id: "a1", org_id: ORG, cohort_id: null, group_id: GROUP, title: "Drive", pack_id: "p", due_at: null, target_mock_count: 1 }],
+    });
+    expect(await myAssignments(notMine.db, me)).toEqual([]);
+  });
+
+  it("checkAssignment for a group needs membership", async () => {
+    const pack = { id: "behavioural" } as Pack;
+    const a = { org_id: ORG, cohort_id: null, group_id: GROUP, pack_id: "behavioural" };
+    await expect(checkAssignment(me, ORG, ASSIGN, pack, deps(a, null, { inGroup: async () => true }))).resolves.toBeUndefined();
+    await expect(checkAssignment(me, ORG, ASSIGN, pack, deps(a, null, { inGroup: async () => false }))).rejects.toMatchObject({ status: 403 });
   });
 });

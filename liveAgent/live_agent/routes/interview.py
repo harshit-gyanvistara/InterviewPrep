@@ -25,7 +25,7 @@ async def turn(body: TurnRequest, response: Response) -> TurnResult:
         task="interview.turn",
         model=MODELS.chat,
         # Static for the whole session (cacheable); the per-turn state rides on the newest message.
-        system=interviewer_system(body.pack, body.config, body.profile, body.domain, body.persona),
+        system=interviewer_system(body.pack, body.config, body.profile, body.domain, body.persona, body.org_context),
         turns=to_turns(recent_window(body.messages), state),
         temperature=0.8 if body.config.persona == "tough" else 0.7,
         # A spoken reply under 60 words: the default thinking was ~5x the reply's tokens (agent:measure).
@@ -48,7 +48,7 @@ async def report(body: ReportRequest, response: Response) -> ReportResult:
     scored = await generate_json(
         task="interview.report",
         model=MODELS.scoring,
-        system=scoring_system(body.pack, body.config, body.profile, body.domain, cov),
+        system=scoring_system(body.pack, body.config, body.profile, body.domain, cov, body.org_context),
         turns=[{"role": "user", "text": f"TRANSCRIPT\n{transcript[: LIMITS.transcript_chars]}"}],
         temperature=0.2,
         # Unset keeps the model's default; `npm run agent:eval -- --thinking low` tries others.

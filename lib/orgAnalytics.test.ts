@@ -77,6 +77,25 @@ describe("group stats", () => {
     ]);
   });
 
+  it("rolls sections up into the department above them, in tree order", () => {
+    const ms = [member("a", "scores", "sec"), member("b", "scores", "year"), member("c", "scores", "ece"), member("d", "scores")];
+    const tree = [
+      { id: "ece", name: "ECE", parentId: null },
+      { id: "dept", name: "CSE", parentId: null },
+      { id: "year", name: "CSE / 2027", parentId: "dept" },
+      { id: "sec", name: "CSE / 2027 / A", parentId: "year" },
+    ];
+    const out = analytics(ms, [], tree, NOW);
+    expect(out.map((g) => [g.name, g.members])).toEqual([
+      ["Everyone", 4],
+      ["ECE", 1],
+      ["CSE", 2],
+      ["CSE / 2027", 2],
+      ["CSE / 2027 / A", 1],
+      ["No cohort", 1],
+    ]);
+  });
+
   it("finds members who've gone quiet", () => {
     const rows = [memberRow(member("a", "scores"), [report("a", 70, 2)]), memberRow(member("b", "scores"), [report("b", 70, 8)]), memberRow(member("c", "scores"), [])];
     expect(inactive(rows, NOW).map((r) => r.userId)).toEqual(["b", "c"]);

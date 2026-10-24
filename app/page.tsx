@@ -7,13 +7,14 @@ import { ArrowRight, Mic, StickyNote } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { MocksLeft } from "@/components/MocksLeft";
 import { NoteCard } from "@/components/notes/NoteCard";
-import { useAllPacks, useMyAssignments, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
+import { useAllPacks, useMyAssignments, useMyPlans, useNoteList, useProfile, useReports, useSessions } from "@/lib/db";
 import { visibleBuiltInPacks } from "@/lib/packs";
 import { isScored, scoreTone, verdictTone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useNotesPanel } from "@/lib/notesContext";
 import { daysUntil, nextAssignment, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
 import { dueText } from "@/components/org/api";
+import { YourPlan } from "@/components/YourPlan";
 
 export default function Dashboard() {
   const { data: profile, loading } = useProfile();
@@ -22,6 +23,7 @@ export default function Dashboard() {
   const { custom: customPacks, catalog, byId, loading: packsLoading } = useAllPacks();
   const { data: notes = [] } = useNoteList();
   const { data: assignments = [] } = useMyAssignments();
+  const { data: plans = [] } = useMyPlans();
   const { openPanel } = useNotesPanel();
 
   if (loading || packsLoading || !profile) return <PageSkeleton />;
@@ -41,7 +43,9 @@ export default function Dashboard() {
   const covered = new Set(reports.map((r) => r.packId)).size;
 
   // An open assignment from an org comes before our own suggestion (plans/m2-org.md O.5).
-  const assigned = nextAssignment(assignments);
+  // A stage still locked behind an earlier required one isn't offered as the next step.
+  const lockedStages = new Set(plans.flatMap((p) => p.stages.filter((s) => s.locked).map((s) => s.assignmentId)));
+  const assigned = nextAssignment(assignments.filter((a) => !lockedStages.has(a.id)));
   const action = inProgress
     ? { title: "Resume your interview", text: `${byId(inProgress.config.packId)?.title} is still open. Pick up where you left off.`, href: `/interview/${inProgress.id}`, cta: "Resume" }
     : lobby
@@ -84,16 +88,22 @@ export default function Dashboard() {
         </div>
       )}
 
+      <YourPlan />
+
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <section className="grid content-start gap-4 rounded-xl bg-card p-6 shadow-float sm:p-7">
-          <div className="flex flex-wrap gap-2">
+        {/* The one bold surface on the dashboard: everything else on this page stays flat and
+            quiet (plans/design-refresh.md), so this card carries the page's single signature
+            moment — a soft brand-color wash, not a loud gradient. */}
+        <section className="relative grid content-start gap-4 overflow-hidden rounded-xl bg-card p-6 shadow-float sm:p-7">
+          <div className="glow -right-20 -top-24 h-64 w-64" aria-hidden="true" />
+          <div className="relative flex flex-wrap gap-2">
             <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">Your next step</span>
             {suggesting && <span className="rounded-full bg-soft px-2.5 py-0.5 text-xs font-medium capitalize text-muted">{rec.pack.durationMin} min · {rec.pack.roundType}</span>}
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight">{action.title}</h2>
-          <p className="max-w-[52ch] text-muted">{action.text}</p>
-          <div className="flex flex-wrap gap-2.5">
-            <Link href={action.href} className="btn btn-primary">{action.cta} <ArrowRight size={16} /></Link>
+          <h2 className="relative text-2xl font-semibold tracking-tight sm:text-[28px]">{action.title}</h2>
+          <p className="relative max-w-[52ch] text-muted">{action.text}</p>
+          <div className="relative flex flex-wrap gap-2.5">
+            <Link href={action.href} className="btn btn-primary btn-lg">{action.cta} <ArrowRight size={16} /></Link>
             {suggesting && <Link href="/practice" className="btn btn-ghost">Choose another round</Link>}
           </div>
         </section>

@@ -42,6 +42,14 @@ describe("checkOrgPractice", () => {
     await expect(checkOrgPractice(me, ORG, pack("mixed-1", "quick"), limited)).resolves.toBeUndefined();
   });
 
+  it("always allows the org's own rounds, even past an allow-list, and nobody else's", async () => {
+    const limited = deps({}, { allowedPackIds: ["behavioural"] });
+    const own = { id: "org-abc", source: "org", orgId: ORG } as Pack;
+    const other = { id: "org-xyz", source: "org", orgId: "22222222-2222-2222-2222-222222222222" } as Pack;
+    await expect(checkOrgPractice(me, ORG, own, limited)).resolves.toBeUndefined();
+    await expect(checkOrgPractice(me, ORG, other, limited)).rejects.toMatchObject({ status: 403, message: expect.stringMatching(/different organisation/) });
+  });
+
   it("needs the secret key (503)", async () => {
     await expect(checkOrgPractice(me, ORG, pack("b"), { store: null, settings: async () => ({}) })).rejects.toMatchObject({ status: 503 });
   });

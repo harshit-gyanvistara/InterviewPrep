@@ -3,9 +3,10 @@ import type { AuthUser } from "./auth";
 import { orgStore, type OrgStore } from "./authz";
 import { hashInviteToken, inviteLink, newInviteToken, newJoinCode, normalizeJoinValue } from "./invites";
 import { ApiError } from "./liveAgent";
+import { lockedFor, resolveAttributes, unknownKeys, type Attributes } from "./memberAttributes";
 import { audit } from "./orgAdmin";
-import { orgSettings } from "./orgSettings";
-import { PERMISSIONS, roleCan, type Permission, type ShareLevel } from "./permissions";
+import { orgSettings, type StudentField } from "./orgSettings";
+import { PERMISSIONS, SHARE_LEVEL_TEXT, roleCan, shareAllows, type Permission, type ShareLevel } from "./permissions";
 import type { InviteCreateBody } from "./schemas";
 
 // Server-only. Invites, join codes and joining (plans/m2-org.md O.2). Every function runs on the
@@ -83,17 +84,20 @@ export async function createInvites(
 ): Promise<{ invites: { email: string | null; link: string; code?: string }[] }> {
   checkCanGrant(org, body.role);
   const expires_at = new Date(Date.now() + body.expiresInDays * 86_400_000).toISOString();
+  // Pre-filled details must be ones the org actually asks for.
+  const unknown = unknownKeys(orgSettings(org).studentFields, body.attributes);
+  if (unknown.length) throw new ApiError(400, `This organisation doesn't ask for: ${unknown.join(", ")}.`);
 
   if (body.kind === "code") {
     const { code, hash } = newJoinCode();
-    fail("invites insert", (await db.from("invites").insert({ org_id: org.id, email: null, token_hash: hash, role: body.role, expires_at, max_uses: body.maxUses, created_by: user.id })).error);
+    fail("invites insert", (await db.from("invites").insert({ org_id: org.id, email: null, token_hash: hash, role: body.role, expires_at, max_uses: body.maxUses, attributes: body.attributes, created_by: user.id })).error);
     await audit(db, { orgId: org.id, actor: user, action: "invite.code_created", details: { role: body.role, maxUses: body.maxUses, expiresInDays: body.expiresInDays } });
     return { invites: [{ email: null, link: inviteLink(code), code }] };
   }
 
   const emails = [...new Set(body.emails)];
   const made = emails.map((email) => ({ email, ...newInviteToken() }));
-  const rows = made.map((m) => ({ org_id: org.id, email: m.email, token_hash: m.hash, role: body.role, expires_at, max_uses: 1, created_by: user.id }));
+  const rows = made.map((m) => ({ org_id: org.id, email: m.email, token_hash: m.hash, role: body.role, expires_at, max_uses: 1, attributes: body.attributes, created_by: user.id }));
   fail("invites insert", (await db.from("invites").insert(rows)).error);
   await audit(db, { orgId: org.id, actor: user, action: "invite.created", details: { role: body.role, count: emails.length, expiresInDays: body.expiresInDays } });
   return { invites: made.map((m) => ({ email: m.email, link: inviteLink(m.token) })) };
@@ -109,14 +113,14 @@ export async function revokeInvite(db: SupabaseClient, user: AuthUser, org: OrgR
 }
 
 export type JoinPreview =
-  | { status: "ok"; orgName: string; role: string; defaultShareLevel: ShareLevel; alreadyMember: boolean }
+  | { status: "ok"; orgName: string; role: string; defaultShareLevel: ShareLevel; minShareLevel: ShareLevel; alreadyMember: boolean; studentFields: StudentField[]; lockedAttributes: Attributes }
   | { status: "invalid" | "expired" | "used_up" | "wrong_email" };
 
 /** What the join screen shows before the member agrees. Doesn't consume the invite. */
 export async function previewInvite(db: SupabaseClient, user: AuthUser, value: string): Promise<JoinPreview> {
   const { data: inv, error } = await db
     .from("invites")
-    .select("org_id, email, role, uses, max_uses, expires_at, organizations(name, settings)")
+    .select("org_id, email, role, uses, max_uses, expires_at, attributes, organizations(name, settings)")
     .eq("token_hash", hashInviteToken(normalizeJoinValue(value)))
     .maybeSingle();
   fail("invites read", error);
@@ -130,7 +134,17 @@ export async function previewInvite(db: SupabaseClient, user: AuthUser, value: s
     if (inv.max_uses !== null && inv.uses >= inv.max_uses) return { status: "used_up" };
     if (inv.email && inv.email.toLowerCase() !== (user.email ?? "").toLowerCase()) return { status: "wrong_email" };
   }
-  return { status: "ok", orgName: org.name, role: inv.role, defaultShareLevel: orgSettings(org).defaultShareLevel, alreadyMember };
+  const settings = orgSettings(org);
+  return {
+    status: "ok",
+    orgName: org.name,
+    role: inv.role,
+    defaultShareLevel: settings.defaultShareLevel,
+    minShareLevel: settings.minShareLevel,
+    alreadyMember,
+    studentFields: settings.studentFields,
+    lockedAttributes: lockedFor(settings.studentFields, inv.attributes),
+  };
 }
 
 const JOIN_ERRORS: Record<string, [number, string]> = {
@@ -143,13 +157,29 @@ const JOIN_ERRORS: Record<string, [number, string]> = {
 };
 
 /** Joins the org through `join_org` (atomic). Returns the org's slug; an existing member just gets it back. */
-export async function joinOrg(db: SupabaseClient, user: AuthUser, value: string, shareLevel: ShareLevel): Promise<{ slug: string; alreadyMember: boolean }> {
+export async function joinOrg(db: SupabaseClient, user: AuthUser, value: string, shareLevel: ShareLevel, entered: Attributes = {}): Promise<{ slug: string; alreadyMember: boolean }> {
+  const tokenHash = hashInviteToken(normalizeJoinValue(value));
+  // Required details are checked here, before the atomic join. An unknown invite skips this and gets
+  // its proper "invalid" answer from join_org. The function re-applies the invite's values itself, so
+  // the browser can never override a locked one.
+  const { data: inv, error: invError } = await db.from("invites").select("attributes, organizations(settings)").eq("token_hash", tokenHash).maybeSingle();
+  fail("invites read", invError);
+  let attributes: Attributes = {};
+  if (inv) {
+    const settings = orgSettings((inv.organizations as unknown as { settings: unknown } | null) ?? {});
+    if (!shareAllows(shareLevel, settings.minShareLevel)) throw new ApiError(400, `This organisation needs you to share at least: ${SHARE_LEVEL_TEXT[settings.minShareLevel].title}.`);
+    const fields = settings.studentFields;
+    const resolved = resolveAttributes(fields, lockedFor(fields, inv.attributes), entered);
+    if (!resolved.ok) throw new ApiError(400, `Fill in: ${resolved.missing.map((f) => f.label).join(", ")}.`);
+    attributes = resolved.attributes;
+  }
   const { data, error } = await db.rpc("join_org", {
-    p_token_hash: hashInviteToken(normalizeJoinValue(value)),
+    p_token_hash: tokenHash,
     p_user: user.id,
     p_email: user.email ?? "",
     p_share_level: shareLevel,
     p_consent_version: ORG_SHARE_CONSENT_VERSION,
+    p_attributes: attributes,
   });
   fail("join_org", error);
   const out = data as { status: string; slug?: string };

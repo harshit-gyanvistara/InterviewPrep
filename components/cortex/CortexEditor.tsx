@@ -162,7 +162,7 @@ function Toolbar({ editor, pageTitle }: { editor: Editor; pageTitle?: string }) 
 
   return (
     <div className="sticky top-0 z-10 grid gap-1.5">
-      <div className="flex flex-wrap items-center gap-1 rounded-2xl bg-card p-1.5 shadow-sm">
+      <div className="glass flex flex-wrap items-center gap-1 rounded-2xl p-1.5">
         {items.map((it, i) => (
           <button
             key={i}

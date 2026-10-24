@@ -5,7 +5,9 @@ import { practisingFor, saveSettings, useMyOrgs, useSettings } from "@/lib/db";
 
 // "Practising for: Me / <org>" (plans/m2-org.md O.4). Only shown to people in at least one org.
 // New interviews carry the choice; the server checks membership and stamps the session, and the
-// interview then counts against that org's plan (decision G3).
+// interview then counts against that org's plan (decision G3). "As me" is the default and is private:
+// only practice done for an org (this switcher, or an assignment) is visible to it, at the member's
+// sharing level.
 
 export function PractisingFor({ className = "" }: { className?: string }) {
   const { data: orgs } = useMyOrgs();
@@ -23,9 +25,9 @@ export function PractisingFor({ className = "" }: { className?: string }) {
         onChange={(e) => void saveSettings({ practisingFor: e.target.value || null }, settings)}
         aria-label="Practising for"
       >
-        <option value="">Practising as me</option>
+        <option value="">Practising as me (private)</option>
         {orgs.map((o) => (
-          <option key={o.id} value={o.id}>For {o.name}</option>
+          <option key={o.id} value={o.id}>For {o.name} (shared with them)</option>
         ))}
       </select>
     </label>

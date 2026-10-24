@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card, PageTitle } from "@/components/Shell";
 import { PageSkeleton } from "@/components/Skeleton";
+import { MemberPlanCard } from "@/components/org/MemberPlanCard";
 import { orgApi, roleLabel } from "@/components/org/api";
 import { useAllPacks } from "@/lib/db";
 import type { MemberDetail } from "@/lib/orgDashboard";
@@ -17,9 +18,12 @@ export default function OrgMember() {
   const { slug, userId } = useParams<{ slug: string; userId: string }>();
   const { byId } = useAllPacks();
   const [data, setData] = useState<MemberDetail | null>(null);
+  const [canWaive, setCanWaive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Whether to offer waivers; the server decides anyway.
+    orgApi<{ permissions: string[] }>(`/api/orgs/${slug}`).then((o) => setCanWaive(o.permissions.includes("assignments.create"))).catch(() => {});
     orgApi<MemberDetail>(`/api/orgs/${slug}/members/${userId}`)
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load this member."));
@@ -43,6 +47,8 @@ export default function OrgMember() {
         <Card className="!p-4"><div className="text-xs text-muted">Readiness</div><div className="text-2xl font-semibold">{m.readiness ?? "–"}</div></Card>
       </div>
       <p className="text-xs text-muted">{SHARE_LEVEL_ADMIN_TEXT[m.shareLevel]} Viewing this page is recorded in the organisation&apos;s audit log.</p>
+
+      <MemberPlanCard slug={slug} userId={userId} canWaive={canWaive} />
 
       <Card className="grid gap-3">
         <h2 className="text-sm font-semibold">Mocks</h2>

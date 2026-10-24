@@ -24,17 +24,22 @@ function splitSummary(summary: string): [string, string] {
   return m ? [m[1], m[2]] : [summary, ""];
 }
 
+// The report's one signature moment — a soft halo in the verdict's own color behind the ring,
+// so the score reads as the headline of the page instead of another flat number in a list.
+const HALO: Record<Tone, string> = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger" };
+
 function ScoreRing({ score, tone }: { score: number; tone: Tone }) {
   const r = 52;
   const c = 2 * Math.PI * r;
   return (
     <div className="relative grid h-32 w-32 shrink-0 place-items-center" role="img" aria-label={`Overall score ${score} out of 100`}>
+      <div className={`absolute inset-2 rounded-full opacity-20 blur-xl ${HALO[tone]}`} aria-hidden="true" />
       <svg viewBox="0 0 120 120" className="absolute inset-0 -rotate-90">
         <circle cx="60" cy="60" r={r} fill="none" stroke="var(--soft)" strokeWidth="10" />
         <circle cx="60" cy="60" r={r} fill="none" stroke={STROKE[tone]} strokeWidth="10" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.max(0, Math.min(100, score)) / 100)} />
       </svg>
-      <div className="text-center">
-        <div className="text-[38px] font-semibold leading-none tracking-tight tabular-nums">{score}</div>
+      <div className="relative text-center">
+        <div className="text-[42px] font-semibold leading-none tracking-tight tabular-nums">{score}</div>
         <div className="mt-1 text-xs text-muted">out of 100</div>
       </div>
     </div>

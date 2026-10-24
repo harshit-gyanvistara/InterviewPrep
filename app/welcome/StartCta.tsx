@@ -10,7 +10,7 @@ export function StartCta() {
   const accounts = auth?.mode !== "off";
   return (
     <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-3">
-      <Link href={accounts ? "/sign-in" : "/onboarding"} className="btn btn-primary !px-5 !py-3 text-[15px]">
+      <Link href={accounts ? "/sign-in" : "/onboarding"} className="btn btn-primary btn-lg">
         Start practising free <ArrowRight size={16} />
       </Link>
       <p className="text-sm text-muted">

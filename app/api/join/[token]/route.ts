@@ -26,8 +26,8 @@ export async function POST(req: Request, ctx: Ctx) {
   try {
     const user = await requireUser();
     await enforceRateLimit(req, "org.join", { userId: user.id });
-    const { shareLevel } = await parseBody(req, JoinBodySchema);
-    return NextResponse.json(await joinOrg(adminDb(), user, decodeURIComponent((await ctx.params).token), shareLevel));
+    const { shareLevel, attributes } = await parseBody(req, JoinBodySchema);
+    return NextResponse.json(await joinOrg(adminDb(), user, decodeURIComponent((await ctx.params).token), shareLevel, attributes));
   } catch (e) {
     return errorResponse(e);
   }

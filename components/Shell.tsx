@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Moon, Settings, Sun } from "lucide-react";
+import { Building2, Moon, Settings, ShieldCheck, Sun } from "lucide-react";
 import { Logo } from "@/components/Logo";
-import { useAuth, useProfile } from "@/lib/db";
+import { useAuth, useMyOrgs, useProfile } from "@/lib/db";
 import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
 import { PENDING_JOIN_KEY, isBarePage, redirectFor } from "@/lib/pages";
@@ -28,7 +28,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { data: auth, loading: authLoading } = useAuth();
   const { data: profile, loading: profileLoading, error: profileError } = useProfile();
-  const loading = authLoading || profileLoading;
+  const { data: myOrgs, loading: orgsLoading } = useMyOrgs();
+  const loading = authLoading || profileLoading || orgsLoading;
   const loadError = auth?.error ?? profileError;
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
@@ -44,7 +45,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const bare = isBarePage(path);
   const onboarded = !!profile?.onboarded;
   // Never guess when the server couldn't be reached: that could send an onboarded user to onboarding.
-  const redirect = loading || loadError || !auth ? null : redirectFor(path, auth, onboarded, pendingJoin());
+  // Platform admins and organisation staff have their own home; they needn't fill in a student profile first.
+  const staffOrg = myOrgs?.find((o) => o.role === "owner" || o.role === "admin" || o.role === "coach");
+  const workHome = auth?.superAdmin ? "/admin/orgs" : staffOrg ? `/org/${staffOrg.slug}` : null;
+  const redirect = loading || loadError || !auth ? null : redirectFor(path, auth, onboarded, pendingJoin(), workHome);
 
   // Route guard. proxy.ts already sends signed-out page loads to /welcome; this covers client-side navigation.
   useEffect(() => {
@@ -55,7 +59,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const inInterview = path.startsWith("/interview/");
   // The bottom tab bar replaces the top nav on phones; hide it on the auth flow and during an
   // active interview, where a full-screen, distraction-free layout matters more than navigation.
-  const showMobileNav = !bare && !inInterview;
+  const staffOnly = !onboarded && !!workHome;
+  const showMobileNav = !bare && !inInterview && !staffOnly;
+  const orgLinks = (myOrgs ?? []).slice(0, 3);
 
   return (
     <div className="relative flex h-screen flex-col bg-bg">
@@ -65,7 +71,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <Logo />
           </Link>
 
-          {!bare && (
+          {!bare && !staffOnly && (
             <nav className="hidden min-w-0 flex-1 items-center gap-1 lg:flex" aria-label="Main">
               {NAV.map(({ href, label }) => (
                 <Link
@@ -81,18 +87,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
           )}
 
           <div className="ml-auto flex items-center gap-1">
-            {!bare && <PractisingFor className="hidden sm:flex" />}
-            {!bare && <SyncNote />}
-            <button onClick={toggleTheme} aria-label="Toggle theme" className="grid h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink active:scale-95">
+            {!bare && auth?.superAdmin && (
+              <Link href="/admin/orgs" className={`flex h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium hover:bg-soft ${path.startsWith("/admin") ? "bg-soft text-ink" : "text-muted hover:text-ink"}`}>
+                <ShieldCheck size={16} aria-hidden /> <span className="hidden sm:inline">Admin</span>
+              </Link>
+            )}
+            {!bare && orgLinks.map((o) => (
+              <Link key={o.id} href={`/org/${o.slug}`} className={`flex h-11 max-w-44 items-center gap-1.5 rounded-lg px-3 text-sm font-medium hover:bg-soft ${path.startsWith(`/org/${o.slug}`) ? "bg-soft text-ink" : "text-muted hover:text-ink"}`}>
+                <Building2 size={16} aria-hidden className="shrink-0" /> <span className="hidden truncate sm:inline">{o.role === "member" ? o.name : `${o.name} · ${o.role}`}</span>
+              </Link>
+            ))}
+            {!bare && !staffOnly && <PractisingFor className="hidden sm:flex" />}
+            {!bare && !staffOnly && <SyncNote />}
+            <button onClick={toggleTheme} aria-label="Toggle theme" className="grid h-11 w-11 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink active:scale-95">
               {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
             </button>
-            {onboarded && (
+            {(onboarded || staffOnly) && (
               <>
-                <Link href="/settings" aria-label="Settings" className="hidden h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink sm:grid">
+                <Link href="/settings" aria-label="Settings" className="hidden h-11 w-11 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink sm:grid">
                   <Settings size={17} />
                 </Link>
-                <Link href="/settings" className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent active:scale-95" title={profile?.name}>
-                  {profile?.name?.[0]?.toUpperCase()}
+                <Link href="/settings" className="grid h-11 w-11 place-items-center rounded-full text-sm font-semibold text-accent active:scale-95" title={profile?.name}>
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-accent-soft">{profile?.name?.[0]?.toUpperCase()}</span>
                 </Link>
               </>
             )}
@@ -128,7 +144,7 @@ export function Card({ children, className = "" }: { children: React.ReactNode; 
 export function PageTitle({ title, sub }: { title: string; sub?: string }) {
   return (
     <div className="mb-6 sm:mb-8">
-      <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px] sm:leading-9">{title}</h1>
+      <h1 className="h1 font-semibold">{title}</h1>
       {sub && <p className="mt-1.5 text-muted">{sub}</p>}
     </div>
   );

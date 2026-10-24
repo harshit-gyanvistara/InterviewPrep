@@ -21,8 +21,11 @@ const LEGAL_PAGES = ["/terms", "/privacy"];
  * on): public pages only. Signed in but not onboarded: onboarding (with AUTH_MODE=off, the landing
  * page first, as before accounts). Onboarded: anything but the landing and sign-in pages.
  * Invite pages are open to all; a pending invite (opened while signed out) comes first after sign-in.
+ * `workHome` is where a platform admin or an organisation's staff live (/admin/orgs, /org/<slug>): until
+ * they've filled in a student profile they go there instead of student onboarding, and may stay on
+ * the admin, organisation and settings pages (plans/b2b-college.md).
  */
-export function redirectFor(path: string, auth: AuthState, onboarded: boolean, pendingJoin: string | null = null): string | null {
+export function redirectFor(path: string, auth: AuthState, onboarded: boolean, pendingJoin: string | null = null, workHome: string | null = null): string | null {
   const signedIn = auth.mode === "off" || !!auth.user;
   if (isJoinPage(path)) return null;
   if (!signedIn) return PUBLIC_PAGES.includes(path) ? null : "/welcome";
@@ -30,6 +33,7 @@ export function redirectFor(path: string, auth: AuthState, onboarded: boolean, p
   if (pendingJoin && auth.mode !== "off") return `/join/${encodeURIComponent(pendingJoin)}`;
   if (!onboarded) {
     if (path === "/onboarding" || LEGAL_PAGES.includes(path)) return null;
+    if (workHome && auth.mode !== "off") return path.startsWith("/admin") || path.startsWith("/org/") || path === "/settings" ? null : workHome;
     if (auth.mode === "off") return path === "/welcome" ? null : "/welcome";
     return "/onboarding";
   }

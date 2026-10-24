@@ -40,7 +40,7 @@ describe("myOrgs", () => {
     const { db } = fakeDb({
       memberships: [
         { role: "member", organizations: { id: "a", name: "A", slug: "a" } },
-        { role: "admin", organizations: { id: "b", name: "B", slug: "b", settings: { allowedPackIds: ["behavioural"] } } },
+        { role: "admin", attributes: { branch: "CSE", old: "x" }, organizations: { id: "b", name: "B", slug: "b", settings: { allowedPackIds: ["behavioural"], minShareLevel: "activity", studentFields: [{ key: "branch", label: "Branch", required: true }] } } },
       ],
       // Newest first, as the query orders them.
       consents: [
@@ -49,8 +49,8 @@ describe("myOrgs", () => {
       ],
     });
     expect(await myOrgs(db, me)).toEqual([
-      { id: "a", name: "A", slug: "a", role: "member", shareLevel: "full", allowedPackIds: null },
-      { id: "b", name: "B", slug: "b", role: "admin", shareLevel: "scores", allowedPackIds: ["behavioural"] },
+      { id: "a", name: "A", slug: "a", role: "member", shareLevel: "full", allowedPackIds: null, minShareLevel: "activity", studentFields: [], attributes: {} },
+      { id: "b", name: "B", slug: "b", role: "admin", shareLevel: "scores", allowedPackIds: ["behavioural"], minShareLevel: "activity", studentFields: [{ key: "branch", label: "Branch", required: true }], attributes: { branch: "CSE" } },
     ]);
   });
 });
@@ -62,6 +62,16 @@ describe("setShareLevel", () => {
     expect(writes.map((w) => `${w.table}.${w.op}`)).toEqual(["consents.update", "consents.insert", "audit_logs.insert"]);
     expect(writes[0].payload).toMatchObject({ revoked_at: expect.any(String) });
     expect(writes[1].payload).toMatchObject({ user_id: "me", org_id: "org-1", kind: "org_share", value: { shareLevel: "activity" } });
+  });
+});
+
+describe("setShareLevel minimum", () => {
+  it("won't go below what the org requires", async () => {
+    const strict = { ...org("member"), settings: { minShareLevel: "scores" } };
+    const { db, writes } = fakeDb();
+    await expect(setShareLevel(db, me, strict, "activity")).rejects.toMatchObject({ status: 400, message: expect.stringContaining("Activity and scores") });
+    expect(writes).toEqual([]);
+    await expect(setShareLevel(fakeDb().db, me, strict, "full")).resolves.toBeUndefined();
   });
 });
 

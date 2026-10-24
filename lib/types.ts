@@ -76,8 +76,12 @@ export interface Pack {
   style: string;
   /** "all" = shown for every profile. Otherwise the ids of the fields (lib/domains) it is shown for. */
   domains: "all" | string[];
-  /** "jd" = generated from a job description. "quick" = assembled by the Quick Mock builder from one or more rounds. Absent for the built-in library. */
-  source?: "jd" | "quick";
+  /** "jd" = generated from a job description. "quick" = assembled by the Quick Mock builder from one or more rounds. "org" = owned by an organisation (see orgId). Absent for the built-in library. */
+  source?: "jd" | "quick" | "org";
+  /** The owning organisation, for source "org". */
+  orgId?: string;
+  /** An org round taken out of use: still readable for old sessions, not offered for new ones. */
+  archived?: boolean;
   createdAt?: number;
 }
 

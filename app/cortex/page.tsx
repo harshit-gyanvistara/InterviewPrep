@@ -308,7 +308,7 @@ function PageEditorInner({ page, onBack, className }: { page: CortexPage; onBack
             {icon}
           </button>
           {showIcons && (
-            <div className="glass absolute left-0 top-11 z-20 grid grid-cols-8 gap-1 rounded-2xl p-2 shadow-xl">
+            <div className="glass absolute left-0 top-11 z-20 grid grid-cols-8 gap-1 rounded-2xl p-2">
               {PAGE_ICONS.map((e) => (
                 <button
                   key={e}

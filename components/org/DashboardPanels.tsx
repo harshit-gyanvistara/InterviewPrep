@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Download, Trash2 } from "lucide-react";
+import { BellRing, Download, Trash2 } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { useConfirm } from "@/lib/dialogContext";
 import { SHARE_LEVEL_TEXT, type Permission } from "@/lib/permissions";
 import type { Dashboard, AuditEntry } from "@/lib/orgDashboard";
 import { MIN_GROUP } from "@/lib/orgAnalytics";
+import type { Attention } from "@/lib/orgAttention";
+import type { NudgeResult } from "@/lib/orgReminders";
 import { orgApi, roleLabel } from "./api";
 
 // The org admin dashboard (plans/m2-org.md O.6): overview, members, analytics and the audit log.
@@ -49,7 +51,101 @@ const ExportButton = ({ slug }: { slug: string }) => (
   </a>
 );
 
-export function OverviewPanel({ slug }: { slug: string }) {
+/** The few people who need a nudge: behind on due work, or struggling by score. Reminders go by email, once a day at most. */
+function AttentionCard({ slug, canNudge }: { slug: string; canNudge: boolean }) {
+  const [data, setData] = useState<Attention | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setData(await orgApi<Attention>(`/api/orgs/${slug}/attention`));
+    } catch {
+      setData(null);
+    }
+  }, [slug]);
+  useEffect(() => {
+    // Loading on mount is the point of this effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void load();
+  }, [load]);
+
+  if (!data || (!data.overdue.length && !data.atRisk.length)) return null;
+  const key = (userId: string, assignmentId: string) => `${userId}|${assignmentId}`;
+  const toggle = (k: string) => setPicked((p) => (p.has(k) ? new Set([...p].filter((x) => x !== k)) : new Set(p).add(k)));
+  const allKeys = data.overdue.flatMap((m) => m.items.map((i) => key(m.userId, i.assignmentId)));
+
+  const send = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const targets = [...picked].map((k) => {
+        const [userId, assignmentId] = k.split("|");
+        return { userId, assignmentId };
+      });
+      const r = await orgApi<NudgeResult>(`/api/orgs/${slug}/nudge`, { method: "POST", body: { targets } });
+      setMsg(
+        r.notConfigured
+          ? "Email isn't set up on this server yet, so nothing was sent."
+          : [`Sent ${r.sent} reminder${r.sent === 1 ? "" : "s"}.`, r.tooSoon ? `${r.tooSoon} already reminded today.` : "", r.notApplicable ? `${r.notApplicable} skipped (no longer behind, or no email).` : ""].filter(Boolean).join(" "),
+      );
+      setPicked(new Set());
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Couldn't send.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Card className="grid gap-4">
+      <h2 className="text-sm font-semibold">Needs attention</h2>
+      {data.overdue.length > 0 && (
+        <div className="grid gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm text-muted">Behind on work that was due ({data.overdue.length} {data.overdue.length === 1 ? "person" : "people"})</h3>
+            {canNudge && (
+              <span className="flex items-center gap-2">
+                <button className="text-sm text-muted hover:text-ink" onClick={() => setPicked(new Set(picked.size === allKeys.length ? [] : allKeys))}>{picked.size === allKeys.length ? "Clear" : "Select all"}</button>
+                <button className="btn btn-primary !py-1.5" disabled={busy || picked.size === 0} onClick={send}><BellRing size={14} /> Remind {picked.size || ""}</button>
+              </span>
+            )}
+          </div>
+          <ul className="grid gap-1 text-sm">
+            {data.overdue.map((m) => (
+              <li key={m.userId} className="grid gap-1 border-b border-line py-2 last:border-0">
+                <span className="font-medium">{m.email ?? "A member"}</span>
+                {m.items.map((i) => (
+                  <label key={i.assignmentId} className="flex items-center gap-2 pl-2 text-muted">
+                    {canNudge && <input type="checkbox" checked={picked.has(key(m.userId, i.assignmentId))} onChange={() => toggle(key(m.userId, i.assignmentId))} />}
+                    <span>{i.title} · was due {day(i.dueAt)}</span>
+                  </label>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {data.atRisk.length > 0 && (
+        <div className="grid gap-2">
+          <h3 className="text-sm text-muted">Readiness under {data.threshold} (members who share scores)</h3>
+          <ul className="grid gap-1 text-sm">
+            {data.atRisk.map((m) => (
+              <li key={m.userId} className="flex justify-between gap-2">
+                <Link className="hover:underline" href={`/org/${slug}/members/${m.userId}`}>{m.email ?? "A member"}</Link>
+                <span className="tabular-nums text-muted">{m.readiness}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {msg && <p className="text-sm text-muted">{msg}</p>}
+    </Card>
+  );
+}
+
+export function OverviewPanel({ slug, canNudge = false }: { slug: string; canNudge?: boolean }) {
   const { data, error } = useDashboard(slug);
   if (error) return <Card><p className="text-sm text-muted">{error}</p></Card>;
   if (!data) return <Card><p className="text-sm text-muted">Loading…</p></Card>;
@@ -62,6 +158,7 @@ export function OverviewPanel({ slug }: { slug: string }) {
         <Stat label="Assignments" value={String(o.assignments.open)} hint={o.assignments.completionRate !== null ? `${o.assignments.completionRate}% completed` : undefined} />
         <Stat label="Quiet for 7+ days" value={String(o.inactive.length)} hint="members with no practice" />
       </div>
+      <AttentionCard slug={slug} canNudge={canNudge} />
       {o.inactive.length > 0 && (
         <Card className="grid gap-2">
           <h2 className="text-sm font-semibold">Haven&apos;t practised in the last 7 days</h2>

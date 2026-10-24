@@ -2,9 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuthUser } from "./auth";
 import { ApiError } from "./liveAgent";
 import { audit } from "./orgAdmin";
-import { orgSettings } from "./orgSettings";
+import { lockedFor, type Attributes } from "./memberAttributes";
+import { orgSettings, type StudentField } from "./orgSettings";
 import { ORG_SHARE_CONSENT_VERSION, type OrgRef } from "./orgInvites";
-import { DEFAULT_SHARE_LEVEL, isShareLevel, type ShareLevel } from "./permissions";
+import { DEFAULT_SHARE_LEVEL, SHARE_LEVEL_TEXT, isShareLevel, shareAllows, type ShareLevel } from "./permissions";
 
 // Server-only. A member's own side of an organisation (plans/m2-org.md O.3, D11): see the orgs
 // they're in, change what each may see, and leave. The member owns these choices; nobody else
@@ -18,6 +19,11 @@ export interface MyOrg {
   shareLevel: ShareLevel;
   /** Rounds the org allows (null = all), so /practice can show only those when practising for it. */
   allowedPackIds: string[] | null;
+  /** The least this org lets members share ("activity" = no minimum). */
+  minShareLevel: ShareLevel;
+  /** What the org asks members for, and this member's answers (plans/b2b-college.md B.1). */
+  studentFields: StudentField[];
+  attributes: Attributes;
 }
 
 const fail = (what: string, error: { message: string } | null) => {
@@ -46,11 +52,13 @@ async function shareLevels(db: SupabaseClient, userId: string, orgIds: string[])
 
 /** Every org the user is an active member of, with their role and current share level. */
 export async function myOrgs(db: SupabaseClient, user: AuthUser): Promise<MyOrg[]> {
-  const { data, error } = await db.from("memberships").select("role, organizations(id, name, slug, settings)").eq("user_id", user.id).eq("status", "active").order("joined_at");
+  const { data, error } = await db.from("memberships").select("role, attributes, organizations(id, name, slug, settings)").eq("user_id", user.id).eq("status", "active").order("joined_at");
   fail("memberships read", error);
   const rows = (data ?? []).flatMap((m) => {
     const o = m.organizations as unknown as { id: string; name: string; slug: string; settings: unknown } | null;
-    return o ? [{ id: o.id, name: o.name, slug: o.slug, role: m.role as string, allowedPackIds: orgSettings(o).allowedPackIds }] : [];
+    if (!o) return [];
+    const settings = orgSettings(o);
+    return [{ id: o.id, name: o.name, slug: o.slug, role: m.role as string, allowedPackIds: settings.allowedPackIds, minShareLevel: settings.minShareLevel, studentFields: settings.studentFields, attributes: lockedFor(settings.studentFields, m.attributes) }];
   });
   const levels = await shareLevels(db, user.id, rows.map((r) => r.id));
   return rows.map((r) => ({ ...r, shareLevel: levels.get(r.id) ?? DEFAULT_SHARE_LEVEL }));
@@ -64,6 +72,8 @@ async function revokeShare(db: SupabaseClient, userId: string, orgId: string) {
 
 /** Changes what the org may see. Takes effect at once: canViewMember() reads the latest consent. */
 export async function setShareLevel(db: SupabaseClient, user: AuthUser, org: OrgRef, shareLevel: ShareLevel) {
+  const { minShareLevel } = orgSettings(org);
+  if (!shareAllows(shareLevel, minShareLevel)) throw new ApiError(400, `${org.name} needs you to share at least: ${SHARE_LEVEL_TEXT[minShareLevel].title}.`);
   await revokeShare(db, user.id, org.id);
   const { error } = await db.from("consents").insert({ user_id: user.id, org_id: org.id, kind: "org_share", value: { shareLevel }, version: ORG_SHARE_CONSENT_VERSION });
   fail("consents insert", error);

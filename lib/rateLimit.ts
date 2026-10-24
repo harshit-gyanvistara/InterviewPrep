@@ -28,6 +28,7 @@ export const RATE_LIMITS = {
   "org.join": { limit: 10, windowSec: 600 },
   // Creating invites, per user.
   "org.invite": { limit: 30, windowSec: 600 },
+  "org.nudge": { limit: 20, windowSec: 600 },
 } satisfies Record<string, Rule>;
 
 export type Bucket = keyof typeof RATE_LIMITS;

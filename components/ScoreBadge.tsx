@@ -14,7 +14,7 @@ export function ScoreBadge({ score, max = 100, size = 44 }: { score: number | nu
   const tone = score === null ? "warn" : scoreTone(max === 10 ? score * 10 : score);
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-[10px] font-semibold tabular-nums ${TONE[tone]}`}
+      className={`grid shrink-0 place-items-center rounded-lg font-semibold tabular-nums ${TONE[tone]}`}
       style={{ width: size, height: size, fontSize: size * 0.34 }}
       title={score === null ? "Too short to score" : undefined}
     >

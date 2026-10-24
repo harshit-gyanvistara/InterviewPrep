@@ -302,6 +302,39 @@ export interface components {
             chat?: components["schemas"]["ModelCheck"] | null;
             scoring?: components["schemas"]["ModelCheck"] | null;
         };
+        /**
+         * OrgContext
+         * @description What the candidate's organisation (a college, a company) wants the round to reflect. Core merges
+         *     the organisation's and the candidate's section's settings and sends them only for practice done
+         *     for an organisation, so solo practice never carries one.
+         */
+        OrgContext: {
+            /**
+             * Orgname
+             * @default
+             */
+            orgName?: string;
+            /**
+             * Companies
+             * @default
+             */
+            companies?: string;
+            /**
+             * Roles
+             * @default
+             */
+            roles?: string;
+            /**
+             * Techstack
+             * @default
+             */
+            techStack?: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes?: string;
+        };
         /** Pack */
         Pack: {
             /** Title */
@@ -395,6 +428,7 @@ export interface components {
             profile: components["schemas"]["Profile"];
             pack: components["schemas"]["Pack"];
             domain: components["schemas"]["DomainIn"];
+            orgContext?: components["schemas"]["OrgContext"] | null;
             /** Interviewername */
             interviewerName: string;
             /**
@@ -488,6 +522,7 @@ export interface components {
             pack: components["schemas"]["Pack"];
             persona: components["schemas"]["PersonaIn"];
             domain: components["schemas"]["DomainIn"];
+            orgContext?: components["schemas"]["OrgContext"] | null;
             /**
              * Messages
              * @default []

@@ -28,8 +28,8 @@ export async function POST(req: Request, ctx: Ctx) {
     const user = await requireUser();
     const db = adminDb();
     const org = await orgForMember(db, user, (await ctx.params).slug);
-    const { name } = await parseBody(req, CohortCreateBodySchema);
-    return NextResponse.json(await createCohort(db, user, org, name), { status: 201 });
+    const { name, parentId } = await parseBody(req, CohortCreateBodySchema);
+    return NextResponse.json(await createCohort(db, user, org, name, parentId), { status: 201 });
   } catch (e) {
     return errorResponse(e);
   }

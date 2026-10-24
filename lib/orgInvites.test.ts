@@ -5,7 +5,7 @@ import type { Membership, OrgStore } from "./authz";
 import { hashInviteToken, newJoinCode, normalizeJoinValue } from "./invites";
 import { createInvites, joinOrg, orgForMember, previewInvite, revokeInvite, type OrgRef } from "./orgInvites";
 import { redirectFor } from "./pages";
-import { InviteCreateBodySchema } from "./schemas";
+import { InviteCreateBodySchema, JoinBodySchema } from "./schemas";
 
 // Invites, join codes and joining (plans/m2-org.md O.2). The atomic join itself is SQL
 // (join_org) and is tested against a real database in supabase/tests/org-rls.test.ts.
@@ -69,8 +69,8 @@ describe("join codes and tokens", () => {
 
 describe("invite schema", () => {
   it("validates email invites and codes", () => {
-    expect(InviteCreateBodySchema.parse({ kind: "email", emails: ["A@College.edu"] })).toEqual({ kind: "email", emails: ["a@college.edu"], role: "member", expiresInDays: 14 });
-    expect(InviteCreateBodySchema.parse({ kind: "code" })).toEqual({ kind: "code", role: "member", expiresInDays: 14, maxUses: null });
+    expect(InviteCreateBodySchema.parse({ kind: "email", emails: ["A@College.edu"] })).toEqual({ kind: "email", emails: ["a@college.edu"], role: "member", expiresInDays: 14, attributes: {} });
+    expect(InviteCreateBodySchema.parse({ kind: "code" })).toEqual({ kind: "code", role: "member", expiresInDays: 14, maxUses: null, attributes: {} });
     expect(InviteCreateBodySchema.safeParse({ kind: "email", emails: [] }).success).toBe(false);
     expect(InviteCreateBodySchema.safeParse({ kind: "code", role: "superuser" }).success).toBe(false);
   });
@@ -79,7 +79,7 @@ describe("invite schema", () => {
 describe("createInvites", () => {
   it("lets admins invite members, with one single-use link per email and only hashes stored", async () => {
     const { db, writes } = fakeDb();
-    const out = await createInvites(db, admin, as("admin"), { kind: "email", emails: ["a@college.edu", "b@college.edu", "a@college.edu"], role: "member", expiresInDays: 14 });
+    const out = await createInvites(db, admin, as("admin"), { kind: "email", emails: ["a@college.edu", "b@college.edu", "a@college.edu"], role: "member", expiresInDays: 14, attributes: {} });
     expect(out.invites.map((i) => i.email)).toEqual(["a@college.edu", "b@college.edu"]);
     const rows = writes.find((w) => w.table === "invites")!.payload as { token_hash: string; max_uses: number; email: string }[];
     expect(rows).toHaveLength(2);
@@ -90,7 +90,7 @@ describe("createInvites", () => {
 
   it("returns a join code once and stores its hash", async () => {
     const { db, writes } = fakeDb();
-    const out = await createInvites(db, admin, as("admin"), { kind: "code", role: "member", expiresInDays: 14, maxUses: 60 });
+    const out = await createInvites(db, admin, as("admin"), { kind: "code", role: "member", expiresInDays: 14, maxUses: 60, attributes: {} });
     const { code } = out.invites[0];
     expect(code).toBeDefined();
     const row = writes.find((w) => w.table === "invites")!.payload as { token_hash: string; email: null; max_uses: number };
@@ -98,7 +98,7 @@ describe("createInvites", () => {
   });
 
   it("refuses members, and owner invites from anyone but an owner", async () => {
-    const body = { kind: "email" as const, emails: ["x@college.edu"], role: "member" as const, expiresInDays: 14 };
+    const body = { kind: "email" as const, emails: ["x@college.edu"], role: "member" as const, expiresInDays: 14, attributes: {} };
     await expect(createInvites(fakeDb().db, member, as("member"), body)).rejects.toMatchObject({ status: 403 });
     await expect(createInvites(fakeDb().db, admin, as("admin"), { ...body, role: "owner" })).rejects.toMatchObject({ status: 403 });
     await expect(createInvites(fakeDb().db, owner, as("owner"), { ...body, role: "owner" })).resolves.toBeDefined();
@@ -131,7 +131,7 @@ describe("previewInvite", () => {
 
   it("shows the org and its default share level", async () => {
     const out = await previewInvite(fakeDb({ select: { invites: invite() } }).db, member, "K7QM4-XR2PD");
-    expect(out).toEqual({ status: "ok", orgName: "Sunrise", role: "member", defaultShareLevel: "full", alreadyMember: false });
+    expect(out).toEqual({ status: "ok", orgName: "Sunrise", role: "member", defaultShareLevel: "full", minShareLevel: "activity", alreadyMember: false, studentFields: [], lockedAttributes: {} });
   });
 
   it("explains invalid, expired, used-up and wrong-email invites", async () => {
@@ -178,5 +178,79 @@ describe("page routing for invites", () => {
     expect(redirectFor("/onboarding", signedIn as never, false, "K7QM4-XR2PD")).toBe("/join/K7QM4-XR2PD");
     expect(redirectFor("/", signedIn as never, true, "tok")).toBe("/join/tok");
     expect(redirectFor("/", out as never, false, "tok")).toBe("/welcome");
+  });
+});
+
+// Details asked on joining (plans/b2b-college.md B.1).
+describe("member details on invites and joining", () => {
+  const FIELDS = [
+    { key: "branch", label: "Branch", required: true },
+    { key: "year", label: "Graduation year", required: false },
+  ];
+  const withFields: OrgRef = { ...ORG, role: "admin", settings: { studentFields: FIELDS } };
+  const inviteRow = (attributes: Record<string, string> = {}) => ({ attributes, organizations: { settings: { studentFields: FIELDS } } });
+
+  it("accepts details in the invite and join bodies and rejects bad keys", () => {
+    expect(InviteCreateBodySchema.parse({ kind: "code", attributes: { branch: " CSE " } })).toMatchObject({ attributes: { branch: "CSE" } });
+    expect(InviteCreateBodySchema.safeParse({ kind: "code", attributes: { "Bad Key": "x" } }).success).toBe(false);
+    expect(InviteCreateBodySchema.safeParse({ kind: "code", attributes: { branch: "x".repeat(81) } }).success).toBe(false);
+    expect(JoinBodySchema.parse({ shareLevel: "scores" })).toEqual({ shareLevel: "scores", attributes: {} });
+  });
+
+  it("stores the pre-filled details on the invite", async () => {
+    const { db, writes } = fakeDb();
+    await createInvites(db, admin, withFields, { kind: "code", role: "member", expiresInDays: 14, maxUses: null, attributes: { branch: "CSE", year: "2027" } });
+    expect(writes.find((w) => w.table === "invites")!.payload).toMatchObject({ attributes: { branch: "CSE", year: "2027" } });
+  });
+
+  it("refuses details the org doesn't ask for", async () => {
+    await expect(createInvites(fakeDb().db, admin, withFields, { kind: "code", role: "member", expiresInDays: 14, maxUses: null, attributes: { hobby: "chess" } })).rejects.toMatchObject({ status: 400, message: expect.stringContaining("hobby") });
+  });
+
+  it("shows the fields to fill in and the values the invite locks", async () => {
+    const preview = { org_id: ORG.id, email: null, role: "member", uses: 0, max_uses: null, expires_at: null, ...inviteRow({ branch: "CSE", removed: "x" }) };
+    const out = await previewInvite(fakeDb({ select: { invites: preview } }).db, member, "x");
+    expect(out).toMatchObject({ status: "ok", studentFields: FIELDS, lockedAttributes: { branch: "CSE" } });
+  });
+
+  it("blocks a join with a required detail missing, without calling join_org", async () => {
+    const { db } = fakeDb({ select: { invites: inviteRow() }, rpc: { status: "joined", slug: "sunrise" } });
+    await expect(joinOrg(db, member, "x", "scores", { year: "2027" })).rejects.toMatchObject({ status: 400, message: "Fill in: Branch." });
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("sends what the member entered, and the invite's locked values win", async () => {
+    const { db } = fakeDb({ select: { invites: inviteRow({ branch: "CSE" }) }, rpc: { status: "joined", slug: "sunrise" } });
+    await joinOrg(db, member, "x", "scores", { branch: "ECE", year: "2027", hobby: "chess" });
+    expect(db.rpc).toHaveBeenCalledWith("join_org", expect.objectContaining({ p_attributes: { branch: "CSE", year: "2027" } }));
+  });
+
+  it("leaves an unknown invite to join_org to answer", async () => {
+    const { db } = fakeDb({ rpc: { status: "invalid" } });
+    await expect(joinOrg(db, member, "nope", "scores", {})).rejects.toMatchObject({ status: 404 });
+    expect(db.rpc).toHaveBeenCalledOnce();
+  });
+});
+
+// Minimum sharing level (plans/b2b-college.md B.4).
+describe("minimum share level on joining", () => {
+  const inviteWith = (min?: string) => ({ attributes: {}, organizations: { settings: min ? { minShareLevel: min } : {} } });
+
+  it("refuses a lower choice than the org requires, without calling join_org", async () => {
+    const { db } = fakeDb({ select: { invites: inviteWith("scores") }, rpc: { status: "joined", slug: "sunrise" } });
+    await expect(joinOrg(db, member, "x", "activity")).rejects.toMatchObject({ status: 400, message: expect.stringContaining("Activity and scores") });
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("accepts the minimum or more, and anything when there is no minimum", async () => {
+    for (const [min, choice] of [["scores", "scores"], ["scores", "full"], [undefined, "activity"]] as const) {
+      const { db } = fakeDb({ select: { invites: inviteWith(min) }, rpc: { status: "joined", slug: "sunrise" } });
+      await expect(joinOrg(db, member, "x", choice)).resolves.toBeDefined();
+    }
+  });
+
+  it("tells the join screen what the minimum is", async () => {
+    const row = { org_id: ORG.id, email: null, role: "member", uses: 0, max_uses: null, expires_at: null, attributes: {}, organizations: { name: "Sunrise", settings: { minShareLevel: "scores" } } };
+    expect(await previewInvite(fakeDb({ select: { invites: row } }).db, member, "x")).toMatchObject({ status: "ok", minShareLevel: "scores" });
   });
 });

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Card, PageTitle } from "@/components/Shell";
 import { PageSkeleton } from "@/components/Skeleton";
 import type { OrgSummary } from "@/lib/orgAdmin";
+import { STARTER_KITS } from "@/lib/starterKits";
 import { adminFetch, planText } from "./shared";
 
 // Super-admin: every organisation and a form to create one (plans/m2-org.md O.1). The API answers
@@ -15,7 +16,7 @@ const slugify = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-"
 export default function AdminOrgs() {
   const [orgs, setOrgs] = useState<OrgSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", slug: "", kind: "college", ownerEmail: "" });
+  const [form, setForm] = useState({ name: "", slug: "", kind: "college", ownerEmail: "", kitId: "college-placement" });
   const [slugTouched, setSlugTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -39,9 +40,9 @@ export default function AdminOrgs() {
     setNotice(null);
     setError(null);
     try {
-      const out = await adminFetch<{ id: string; owner: { added: true } | { invited: true; link: string } | null }>("/api/admin/orgs", {
+      const out = await adminFetch<{ id: string; owner: { added: true } | { invited: true; link: string } | null; kit: { rounds: number; plans: number } | null; kitError: string | null }>("/api/admin/orgs", {
         method: "POST",
-        body: { name: form.name, slug: form.slug, kind: form.kind, ...(form.ownerEmail.trim() ? { ownerEmail: form.ownerEmail.trim() } : {}) },
+        body: { name: form.name, slug: form.slug, kind: form.kind, ...(form.ownerEmail.trim() ? { ownerEmail: form.ownerEmail.trim() } : {}), ...(form.kitId ? { kitId: form.kitId } : {}) },
       });
       setNotice(
         out.owner && "link" in out.owner
@@ -50,7 +51,8 @@ export default function AdminOrgs() {
             ? `Created, with ${form.ownerEmail} as owner.`
             : "Created.",
       );
-      setForm({ name: "", slug: "", kind: form.kind, ownerEmail: "" });
+      if (out.kitError) setError(`Created, but the starter kit wasn't applied: ${out.kitError}`);
+      setForm({ name: "", slug: "", kind: form.kind, ownerEmail: "", kitId: form.kitId });
       setSlugTouched(false);
       await load();
     } catch (err) {
@@ -87,6 +89,14 @@ export default function AdminOrgs() {
           <label className="grid gap-1.5 text-sm">
             Owner&apos;s email (optional)
             <input className="input" type="email" value={form.ownerEmail} onChange={(e) => setForm({ ...form, ownerEmail: e.target.value })} placeholder="placement.head@college.edu" />
+          </label>
+          <label className="grid gap-1.5 text-sm sm:col-span-2">
+            Starter kit
+            <select className="input" value={form.kitId} onChange={(e) => setForm({ ...form, kitId: e.target.value })}>
+              <option value="">None: start empty</option>
+              {STARTER_KITS.map((k) => <option key={k.id} value={k.id}>{k.name}: {k.rounds.length} rounds, {k.plans.length} plans</option>)}
+            </select>
+            <span className="text-xs text-muted">Copies ready-made rounds, plans and settings into the new organisation. The owner can edit all of it.</span>
           </label>
           <div className="sm:col-span-2">
             <button className="btn btn-primary" disabled={busy}>{busy ? "Creating…" : "Create organisation"}</button>

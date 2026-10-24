@@ -31,7 +31,7 @@ export function NotesPanel() {
     <div className="fixed inset-0 z-[60]">
       <button aria-label="Close notes" className="absolute inset-0 bg-black/30" onClick={closePanel} />
       <aside
-        className="glass absolute right-0 top-0 flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] shadow-2xl sm:right-3 sm:top-3 sm:h-[calc(100vh-1.5rem)] sm:rounded-[1.75rem] sm:pt-5"
+        className="glass absolute right-0 top-0 flex h-full w-full max-w-md flex-col gap-4 overflow-y-auto p-5 pt-[calc(1.25rem+env(safe-area-inset-top))] sm:right-3 sm:top-3 sm:h-[calc(100vh-1.5rem)] sm:rounded-3xl sm:pt-5"
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >
         <div className="flex items-center justify-between">

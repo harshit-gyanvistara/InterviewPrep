@@ -3,8 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { authMode, type AuthUser } from "./auth";
 import { getCatalog } from "./catalog-server";
 import { ApiError, type AgentMeta } from "./liveAgent";
+import type { MergedContext } from "./orgContext";
+import { memberContext } from "./orgContextServer";
+import { toOrgPack } from "./orgPacks";
 import { checkAssignment, checkOrgPractice } from "./orgPractice";
 import { InterviewContextSchema, type InterviewContext } from "./schemas";
+import { getSupabaseAdmin } from "./supabase";
 import { getSupabaseForRequest } from "./supabase-server";
 import type { Message, Pack } from "./types";
 
@@ -20,6 +24,8 @@ export interface LoadedInterview extends Omit<InterviewContext, "messages"> {
   messages: Message[];
   /** The org this interview is practised for (server-stamped), or null for solo practice. */
   orgId: string | null;
+  /** What the org wants the interview to reflect, frozen when the session was stamped; null for solo practice or when none is set. */
+  orgContext: MergedContext | null;
   /** Saves the transcript and code, and stamps the versions that produced this call. No-op with sign-in off. */
   save(change: { messages?: Message[]; code: string; call: InterviewCall; meta: AgentMeta }): Promise<void>;
 }
@@ -28,6 +34,7 @@ interface SessionRow {
   data: Record<string, unknown> & { config?: { packId?: unknown; orgId?: unknown; assignmentId?: unknown }; messages?: unknown };
   org_id: string | null;
   pack_snapshot: Pack | null;
+  context_snapshot: MergedContext | null;
   prompt_versions: Partial<Record<InterviewCall, string>> | null;
   model_ids: string[] | null;
 }
@@ -40,12 +47,12 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
     if (!browserContext) throw new ApiError(400, "Missing interview context.");
     // The browser's messages carry no ids here; the turn route only needs them for retries, which save nothing.
     const messages = browserContext.messages.map((m, i) => ({ ...m, id: `local-${i}`, at: 0 }));
-    return { ...browserContext, messages, orgId: null, save: async () => {} };
+    return { ...browserContext, messages, orgId: null, orgContext: null, save: async () => {} };
   }
 
   const supabase = await getSupabaseForRequest();
   const [session, profile] = await Promise.all([
-    supabase.from("sessions").select("data, org_id, pack_snapshot, prompt_versions, model_ids").eq("user_id", user.id).eq("id", sessionId).maybeSingle<SessionRow>(),
+    supabase.from("sessions").select("data, org_id, pack_snapshot, context_snapshot, prompt_versions, model_ids").eq("user_id", user.id).eq("id", sessionId).maybeSingle<SessionRow>(),
     supabase.from("profiles").select("data").eq("user_id", user.id).maybeSingle<{ data: unknown }>(),
   ]);
   if (session.error) throw new Error(`sessions read failed: ${session.error.message}`);
@@ -71,11 +78,16 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
   const stampAssignment = stampOrg && typeof requestedAssignment === "string" && requestedAssignment ? requestedAssignment : null;
   if (stampOrg && stampAssignment) await checkAssignment(user, stampOrg, stampAssignment, pack);
   const orgId = row.org_id ?? stampOrg;
+  // The org's context is read once, with the stamp, and kept on the session from then on.
+  const admin = stampOrg ? getSupabaseAdmin() : null;
+  const stampedContext = stampOrg && admin ? await memberContext(admin, stampOrg, user.id) : null;
+  const orgContext = row.context_snapshot ?? stampedContext;
 
   return {
     ...parsed.data,
     messages: stored,
     orgId,
+    orgContext,
     async save({ messages, code, call, meta }) {
       const data = { ...row.data, code, ...(messages ? { messages } : {}) };
       const { error } = await supabase
@@ -86,7 +98,7 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
           rubric_version: rubricVersion(pack.rubric),
           prompt_versions: meta.promptVersion ? { ...row.prompt_versions, [call]: meta.promptVersion } : row.prompt_versions,
           model_ids: [...new Set([...(row.model_ids ?? []), ...meta.models])],
-          ...(stampOrg ? { org_id: stampOrg } : {}),
+          ...(stampOrg ? { org_id: stampOrg, context_snapshot: stampedContext } : {}),
           ...(stampAssignment ? { assignment_id: stampAssignment } : {}),
         })
         .eq("user_id", user.id)
@@ -96,13 +108,16 @@ export async function loadInterview(user: AuthUser, sessionId: string, browserCo
   };
 }
 
-/** The pack a session names: the built-in catalog first, then the user's own rounds. */
+/** The pack a session names: the built-in catalog first, then the user's own rounds, then an org's (readable by its members only, by row-level security). */
 async function resolvePack(supabase: SupabaseClient, userId: string, packId: unknown): Promise<Pack> {
   if (typeof packId !== "string") throw new ApiError(422, "This interview's saved data is invalid.");
   const builtIn = (await getCatalog()).packs.find((p) => p.id === packId);
   if (builtIn) return builtIn;
   const { data, error } = await supabase.from("custom_packs").select("data").eq("user_id", userId).eq("id", packId).maybeSingle<{ data: Pack }>();
   if (error) throw new Error(`custom_packs read failed: ${error.message}`);
-  if (!data) throw new ApiError(404, "This interview's round no longer exists.");
-  return data.data;
+  if (data) return data.data;
+  const org = await supabase.from("org_packs").select("id, org_id, data, archived").eq("id", packId).maybeSingle();
+  if (org.error) throw new Error(`org_packs read failed: ${org.error.message}`);
+  if (!org.data) throw new ApiError(404, "This interview's round no longer exists.");
+  return toOrgPack(org.data);
 }

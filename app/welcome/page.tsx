@@ -68,12 +68,13 @@ function ProductPreview() {
 export default function Welcome() {
   return (
     <div className="grid gap-16 pb-8 sm:gap-24">
-      <section className="grid items-center gap-10 pt-2 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:pt-10">
-        <div>
+      <section className="relative grid items-center gap-10 pt-2 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:pt-10">
+        <div className="glow -left-24 -top-20 h-80 w-80" aria-hidden="true" />
+        <div className="relative">
           <span className="inline-flex items-center rounded-full border border-line bg-card px-3 py-1 text-xs font-medium text-muted">
             Mock interviews for any profession
           </span>
-          <h1 className="mt-5 text-4xl font-semibold leading-[1.1] tracking-tight sm:text-[52px]">
+          <h1 className="h-display mt-5 font-semibold">
             Walk into your interview <span className="text-accent">already practised.</span>
           </h1>
           <p className="mt-5 max-w-[34rem] text-[17px] leading-7 text-muted">
@@ -81,17 +82,24 @@ export default function Welcome() {
           </p>
           <StartCta />
         </div>
-        <ProductPreview />
+        <div className="relative">
+          <ProductPreview />
+        </div>
       </section>
 
       <section aria-labelledby="how-h">
         <h2 id="how-h" className="text-2xl font-semibold tracking-tight">How it works</h2>
-        <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+        {/* A connected sequence, not a grid of identical cards: the line is the point — each step
+            visibly leads into the next instead of sitting as three unrelated tiles. */}
+        <ol className="relative mt-8 grid gap-8 sm:grid-cols-3 sm:gap-6">
+          <div aria-hidden="true" className="absolute left-5 top-5 hidden h-px w-[calc(100%-2.5rem)] bg-gradient-to-r from-accent/40 via-line to-line sm:block" />
           {STEPS.map((s, i) => (
-            <li key={s.title} className="rounded-xl border border-line bg-card p-5">
-              <span className="text-sm font-semibold tabular-nums text-accent">Step {i + 1}</span>
-              <h3 className="mt-2 text-lg font-semibold">{s.title}</h3>
-              <p className="mt-1.5 text-sm leading-6 text-muted">{s.text}</p>
+            <li key={s.title} className="relative grid gap-2">
+              <span className="relative grid h-10 w-10 place-items-center rounded-full bg-accent text-sm font-semibold tabular-nums text-accent-ink">
+                {i + 1}
+              </span>
+              <h3 className="mt-1 text-lg font-semibold">{s.title}</h3>
+              <p className="text-sm leading-6 text-muted">{s.text}</p>
             </li>
           ))}
         </ol>

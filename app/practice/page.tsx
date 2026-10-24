@@ -39,7 +39,7 @@ function Practice() {
   const { settings } = useSettings();
   const { data: myOrgs } = useMyOrgs();
   const { data: myAssignments } = useMyAssignments();
-  const { custom: customPacks, catalog, loading: packsLoading } = useAllPacks();
+  const { custom: customPacks, orgPacks: ownedOrgPacks, catalog, loading: packsLoading } = useAllPacks();
   const confirm = useConfirm();
 
   const [mode, setMode] = useState<"single" | "quick">("single");
@@ -58,9 +58,12 @@ function Practice() {
   const forOrg = assignment ? (myOrgs?.find((o) => o.id === assignment.orgId) ?? null) : practisingFor(settings, myOrgs);
   const assignedPack = assignment ? catalog.packs.find((p) => p.id === assignment.packId) : undefined;
   // The assigned round shows even if it isn't one of this profile's usual rounds.
-  const allPacks: Pack[] = [...customPacks, ...builtIn, ...(assignedPack && !builtIn.some((p) => p.id === assignedPack.id) ? [assignedPack] : [])];
-  // Practising for an org that limits its rounds: show only those (the server checks again).
-  const orgPacks = forOrg?.allowedPackIds ? allPacks.filter((p) => forOrg.allowedPackIds!.includes(p.id) || p.source === "quick") : allPacks;
+  // The org's own rounds are offered only when practising for that org.
+  const orgOwned = forOrg ? ownedOrgPacks.filter((p) => p.orgId === forOrg.id && !p.archived) : [];
+  const assignedOrgPack = assignment ? ownedOrgPacks.find((p) => p.id === assignment.packId) : undefined;
+  const allPacks: Pack[] = [...customPacks, ...orgOwned, ...(assignedOrgPack && !orgOwned.some((p) => p.id === assignedOrgPack.id) ? [assignedOrgPack] : []), ...builtIn, ...(assignedPack && !builtIn.some((p) => p.id === assignedPack.id) ? [assignedPack] : [])];
+  // Practising for an org that limits its rounds: show only those and its own (the server checks again).
+  const orgPacks = forOrg?.allowedPackIds ? allPacks.filter((p) => forOrg.allowedPackIds!.includes(p.id) || p.source === "quick" || p.source === "org") : allPacks;
   const packs: Pack[] = orgPacks.length ? orgPacks : allPacks;
   const mixablePacks = packs.filter((p) => p.source !== "quick"); // don't let people mix a mix
   const rec = recommendPack(reports, packs);

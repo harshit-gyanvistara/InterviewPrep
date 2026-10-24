@@ -5,16 +5,21 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { DeviceCheck } from "@/components/DeviceCheck";
-import { db, resetSession, uid, useAuth, useCatalog, useProfile } from "@/lib/db";
+import { db, resetSession, uid, useAuth, useCatalog, useMyOrgs, useProfile } from "@/lib/db";
 import { inferDomain } from "@/lib/domains";
 import type { Profile } from "@/lib/types";
 
-const STEPS = ["About you", "Your goal", "Resume", "Device check", "Ready"];
+type StepId = "about" | "goal" | "resume" | "device" | "ready";
+const LABEL: Record<StepId, string> = { about: "About you", goal: "Your goal", resume: "Resume", device: "Device check", ready: "Ready" };
+const FULL: StepId[] = ["about", "goal", "resume", "device", "ready"];
+// Members of an organisation already told us where they study, so they skip the long form (plans/b2b-college.md B.1).
+const COMPACT: StepId[] = ["goal", "resume", "ready"];
 
 export default function Onboarding() {
   const router = useRouter();
   const { data: existing, loading } = useProfile();
   const { catalog } = useCatalog();
+  const { data: orgs, loading: orgsLoading } = useMyOrgs();
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<Partial<Profile>>({});
   const [saving, setSaving] = useState(false);
@@ -28,14 +33,19 @@ export default function Onboarding() {
     rootRef.current?.closest("main")?.scrollTo({ top: 0 });
   };
 
-  if (loading) return null;
+  if (loading || orgsLoading) return null;
+  const compact = (orgs?.length ?? 0) > 0;
+  const steps = compact ? COMPACT : FULL;
+  const id = steps[step];
+  const last = steps.length - 1;
+  const defaultExperience: Profile["experience"] = compact ? "student" : "fresher";
 
   const v = <K extends keyof Profile>(k: K, fallback: Profile[K]): Profile[K] => (draft[k] ?? existing?.[k] ?? fallback) as Profile[K];
   const set = <K extends keyof Profile>(k: K, val: Profile[K]) => setDraft((d) => ({ ...d, [k]: val }));
 
   const name = v("name", "");
   const targetRole = v("targetRole", "");
-  const canNext = step === 0 ? name.trim().length > 0 : step === 1 ? targetRole.trim().length > 0 : true;
+  const canNext = id === "about" ? name.trim().length > 0 : id === "goal" ? targetRole.trim().length > 0 && (!compact || name.trim().length > 0) : true;
 
   const finish = async (to: string) => {
     setSaving(true);
@@ -48,7 +58,7 @@ export default function Onboarding() {
         targetRole: targetRole.trim(),
         targetCompanies: v("targetCompanies", "").trim(),
         jobDescription: v("jobDescription", "").trim(),
-        experience: v("experience", "fresher"),
+        experience: v("experience", defaultExperience),
         domain: v("domain", "") || undefined,
         resume: v("resume", "").trim(),
         interviewDate: v("interviewDate", "") || undefined,
@@ -67,19 +77,19 @@ export default function Onboarding() {
     <div ref={rootRef} className="mx-auto max-w-2xl">
       <SignedInAs />
       <ol className="mb-6 flex items-center justify-center gap-2 text-xs">
-        {STEPS.map((s, i) => (
-          <li key={s} className="flex items-center gap-2">
+        {steps.map((sid, i) => (
+          <li key={sid} className="flex items-center gap-2">
             <span className={`grid h-7 w-7 place-items-center rounded-full font-semibold ${i < step ? "bg-ok text-on-status" : i === step ? "bg-accent text-accent-ink" : "bg-soft text-muted"}`}>
               {i < step ? <Check size={14} /> : i + 1}
             </span>
-            <span className={`hidden sm:block ${i === step ? "font-medium" : "text-muted"}`}>{s}</span>
-            {i < STEPS.length - 1 && <span className="hidden h-px w-5 bg-line sm:block" />}
+            <span className={`hidden sm:block ${i === step ? "font-medium" : "text-muted"}`}>{LABEL[sid]}</span>
+            {i < last && <span className="hidden h-px w-5 bg-line sm:block" />}
           </li>
         ))}
       </ol>
 
       <Card>
-        {step === 0 && (
+        {id === "about" && (
           <div className="grid gap-4">
             <h1 className="text-3xl font-light">First, who are we preparing?</h1>
             <p className="text-sm text-muted">This works for any profession — engineering, business, healthcare, design, teaching, whatever you&apos;re aiming for.</p>
@@ -89,7 +99,7 @@ export default function Onboarding() {
             </label>
             <label className="grid gap-1.5 text-sm">
               <span className="text-muted">Where are you now?</span>
-              <select className="input" value={v("experience", "fresher")} onChange={(e) => set("experience", e.target.value as Profile["experience"])}>
+              <select className="input" value={v("experience", defaultExperience)} onChange={(e) => set("experience", e.target.value as Profile["experience"])}>
                 <option value="student">Student (pre-final year)</option>
                 <option value="fresher">Fresher / final year</option>
                 <option value="0-1y">0–1 year of experience</option>
@@ -99,13 +109,32 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === 1 && (
+        {id === "goal" && (
           <div className="grid gap-4">
-            <h1 className="text-3xl font-light">What are you aiming for?</h1>
+            <h1 className="text-3xl font-light">{compact ? "Tell us about your goal" : "What are you aiming for?"}</h1>
+            {compact && (
+              <>
+                <label className="grid gap-1.5 text-sm">
+                  <span className="text-muted">Your name</span>
+                  <input autoFocus className="input" value={name} onChange={(e) => set("name", e.target.value)} placeholder="Aarav Sharma" />
+                </label>
+                <label className="grid gap-1.5 text-sm">
+                  <span className="text-muted">Where are you now?</span>
+                  <select className="input" value={v("experience", defaultExperience)} onChange={(e) => set("experience", e.target.value as Profile["experience"])}>
+                    <option value="student">Student (pre-final year)</option>
+                    <option value="fresher">Fresher / final year</option>
+                    <option value="0-1y">0–1 year of experience</option>
+                    <option value="1-3y">1–3 years of experience</option>
+                  </select>
+                </label>
+              </>
+            )}
             <label className="grid gap-1.5 text-sm">
               <span className="text-muted">Target role</span>
               <input className="input" value={targetRole} onChange={(e) => set("targetRole", e.target.value)} placeholder="e.g. Business Analyst, Nurse, Software Engineer, Copywriter" />
             </label>
+            {!compact && (
+              <>
             <label className="grid gap-1.5 text-sm">
               <span className="text-muted">Field (shapes the rounds and how your interviewer asks)</span>
               <select className="input" value={v("domain", "") ?? ""} onChange={(e) => set("domain", e.target.value)}>
@@ -133,10 +162,12 @@ export default function Onboarding() {
                 </select>
               </label>
             </div>
+              </>
+            )}
           </div>
         )}
 
-        {step === 2 && (
+        {id === "resume" && (
           <div className="grid gap-4">
             <h1 className="text-3xl font-light">Add your resume</h1>
             <p className="text-sm text-muted">Paste the text. Your interviewer will ask about your real projects. You can skip this and add it later in Settings.</p>
@@ -144,7 +175,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === 3 && (
+        {id === "device" && (
           <div className="grid gap-4">
             <h1 className="text-3xl font-light">Check your setup</h1>
             <p className="text-sm text-muted">A quick test now avoids surprises in the interview. Nothing here is required.</p>
@@ -152,7 +183,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === 4 && (
+        {id === "ready" && (
           <div className="grid gap-4 text-center">
             <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-ok text-on-status"><Check size={28} /></span>
             <h1 className="text-3xl font-light">You&apos;re set, {name.split(" ")[0]}</h1>
@@ -169,11 +200,11 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step < 4 && (
+        {step < last && (
           <div className="mt-6 flex items-center justify-between">
             <button className="btn btn-ghost" disabled={step === 0} onClick={() => goTo(step - 1)}><ArrowLeft size={16} /> Back</button>
             <div className="flex gap-2">
-              {step === 2 && <button className="btn btn-ghost" onClick={() => goTo(3)}>Skip</button>}
+              {id === "resume" && <button className="btn btn-ghost" onClick={() => goTo(step + 1)}>Skip</button>}
               <button className="btn btn-primary" disabled={!canNext} onClick={() => goTo(step + 1)}>Continue <ArrowRight size={16} /></button>
             </div>
           </div>

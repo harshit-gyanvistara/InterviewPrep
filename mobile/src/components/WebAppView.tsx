@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { ActivityIndicator, BackHandler, Linking, Platform, StyleSheet, Text, View } from "react-native";
 import Constants from "expo-constants";
 import { useFocusEffect } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import WebView, { type WebViewNavigation, type WebViewProps } from "react-native-webview";
 
 import { WEB_APP_ORIGIN, WEB_APP_URL } from "@/lib/config";
@@ -88,30 +89,37 @@ export function WebAppView() {
       />
       {loading && !failed && (
         <View style={styles.overlay} pointerEvents="none">
-          <ActivityIndicator size="large" color="#6b6fd1" />
+          <ActivityIndicator size="large" color={DARK.accent} />
         </View>
       )}
       {failed && (
-        <View style={styles.overlay}>
+        // SafeAreaView, not a plain absolute-fill View: this overlay can appear before the
+        // WebView (which handles its own safe-area insets via CSS) has painted anything, so it
+        // needs its own insets to avoid sitting under a notch or the status bar.
+        <SafeAreaView style={styles.overlay}>
           <Text style={styles.errorTitle}>Couldn&apos;t load Offerly</Text>
           <Text style={styles.errorBody}>Check your connection and try again.</Text>
           <Text style={styles.retry} onPress={retry}>
             Retry
           </Text>
-        </View>
+        </SafeAreaView>
       )}
     </View>
   );
 }
 
+// Mirrors the web app's dark-theme tokens (app/globals.css [data-theme="dark"]) so this native
+// chrome reads as the same surface instead of an unrelated color while the WebView loads.
+const DARK = { bg: "#0e0f12", ink: "#ededef", muted: "#9a9da8", accent: "#7c8bff", accentInk: "#0e0f12" };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1b1c2e",
+    backgroundColor: DARK.bg,
   },
   webview: {
     flex: 1,
-    backgroundColor: "#1b1c2e",
+    backgroundColor: DARK.bg,
   },
   overlay: {
     position: "absolute",
@@ -121,24 +129,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1b1c2e",
+    backgroundColor: DARK.bg,
     gap: 10,
     paddingHorizontal: 32,
   },
   errorTitle: {
-    color: "#f1f1f6",
+    color: DARK.ink,
     fontSize: 18,
     fontWeight: "600",
   },
   errorBody: {
-    color: "#a0a4b8",
+    color: DARK.muted,
     fontSize: 14,
     textAlign: "center",
   },
   retry: {
     marginTop: 8,
-    color: "#ffffff",
-    backgroundColor: "#6b6fd1",
+    color: DARK.accentInk,
+    backgroundColor: DARK.accent,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 999,

@@ -178,11 +178,11 @@ describe("AI routes require a signed-in user", () => {
 describe("GET /api/auth/me", () => {
   it("reports the mode and the user", async () => {
     const { GET } = await import("../app/api/auth/me/route");
-    expect(await (await GET()).json()).toEqual({ mode: "off", user: LOCAL_USER, google: false });
+    expect(await (await GET()).json()).toEqual({ mode: "off", user: LOCAL_USER, google: false, devLogin: false, superAdmin: false });
 
     accountsOn();
     signedInAs(undefined);
-    expect(await (await GET()).json()).toEqual({ mode: "supabase", user: null, google: false });
+    expect(await (await GET()).json()).toEqual({ mode: "supabase", user: null, google: false, devLogin: false, superAdmin: false });
   });
 });
 
@@ -463,6 +463,22 @@ describe("page access", () => {
     ["/welcome", off, true, "/"],
   ] as const)("%s (%o, onboarded %s) → %s", (path, auth, onboarded, expected) => {
     expect(redirectFor(path, auth, onboarded)).toBe(expected);
+  });
+
+  it("sends platform admins and org staff to their own home instead of student onboarding", () => {
+    const inn = { mode: "supabase", user: { id: "u", email: "a@b.com" }, google: false } as const;
+    expect(redirectFor("/", inn, false, null, "/admin/orgs")).toBe("/admin/orgs");
+    expect(redirectFor("/practice", inn, false, null, "/org/sunrise")).toBe("/org/sunrise");
+    // Student onboarding stays open to them on purpose, if they also want to practise.
+    expect(redirectFor("/onboarding", inn, false, null, "/org/sunrise")).toBeNull();
+    expect(redirectFor("/admin/orgs", inn, false, null, "/admin/orgs")).toBeNull();
+    expect(redirectFor("/org/sunrise", inn, false, null, "/admin/orgs")).toBeNull();
+    expect(redirectFor("/settings", inn, false, null, "/org/sunrise")).toBeNull();
+    // Without a work home, or once onboarded, nothing changes.
+    expect(redirectFor("/", inn, false, null, null)).toBe("/onboarding");
+    expect(redirectFor("/", inn, true, null, "/admin/orgs")).toBeNull();
+    // A pending invite still comes first.
+    expect(redirectFor("/", inn, false, "CODE", "/admin/orgs")).toBe("/join/CODE");
   });
 
   it("proxy lets API routes, the OAuth callback and public pages through", () => {

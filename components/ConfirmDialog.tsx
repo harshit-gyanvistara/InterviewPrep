@@ -16,6 +16,7 @@ export function ConfirmDialog() {
 }
 
 function DialogBody({ pending, resolveConfirm, resolvePrompt }: { pending: Pending; resolveConfirm: (ok: boolean) => void; resolvePrompt: (v: string | null) => void }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const confirmBtn = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(pending.kind === "prompt" ? (pending.defaultValue ?? "") : "");
@@ -35,9 +36,23 @@ function DialogBody({ pending, resolveConfirm, resolvePrompt }: { pending: Pendi
   };
 
   useEffect(() => {
+    // Modal views prevent interaction with the parent view until dismissed (HIG modality.md), so
+    // Tab must stay inside the dialog instead of escaping into the backdrop-covered page behind it.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") cancel();
-      if (e.key === "Enter" && pending.kind === "confirm") submit();
+      if (e.key === "Escape") return cancel();
+      if (e.key === "Enter" && pending.kind === "confirm") return submit();
+      if (e.key !== "Tab") return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!focusable || focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -49,7 +64,7 @@ function DialogBody({ pending, resolveConfirm, resolvePrompt }: { pending: Pendi
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center p-4">
       <button aria-label="Cancel" className="absolute inset-0 bg-black/40" onClick={cancel} />
-      <div role="alertdialog" aria-modal className="glass relative w-full max-w-sm rounded-[1.75rem] p-6 shadow-2xl">
+      <div ref={dialogRef} role="alertdialog" aria-modal className="glass relative w-full max-w-sm rounded-3xl p-6">
         <div className="flex items-start gap-3">
           {danger && (
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-danger/15 text-danger">

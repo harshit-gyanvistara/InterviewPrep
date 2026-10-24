@@ -21,6 +21,8 @@ class Limits:
     # Pack generation leans on the job description, so it gets more of it and less resume.
     pack_gen_job_description_chars: int = 8000
     pack_gen_resume_chars: int = 4000
+    # Each field of the organisation's context (companies, roles, tech stack, notes).
+    org_context_chars: int = 1500
     # Code editor contents, in the per-turn STATE note and in the scored transcript.
     code_chars: int = 6000
     # The whole transcript sent for scoring.

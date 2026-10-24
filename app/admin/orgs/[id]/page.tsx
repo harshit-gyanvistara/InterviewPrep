@@ -8,6 +8,8 @@ import { Card, PageTitle } from "@/components/Shell";
 import { PageSkeleton } from "@/components/Skeleton";
 import type { OrgDetail } from "@/lib/orgAdmin";
 import { SHARE_LEVELS } from "@/lib/permissions";
+import { fieldLines, parseFieldLines } from "@/lib/memberAttributes";
+import { STARTER_KITS, kitById } from "@/lib/starterKits";
 import { orgSettings } from "@/lib/orgSettings";
 import { ENTITLEMENT_PERIODS, type Entitlement } from "@/lib/schemas";
 import { KNOWN_KEYS, adminFetch } from "../shared";
@@ -36,7 +38,7 @@ export default function AdminOrg() {
   const [msg, setMsg] = useState<Record<string, string>>({});
   const [plan, setPlan] = useState<Entitlement[]>([]);
   const [basics, setBasics] = useState({ name: "", kind: "" });
-  const [settings, setSettings] = useState({ allowedPackIds: "", defaultShareLevel: "scores", allowedEmailDomains: "", features: "" });
+  const [settings, setSettings] = useState({ allowedPackIds: "", defaultShareLevel: "scores", minShareLevel: "activity", allowedEmailDomains: "", features: "", studentFields: "" });
   const [ownerEmail, setOwnerEmail] = useState("");
 
   const load = useCallback(async () => {
@@ -49,8 +51,10 @@ export default function AdminOrg() {
       setSettings({
         allowedPackIds: s.allowedPackIds?.join(", ") ?? "",
         defaultShareLevel: s.defaultShareLevel,
+        minShareLevel: s.minShareLevel,
         allowedEmailDomains: s.allowedEmailDomains.join(", "),
         features: Object.entries(s.features).filter(([, on]) => on).map(([k]) => k).join(", "),
+        studentFields: fieldLines(s.studentFields),
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't load the organisation.");
@@ -124,6 +128,23 @@ export default function AdminOrg() {
         {note("basics")}
       </Section>
 
+      <Section title="Starter kit" hint="Ready-made rounds, plans and settings, copied into this organisation once.">
+        {(() => {
+          const applied = (org.settings as { kit?: { id: string; version: number } } | undefined)?.kit;
+          if (applied) return <p className="text-sm text-muted">Applied: {kitById(applied.id)?.name ?? applied.id} (version {applied.version}). Its rounds and plans are now this organisation&apos;s own.</p>;
+          return (
+            <div className="flex flex-wrap items-center gap-2">
+              {STARTER_KITS.map((k) => (
+                <button key={k.id} className="btn btn-primary" onClick={() => save("kit", () => adminFetch(`/api/admin/orgs/${id}/kit`, { method: "POST", body: { kitId: k.id } }).then(() => `Applied ${k.name}.`))}>
+                  Apply {k.name}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
+        {note("kit")}
+      </Section>
+
       <Section title="Settings" hint="Blank means no restriction.">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="grid gap-1.5 text-sm">Allowed rounds (pack ids, comma-separated)<input className="input" value={settings.allowedPackIds} onChange={(e) => setSettings({ ...settings, allowedPackIds: e.target.value })} placeholder="every round" /></label>
@@ -133,8 +154,19 @@ export default function AdminOrg() {
               {SHARE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </label>
+          <label className="grid gap-1.5 text-sm">
+            Minimum sharing (members can&apos;t go below it)
+            <select className="input" value={settings.minShareLevel} onChange={(e) => setSettings({ ...settings, minShareLevel: e.target.value })}>
+              {SHARE_LEVELS.map((l) => <option key={l} value={l}>{l === "activity" ? "activity (no minimum)" : l}</option>)}
+            </select>
+          </label>
           <label className="grid gap-1.5 text-sm">Allowed email domains<input className="input" value={settings.allowedEmailDomains} onChange={(e) => setSettings({ ...settings, allowedEmailDomains: e.target.value })} placeholder="college.edu" /></label>
           <label className="grid gap-1.5 text-sm">Features on (comma-separated)<input className="input" value={settings.features} onChange={(e) => setSettings({ ...settings, features: e.target.value })} placeholder="none" /></label>
+          <label className="grid gap-1.5 text-sm sm:col-span-2">
+            Details asked when someone joins (one per line, add * if required, up to 6)
+            <textarea className="input min-h-24" value={settings.studentFields} onChange={(e) => setSettings({ ...settings, studentFields: e.target.value })} placeholder={"Branch*\nGraduation year"} />
+            <span className="text-xs text-muted">Invites can pre-fill these; a pre-filled value is locked for that person. Renaming a line starts a new detail.</span>
+          </label>
         </div>
         <div>
           <button
@@ -149,8 +181,10 @@ export default function AdminOrg() {
                       ...org.settings,
                       allowedPackIds: list(settings.allowedPackIds).length ? list(settings.allowedPackIds) : null,
                       defaultShareLevel: settings.defaultShareLevel,
+                      minShareLevel: settings.minShareLevel,
                       allowedEmailDomains: list(settings.allowedEmailDomains).map((d) => d.replace(/^@/, "").toLowerCase()),
                       features: Object.fromEntries(list(settings.features).map((f) => [f, true])),
+                      studentFields: parseFieldLines(settings.studentFields, orgSettings(org).studentFields),
                     },
                   },
                 }).then(() => {}),

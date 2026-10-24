@@ -7,7 +7,7 @@ import { Card } from "@/components/Shell";
 import { useConfirm } from "@/lib/dialogContext";
 import { useAuth } from "@/lib/db";
 import type { MyOrg } from "@/lib/orgMembership";
-import { SHARE_LEVELS, SHARE_LEVEL_TEXT, type ShareLevel } from "@/lib/permissions";
+import { SHARE_LEVELS, SHARE_LEVEL_TEXT, shareAllows, type ShareLevel } from "@/lib/permissions";
 
 // Settings → Organisations (plans/m2-org.md O.3, D11): the orgs you're in, what each may see of
 // your practice, and leaving. Changes take effect straight away.
@@ -95,15 +95,19 @@ export function OrgsSettings() {
           </div>
           <fieldset className="grid gap-2">
             <legend className="mb-2 text-sm font-medium">What {o.name} may see of your practice</legend>
-            {SHARE_LEVELS.map((l) => (
-              <label key={l} className={`flex cursor-pointer gap-3 rounded-xl border p-3 ${o.shareLevel === l ? "border-accent bg-accent-soft" : "border-line"}`}>
-                <input type="radio" name={`share-${o.id}`} className="mt-1" checked={o.shareLevel === l} onChange={() => changeShare(o, l)} />
+            {SHARE_LEVELS.map((l) => {
+              const allowed = shareAllows(l, o.minShareLevel);
+              return (
+              <label key={l} className={`flex gap-3 rounded-xl border p-3 ${allowed ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${o.shareLevel === l ? "border-accent bg-accent-soft" : "border-line"}`}>
+                <input type="radio" name={`share-${o.id}`} className="mt-1" checked={o.shareLevel === l} disabled={!allowed} onChange={() => changeShare(o, l)} />
                 <span>
                   <span className="block text-sm font-medium">{SHARE_LEVEL_TEXT[l].title}</span>
                   <span className="block text-sm text-muted">{SHARE_LEVEL_TEXT[l].body}</span>
                 </span>
               </label>
-            ))}
+              );
+            })}
+            {o.minShareLevel !== "activity" && <p className="text-xs text-muted">{o.name} requires at least &quot;{SHARE_LEVEL_TEXT[o.minShareLevel].title}&quot;. Practice you do as yourself (not for {o.name}) stays private.</p>}
           </fieldset>
           {msg[o.id] && <p className="text-sm text-muted">{msg[o.id]}</p>}
         </Card>

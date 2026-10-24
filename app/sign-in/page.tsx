@@ -46,6 +46,19 @@ export default function SignIn() {
     setStep("code");
   };
 
+  // Local development only: the server says whether the shortcut is on, and only super-admin emails pass.
+  const devSignIn = async () => {
+    setBusy(true);
+    setError(null);
+    const err = await post("/api/auth/dev-login", { email });
+    if (err) {
+      setBusy(false);
+      return setError(err);
+    }
+    resetSession();
+    router.replace("/");
+  };
+
   const verify = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -65,7 +78,7 @@ export default function SignIn() {
         {step === "email" ? (
           <form onSubmit={sendCode} className="grid gap-4">
             <div>
-              <h1 className="text-3xl font-light">Sign in to Offerly</h1>
+              <h1 className="h1 font-light">Sign in to Offerly</h1>
               <p className="mt-2 text-sm text-muted">We&apos;ll email you a code. No password needed, and a new account is created the first time.</p>
             </div>
             <label className="grid gap-1.5 text-sm">
@@ -75,6 +88,11 @@ export default function SignIn() {
             <button className="btn btn-primary" disabled={busy || !email.trim()}>
               <Mail size={16} /> {busy ? "Sending…" : "Email me a code"}
             </button>
+            {auth?.devLogin && (
+              <button type="button" className="btn btn-ghost" disabled={busy || !email.trim()} onClick={devSignIn}>
+                Dev sign-in (super-admin email, no email sent)
+              </button>
+            )}
             {showGoogle && (
               <>
                 <div className="flex items-center gap-3 text-xs text-muted"><span className="h-px flex-1 bg-line" />or<span className="h-px flex-1 bg-line" /></div>
@@ -85,7 +103,7 @@ export default function SignIn() {
         ) : (
           <form onSubmit={verify} className="grid gap-4">
             <div>
-              <h1 className="text-3xl font-light">Check your email</h1>
+              <h1 className="h1 font-light">Check your email</h1>
               <p className="mt-2 text-sm text-muted">Enter the code we sent to <b className="text-ink">{email}</b>, or open the link in that email on this device.</p>
             </div>
             <input

@@ -33,6 +33,7 @@ export async function POST(req: Request) {
       pack: ctx.pack,
       persona: agentPersona(ctx.config.persona),
       domain: agentDomain(resolveDomain(ctx.profile, undefined, domains)),
+      orgContext: ctx.orgContext ?? undefined,
       messages: messages.map(({ role, text }) => ({ role, text })),
       elapsedSec: body.elapsedSec,
       code: body.code,

@@ -29,6 +29,7 @@ export async function POST(req: Request) {
         profile: ctx.profile,
         pack: ctx.pack,
         domain: agentDomain(resolveDomain(ctx.profile, undefined, domains)),
+        orgContext: ctx.orgContext ?? undefined,
         interviewerName: PERSONAS[ctx.config.persona].name,
         messages: ctx.messages.map(({ role, text }) => ({ role, text })),
         code: body.code,

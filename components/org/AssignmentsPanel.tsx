@@ -4,43 +4,54 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { useConfirm } from "@/lib/dialogContext";
-import { useCatalog } from "@/lib/db";
-import type { AssignmentView, CohortView } from "@/lib/orgCohorts";
+import { useCatalog, useOrgPacks } from "@/lib/db";
+import type { AssignmentView, CohortView, GroupView } from "@/lib/orgCohorts";
 import { dueText, orgApi } from "./api";
 
 // Setting and tracking assignments (plans/m2-org.md O.5). For people with assignments.create;
-// a coach placed in a cohort can only pick that cohort (the server checks too).
+// a coach placed in a cohort can only pick that cohort or a section below it (the server checks
+// too). Admins can also pick a group (plans/b2b-college.md B.2).
 
-export function AssignmentsPanel({ slug, coachCohortId }: { slug: string; coachCohortId: string | null }) {
+/** The audience select's values: "" everyone, "c:<cohort id>", "g:<group id>". */
+const audience = (v: string) => ({ cohortId: v.startsWith("c:") ? v.slice(2) : null, groupId: v.startsWith("g:") ? v.slice(2) : null });
+
+export function AssignmentsPanel({ slug, orgId, coachCohortId }: { slug: string; orgId: string; coachCohortId: string | null }) {
   const confirm = useConfirm();
   const { catalog } = useCatalog();
+  const { data: allOrgPacks = [] } = useOrgPacks();
+  const ourPacks = allOrgPacks.filter((p) => p.orgId === orgId && !p.archived);
   const [items, setItems] = useState<AssignmentView[]>([]);
   const [cohorts, setCohorts] = useState<CohortView[]>([]);
-  const [form, setForm] = useState({ title: "", packId: "", cohortId: coachCohortId ?? "", due: "", target: "1" });
+  const [groups, setGroups] = useState<GroupView[]>([]);
+  const [form, setForm] = useState({ title: "", packId: "", audience: coachCohortId ? `c:${coachCohortId}` : "", due: "", target: "1" });
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [a, c] = await Promise.all([
+      const [a, c, g] = await Promise.all([
         orgApi<{ assignments: AssignmentView[] }>(`/api/orgs/${slug}/assignments`),
         orgApi<{ cohorts: CohortView[] }>(`/api/orgs/${slug}/cohorts`),
+        // Groups are for people who manage cohorts; a coach just doesn't get any.
+        coachCohortId ? Promise.resolve({ groups: [] as GroupView[] }) : orgApi<{ groups: GroupView[] }>(`/api/orgs/${slug}/groups`).catch(() => ({ groups: [] as GroupView[] })),
       ]);
       setItems(a.assignments);
       setCohorts(c.cohorts.filter((x) => !x.archived));
+      setGroups(g.groups.filter((x) => !x.archived));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Couldn't load assignments.");
     }
-  }, [slug]);
+  }, [slug, coachCohortId]);
   useEffect(() => {
     // Loading on mount is the point of this effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
 
-  const packTitle = (id: string) => catalog.packs.find((p) => p.id === id)?.title ?? id;
-  const cohortName = (id: string | null) => (id ? (cohorts.find((c) => c.id === id)?.name ?? "a cohort") : "Everyone");
-  const choosable = coachCohortId ? cohorts.filter((c) => c.id === coachCohortId) : cohorts;
+  const packTitle = (id: string) => catalog.packs.find((p) => p.id === id)?.title ?? allOrgPacks.find((p) => p.id === id)?.title ?? id;
+  const audienceName = (a: AssignmentView) => (a.groupId ? `Group: ${groups.find((g) => g.id === a.groupId)?.name ?? "a group"}` : a.cohortId ? (cohorts.find((c) => c.id === a.cohortId)?.path ?? "a section") : "Everyone");
+  const coachPath = coachCohortId ? cohorts.find((c) => c.id === coachCohortId)?.path : undefined;
+  const choosable = coachCohortId ? cohorts.filter((c) => c.id === coachCohortId || (coachPath && c.path.startsWith(`${coachPath} / `))) : cohorts;
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,13 +63,13 @@ export function AssignmentsPanel({ slug, coachCohortId }: { slug: string; coachC
         body: {
           title: form.title.trim() || packTitle(form.packId),
           packId: form.packId,
-          cohortId: form.cohortId || null,
+          ...audience(form.audience),
           // End of the chosen day, local time.
           dueAt: form.due ? new Date(`${form.due}T23:59:59`).toISOString() : null,
           targetMockCount: Math.max(1, Number(form.target) || 1),
         },
       });
-      setForm({ title: "", packId: "", cohortId: coachCohortId ?? "", due: "", target: "1" });
+      setForm({ title: "", packId: "", audience: coachCohortId ? `c:${coachCohortId}` : "", due: "", target: "1" });
       await load();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Couldn't set the assignment.");
@@ -86,7 +97,14 @@ export function AssignmentsPanel({ slug, coachCohortId }: { slug: string; coachC
             Round
             <select className="input" required value={form.packId} onChange={(e) => setForm({ ...form, packId: e.target.value })}>
               <option value="" disabled>Choose a round</option>
-              {catalog.packs.map((p) => <option key={p.id} value={p.id}>{p.title} · {p.durationMin} min</option>)}
+              {ourPacks.length > 0 && (
+                <optgroup label="Our rounds">
+                  {ourPacks.map((p) => <option key={p.id} value={p.id}>{p.title} · {p.durationMin} min</option>)}
+                </optgroup>
+              )}
+              <optgroup label="Built-in rounds">
+                {catalog.packs.map((p) => <option key={p.id} value={p.id}>{p.title} · {p.durationMin} min</option>)}
+              </optgroup>
             </select>
           </label>
           <label className="grid gap-1.5 text-sm">
@@ -95,9 +113,14 @@ export function AssignmentsPanel({ slug, coachCohortId }: { slug: string; coachC
           </label>
           <label className="grid gap-1.5 text-sm">
             For
-            <select className="input" value={form.cohortId} onChange={(e) => setForm({ ...form, cohortId: e.target.value })} disabled={!!coachCohortId}>
+            <select className="input" value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>
               {!coachCohortId && <option value="">Everyone</option>}
-              {choosable.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {choosable.map((c) => <option key={c.id} value={`c:${c.id}`}>{c.path}</option>)}
+              {groups.length > 0 && (
+                <optgroup label="Groups">
+                  {groups.map((g) => <option key={g.id} value={`g:${g.id}`}>{g.name}</option>)}
+                </optgroup>
+              )}
             </select>
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -129,7 +152,7 @@ export function AssignmentsPanel({ slug, coachCohortId }: { slug: string; coachC
                 <div className="min-w-0">
                   <div className="font-medium">{a.title}</div>
                   <div className="text-muted">
-                    {[packTitle(a.packId), cohortName(a.cohortId), a.targetMockCount > 1 ? `${a.targetMockCount} mocks each` : null, dueText(a.dueAt)].filter(Boolean).join(" · ")}
+                    {[packTitle(a.packId), audienceName(a), a.targetMockCount > 1 ? `${a.targetMockCount} mocks each` : null, dueText(a.dueAt)].filter(Boolean).join(" · ")}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

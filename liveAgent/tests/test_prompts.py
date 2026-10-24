@@ -53,3 +53,52 @@ def render(fn: str, a: dict):
 @pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
 def test_prompt_matches_typescript(case):
     assert render(case["fn"], case["args"]) == case["expected"]
+
+
+# ---------- organisation context (plans/b2b-college.md B.8) ----------
+
+from live_agent.models import OrgContext  # noqa: E402
+
+_PACK = Pack.model_validate({"title": "HR", "company": "Any", "role": "Trainee", "roundType": "hr", "topics": ["t"], "rubric": ["r"], "style": "s"})
+_CONFIG = SessionConfig.model_validate({"persona": "neutral", "durationMin": 15})
+_PROFILE = Profile.model_validate({"name": "Asha", "targetRole": "Engineer"})
+_DOMAIN = DomainIn.model_validate({"id": "general", "interviewerContext": "", "scoringContext": "", "roundHints": "", "roadmapHints": "", "version": 1})
+_PERSONA = PersonaIn.model_validate({"name": "Priya", "tone": "warm"})
+_COV = Coverage.model_validate({"answered": 3, "expected": 5, "sufficient": True})
+
+
+def test_no_org_context_leaves_prompts_exactly_as_before():
+    plain_i = prompts.interviewer_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _PERSONA)
+    plain_s = prompts.scoring_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _COV)
+    assert prompts.interviewer_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _PERSONA, None) == plain_i
+    assert prompts.scoring_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _COV, None) == plain_s
+    # A context with nothing in it adds nothing either, and "ORGANISATION CONTEXT" never appears.
+    empty = OrgContext.model_validate({"orgName": "Sunrise"})
+    assert prompts.interviewer_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _PERSONA, empty) == plain_i
+    assert "ORGANISATION CONTEXT" not in plain_i + plain_s
+
+
+def test_org_context_is_added_before_the_candidate_and_only_the_filled_lines():
+    ctx = OrgContext.model_validate({"orgName": "Sunrise College", "companies": "TCS, Infosys", "techStack": "Java, SQL"})
+    text = prompts.interviewer_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _PERSONA, ctx)
+    assert "ORGANISATION CONTEXT (the candidate is practising for Sunrise College)" in text
+    assert "- Companies it prepares people for: TCS, Infosys" in text
+    assert "- Tech stack and tools: Java, SQL" in text
+    assert "Roles it prepares people for" not in text and "Notes from the organisation" not in text
+    assert text.index("ORGANISATION CONTEXT") < text.index("CANDIDATE\n")
+    assert "Never read it out" in text
+
+
+def test_scoring_gets_the_judging_wording_and_is_stable_for_a_session():
+    ctx = OrgContext.model_validate({"orgName": "Sunrise", "notes": "Weigh communication heavily."})
+    a = prompts.scoring_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _COV, ctx)
+    b = prompts.scoring_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _COV, ctx)
+    assert a == b
+    assert "When judging, weigh the answers" in a and "Never read it out" not in a
+    assert "- Notes from the organisation: Weigh communication heavily." in a
+
+
+def test_org_context_fields_are_capped():
+    ctx = OrgContext.model_validate({"orgName": "S", "notes": "x" * 10_000})
+    text = prompts.interviewer_system(_PACK, _CONFIG, _PROFILE, _DOMAIN, _PERSONA, ctx)
+    assert "x" * 1500 in text and "x" * 1501 not in text
