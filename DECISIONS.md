@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-24 · The live deploy is a demo; production readiness waits for rollout
+- **Decision:** https://build-score.com (Railway, M1.7) is for demos only. Own SMTP and Supabase email templates, Upstash rate-limit vars, error tracking (M1.5), privacy work (M2.8) and a production smoke test are done at rollout, not now.
+- **Why:** Owner's call: no real users yet, so the effort goes to the product (M4) first.
+- **Considered:** Making the deploy production-ready now.
+- **Revisit:** Before the first real users, as one rollout checklist.
+
 ## 2026-10-21 · Report eval set: synthetic seeds, ranges not points, run by hand (M4.0)
 - **Decision:** 9 hand-written transcripts with expected score *ranges* and allowed verdicts, scored by the real `/v1/interview/report` through `npm run agent:eval`. Not in CI (each run is ~9 Pro calls); CI only checks the case files. The report's thinking level can be tried through `GEMINI_REPORT_THINKING` (unset = the model's default, so behaviour is unchanged).
 - **Why:** No test touched the real scorer, so prompt, model or thinking changes could move scores unseen. Ranges absorb the model's run-to-run spread; mean signed error shows systematic bias, the number that decides whether a calibration step is needed (honest-scoring.md follow-up 2).

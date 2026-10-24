@@ -100,7 +100,7 @@ Records cover failed calls (`ok: false`) and thinking tokens. Join the two servi
 
 **Allowances** ([plans/usage-limits.md](plans/usage-limits.md)): each user's package (the `packages` table, edited in Supabase and applied within a minute; `lib/packages.ts` holds the fallback; everyone on `beta`: 5 mocks and 150 AI calls a day, reset at midnight IST) is checked against the `usage_ledger` table. `GET /api/usage` returns used / limit / reset per meter; the dashboard and lobby show mocks left.
 
-## 6. Deploy (staging, being set up)
+## 6. Deploy (demo)
 
 ```
 Internet ──HTTPS──► Railway service "core"  (repo root, Next.js, public domain)
@@ -110,7 +110,7 @@ Internet ──HTTPS──► Railway service "core"  (repo root, Next.js, publi
 core ──► Supabase (auth, profiles, catalog)        core ──► Upstash Redis (rate limits)
 ```
 
-Region: Singapore. Config lives in `railway.json` (Core) and `liveAgent/railway.json`. Project `interviewprep`; staging URL: https://build-score.com (also www; DNS in Cloudflare, CNAMEs to Railway; fallback https://core-production-f5c0.up.railway.app). Hobby allows one region per service: set every other region (including `sfo`) to 0 with `railway scale`.
+Region: Singapore. Config lives in `railway.json` (Core) and `liveAgent/railway.json`. Project `interviewprep`; demo URL (not for real users until rollout): https://build-score.com (also www; DNS in Cloudflare, CNAMEs to Railway; fallback https://core-production-f5c0.up.railway.app). Hobby allows one region per service: set every other region (including `sfo`) to 0 with `railway scale`.
 
 ---
 
