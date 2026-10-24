@@ -39,4 +39,7 @@ Run it on every scoring-prompt, model or thinking change, and paste the summary 
 
 The one miss in both runs: **behavioural-average** scored 35 (35, 35, 35 over 3 repeats; 40 at low thinking) against 45–68. The scorer is harsh on generic, result-free answers: it calls them "Not Yet" rather than "Borderline". Every other case, including injection and off-topic, landed in range. Low thinking scored the weak cases 5–10 points higher but still inside their ranges.
 
-Open questions for the owner (deferred 2026-10-21, revisit later): is "average" really Borderline (fix the scoring guide), or is Not Yet fair (widen the range)? Should the report switch to low thinking (~80% fewer thinking tokens, same results on this set)?
+### 2026-10-24: low thinking adopted; guide anchors tried and dropped
+- **Low thinking is now the report's default** (`GEMINI_REPORT_THINKING`, `default` for the model's own level). Owner approved.
+- **Tried:** describing each score band in the scoring guide (what a 0-3, 4-5, 6-7 and 8-9 answer looks like), to lift behavioural-average to Borderline. Run with `--repeat 2` at low thinking: 8/9, mean signed error -0.8, ~500 thinking tokens per report; behavioural-average scored 40 and 35 (dimensions 3-5), no real change. Reverted, prompt stays `2026-10-19.2`.
+- **Reading:** the scorer is consistent. The "average" transcript is one or two vague sentences per answer with no results, which is closer to below average. Open: rewrite the case as a truly average answer set (specific example, some personal actions, a vague result) and keep this one as a "generic" case expecting Not Yet.

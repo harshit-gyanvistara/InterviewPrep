@@ -51,8 +51,13 @@ async def report(body: ReportRequest, response: Response) -> ReportResult:
         system=scoring_system(body.pack, body.config, body.profile, body.domain, cov),
         turns=[{"role": "user", "text": f"TRANSCRIPT\n{transcript[: LIMITS.transcript_chars]}"}],
         temperature=0.2,
-        # Unset keeps the model's default; `npm run agent:eval -- --thinking low` tries others.
-        thinking=os.environ.get("GEMINI_REPORT_THINKING") or None,
+        # Low by default (same eval results, ~80% fewer thinking tokens); "default" gives the model's own level.
+        thinking=report_thinking(),
         schema=ScoredReport,
     )
     return apply_rules(scored, cov)
+
+
+def report_thinking() -> str | None:
+    level = os.environ.get("GEMINI_REPORT_THINKING") or "low"
+    return None if level == "default" else level

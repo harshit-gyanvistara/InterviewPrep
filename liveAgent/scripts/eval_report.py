@@ -5,7 +5,7 @@ scoring-model call per case per repeat; needs GEMINI_API_KEY in liveAgent/.env. 
     npm run agent:eval                          # every case once
     npm run agent:eval -- --case injection      # one case (substring match)
     npm run agent:eval -- --repeat 3            # score spread per case
-    npm run agent:eval -- --thinking low        # try a scorer thinking level without a code change
+    npm run agent:eval -- --thinking high       # try a scorer thinking level without a code change
 """
 
 import argparse
@@ -65,7 +65,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--case", help="only cases whose id contains this")
     parser.add_argument("--repeat", type=int, default=1)
-    parser.add_argument("--thinking", choices=["minimal", "low", "medium", "high"], help="scorer thinking level (default: the model's)")
+    parser.add_argument("--thinking", choices=["minimal", "low", "medium", "high", "default"],
+                        help="scorer thinking level (default: low; 'default' is the model's own)")
     args = parser.parse_args()
 
     from measure_tokens import load_env
@@ -115,7 +116,7 @@ def main() -> None:
     thought = [r["thoughtTokens"] for c in results for r in c["runs"] if "overall" in r]
     summary = {
         "at": time.strftime("%Y-%m-%dT%H:%M:%S"), "model": MODELS.scoring, "promptVersion": version,
-        "thinking": args.thinking or "default", "repeat": args.repeat, "passed": passed, "cases": len(results),
+        "thinking": args.thinking or os.environ.get("GEMINI_REPORT_THINKING") or "low", "repeat": args.repeat, "passed": passed, "cases": len(results),
         "meanSignedError": round(statistics.mean(all_errors), 1) if all_errors else None,
         "meanAbsError": round(statistics.mean(abs(e) for e in all_errors), 1) if all_errors else None,
         "meanThoughtTokens": round(statistics.mean(thought)) if thought else None,

@@ -124,6 +124,18 @@ def test_report_clamps_and_rounds_overall(client, fake, raw, expected):
     assert transcript.endswith("[FINAL CODE IN EDITOR]\nprint(1)")
 
 
+@pytest.mark.parametrize(("env", "expected"), [(None, "low"), ("high", "high"), ("default", None)])
+def test_report_thinking_level(client, fake, monkeypatch, env, expected):
+    if env:
+        monkeypatch.setenv("GEMINI_REPORT_THINKING", env)
+    else:
+        monkeypatch.delenv("GEMINI_REPORT_THINKING", raising=False)
+    fake.result = _report(70)
+    body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": FULL}
+    assert client.post("/v1/interview/report", json=body, headers=AUTH).status_code == 200
+    assert fake.calls[0]["thinking"] == expected
+
+
 def test_report_verdict_follows_overall(client, fake):
     fake.result = _report(88, verdict="Borderline")
     body = {"config": CONFIG, "profile": PROFILE, "pack": PACK, "domain": DOMAIN, "interviewerName": "Marcus", "messages": FULL}

@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-24 · The report scores with low thinking
+- **Decision:** `/v1/interview/report` uses thinking level `low` by default. `GEMINI_REPORT_THINKING` overrides it (`default` gives the model's own level). The scoring guide is unchanged.
+- **Why:** On the eval set, low thinking passed the same 8 of 9 cases as the default (mean signed error -0.6 and -0.8 against -1.1) with about 300-500 thinking tokens per report instead of about 1,600-2,300, all billed at the output rate. Describing each score band in the guide was tried to lift the "average" case and moved nothing, so it was dropped.
+- **Considered:** Keeping the model's default (costlier, no better on this set); keeping the band descriptions anyway (no measured effect, so a prompt change for nothing).
+- **Revisit:** If real reports look shallow on technical answers, or when the eval set grows (M4.4/M4.5).
+
 ## 2026-10-24 · The live deploy is a demo; production readiness waits for rollout
 - **Decision:** https://build-score.com (Railway, M1.7) is for demos only. Own SMTP and Supabase email templates, Upstash rate-limit vars, error tracking (M1.5), privacy work (M2.8) and a production smoke test are done at rollout, not now.
 - **Why:** Owner's call: no real users yet, so the effort goes to the product (M4) first.
