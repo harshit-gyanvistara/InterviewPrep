@@ -119,13 +119,6 @@ body {
   background: var(--muted);
 }
 
-/* Floating surfaces (dialogs, the notes drawer and button): solid card, border, one soft shadow. */
-.glass {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow-float);
-}
-
 h1, h2, h3 {
   letter-spacing: -0.02em;
   text-wrap: balance;
@@ -136,64 +129,75 @@ h1, h2, h3 {
   outline-offset: 2px;
 }
 
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  padding: 0.6rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: transform 0.12s, opacity 0.12s, background 0.12s, border-color 0.12s;
-  cursor: pointer;
-}
-.btn:active {
-  transform: scale(0.97);
-}
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-.btn-primary {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.92;
-}
-.btn-ghost {
-  background: var(--card);
-  color: var(--ink);
-  border-color: var(--line);
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--soft);
-}
-.btn-danger {
-  background: var(--danger);
-  color: var(--on-status);
-}
+/* Component classes live in the components layer so Tailwind utilities on the same element win
+   (e.g. `input pl-9` next to a search icon, `btn py-1.5`). Unlayered, they beat every utility. */
+@layer components {
+  /* Floating surfaces (dialogs, the notes drawer and button): solid card, border, one soft shadow. */
+  .glass {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-float);
+  }
 
-.input {
-  width: 100%;
-  border-radius: 10px;
-  background: var(--card);
-  padding: 0.65rem 0.9rem;
-  font-size: 0.9rem;
-  color: var(--ink);
-  outline: none;
-  border: 1px solid var(--line);
-  transition: border-color 0.12s, box-shadow 0.12s;
-}
-.input::placeholder {
-  color: var(--muted);
-  opacity: 0.8;
-}
-.input:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 0.6rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: transform 0.12s, opacity 0.12s, background 0.12s, border-color 0.12s;
+    cursor: pointer;
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.92;
+  }
+  .btn-ghost {
+    background: var(--card);
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--soft);
+  }
+  .btn-danger {
+    background: var(--danger);
+    color: var(--on-status);
+  }
+
+  .input {
+    width: 100%;
+    border-radius: 10px;
+    background: var(--card);
+    padding: 0.65rem 0.9rem;
+    font-size: 0.9rem;
+    color: var(--ink);
+    outline: none;
+    border: 1px solid var(--line);
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .input::placeholder {
+    color: var(--muted);
+    opacity: 0.8;
+  }
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
 }
 
 .wave span {

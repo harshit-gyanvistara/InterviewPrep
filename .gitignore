@@ -42,5 +42,6 @@ coverage/
 
 # Playwright end-to-end tests
 .next-e2e/
+.next-noauth/
 test-results/
 playwright-report/

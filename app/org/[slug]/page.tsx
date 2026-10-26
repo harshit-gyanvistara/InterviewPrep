@@ -14,6 +14,7 @@ import { CohortsPanel } from "@/components/org/CohortsPanel";
 import { dueText } from "@/components/org/api";
 import { useAuth, useMyAssignments } from "@/lib/db";
 import { AnalyticsPanel, AuditPanel, MembersPanel, OverviewPanel } from "@/components/org/DashboardPanels";
+import { fullDate } from "@/lib/format";
 
 // An organisation's own page (plans/m2-org.md): the admin dashboard (O.6) with invites (O.2),
 // cohorts and assignments (O.5), each tab shown only to roles allowed to use it. Members without
@@ -227,7 +228,7 @@ export default function OrgHome() {
                 <span className="min-w-0 truncate">{i.kind === "code" ? "Join code" : i.email} · {roleLabel(i.role)}</span>
                 <span className="flex items-center gap-3 text-muted">
                   {i.kind === "code" && <span>{i.uses}{i.maxUses ? ` of ${i.maxUses}` : ""} used</span>}
-                  {i.expiresAt && <span>until {new Date(i.expiresAt).toLocaleDateString()}</span>}
+                  {i.expiresAt && <span>until {fullDate(i.expiresAt)}</span>}
                   <button className="text-danger hover:underline" onClick={() => revoke(i)}>Revoke</button>
                 </span>
               </li>

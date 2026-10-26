@@ -10,6 +10,7 @@ import { getTheme, setTheme as applyTheme } from "@/lib/theme";
 import { NAV } from "@/lib/nav";
 import { PENDING_JOIN_KEY, isBarePage, redirectFor } from "@/lib/pages";
 import { MobileNav } from "@/components/MobileNav";
+import { AccountMenu } from "@/components/AccountMenu";
 import { PageSkeleton } from "@/components/Skeleton";
 import { SyncNote } from "@/components/SyncNote";
 import { PractisingFor } from "@/components/PractisingFor";
@@ -91,9 +92,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                 <Link href="/settings" aria-label="Settings" className="hidden h-9 w-9 place-items-center rounded-lg text-muted hover:bg-soft hover:text-ink sm:grid">
                   <Settings size={17} />
                 </Link>
-                <Link href="/settings" className="ml-1 grid h-8 w-8 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent active:scale-95" title={profile?.name}>
-                  {profile?.name?.[0]?.toUpperCase()}
-                </Link>
+                <AccountMenu />
               </>
             )}
           </div>

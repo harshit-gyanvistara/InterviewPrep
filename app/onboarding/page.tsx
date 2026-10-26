@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { DeviceCheck } from "@/components/DeviceCheck";
-import { db, resetSession, uid, useAuth, useCatalog, useProfile } from "@/lib/db";
+import { db, signOut, uid, useAuth, useCatalog, useProfile } from "@/lib/db";
 import { inferDomain } from "@/lib/domains";
 import type { Profile } from "@/lib/types";
 
@@ -193,17 +193,16 @@ function SignedInAs() {
   const [busy, setBusy] = useState(false);
   if (auth?.mode !== "supabase" || !auth.user) return null;
 
-  const signOut = async () => {
+  const handleSignOut = async () => {
     setBusy(true);
-    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
-    resetSession();
+    await signOut();
     router.replace("/welcome");
   };
 
   return (
     <p className="mb-4 text-center text-sm text-muted">
       Signed in as {auth.user.email}.{" "}
-      <button className="text-accent hover:underline" onClick={signOut} disabled={busy}>
+      <button className="text-accent hover:underline" onClick={handleSignOut} disabled={busy}>
         {busy ? "Signing out…" : "Not you? Sign out"}
       </button>
     </p>

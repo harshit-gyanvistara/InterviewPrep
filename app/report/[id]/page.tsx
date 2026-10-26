@@ -14,6 +14,7 @@ import { visibleBuiltInPacks, PERSONAS } from "@/lib/packs";
 import { isScored, scoreTone, verdictTone, type Tone } from "@/lib/analysis";
 import { useNotesPanel } from "@/lib/notesContext";
 import { createPage, ensureBinder, reportToHtml } from "@/lib/cortex";
+import { shortDate } from "@/lib/format";
 
 const STROKE: Record<Tone, string> = { ok: "var(--ok)", warn: "var(--warn)", danger: "var(--danger)" };
 const FILL: Record<Tone, string> = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger" };
@@ -98,7 +99,7 @@ export default function ReportPage() {
   const tone = verdictTone(report.verdict);
   const [headline, rest] = splitSummary(report.summary);
   const minutes = session.endedAt ? Math.max(1, Math.round((session.endedAt - session.startedAt) / 60000)) : null;
-  const date = new Date(report.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const date = shortDate(report.createdAt);
   // Quotes from the candidate's own answers, from the dimensions that have one.
   const quotes = report.dimensions.filter((d) => d.evidence?.trim());
   // Too few answers to score fairly (plans/honest-scoring.md): no score ring, say how much was answered.
@@ -183,7 +184,7 @@ export default function ReportPage() {
         </footer>
       </article>
 
-      <div className="grid gap-5 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid items-start gap-5 lg:grid-cols-[1.6fr_1fr]">
         <Card>
           <h2 className="mb-4 text-sm font-semibold">Answer by answer</h2>
           <div className="grid gap-4">
@@ -191,19 +192,22 @@ export default function ReportPage() {
               <div key={i} className="grid gap-2 border-t border-line pt-4 text-sm first:border-t-0 first:pt-0">
                 <div className="flex items-start justify-between gap-3">
                   <p className="font-medium">Q{i + 1}. {a.question}</p>
-                  <TonePill tone={scoreTone(a.score * 10)}>{a.score}/10</TonePill>
+                  {/* Reports saved before per-answer scores have none. */}
+                  {typeof a.score === "number" && <TonePill tone={scoreTone(a.score * 10)}>{a.score}/10</TonePill>}
                 </div>
                 <p className="text-muted"><span className="font-medium text-ink">You said:</span> {a.answerSummary}</p>
                 <p className="text-muted"><span className="font-medium text-ink">Feedback:</span> {a.feedback}</p>
-                <div className="mt-1 grid gap-3 sm:grid-cols-2">
+                <div className={`mt-1 grid gap-3 ${a.expectedAnswer ? "sm:grid-cols-2" : ""}`}>
                   <div className="rounded-lg bg-accent-soft p-3">
                     <div className="mb-1 text-xs font-semibold text-accent">A stronger version</div>
                     {a.betterAnswer}
                   </div>
-                  <div className="rounded-lg border border-line p-3">
-                    <div className="mb-1 text-xs font-semibold text-muted">What the interviewer expected</div>
-                    {a.expectedAnswer}
-                  </div>
+                  {a.expectedAnswer && (
+                    <div className="rounded-lg border border-line p-3">
+                      <div className="mb-1 text-xs font-semibold text-muted">What the interviewer expected</div>
+                      {a.expectedAnswer}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -263,7 +267,7 @@ export default function ReportPage() {
                   onClick={() => sessionLink && openPanel({ filterLink: sessionLink, prefillBody: `"${m.text}"\n— ${m.role === "candidate" ? "you" : persona.name}` })}
                   aria-label="Save as note"
                   title="Save as note"
-                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted opacity-0 hover:bg-soft focus-visible:opacity-100 group-hover:opacity-100"
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted opacity-0 hover:bg-soft focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
                 >
                   <StickyNote size={13} />
                 </button>

@@ -7,9 +7,12 @@ import { useState } from "react";
 import { LineChart, Trash2 } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { db, useAllPacks, useReports } from "@/lib/db";
-import { isScored, verdictTone } from "@/lib/analysis";
+import { isScored, scoreTone, verdictTone, type Tone } from "@/lib/analysis";
 import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useConfirm } from "@/lib/dialogContext";
+import { dateTime } from "@/lib/format";
+
+const BAR: Record<Tone, string> = { ok: "bg-ok", warn: "bg-warn", danger: "bg-danger" };
 
 export default function Progress() {
   const { data: reports = [], loading } = useReports();
@@ -52,27 +55,37 @@ export default function Progress() {
           action={{ label: "Start a mock", href: "/practice" }}
         />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           <Card className="lg:col-span-2">
             <h2 className="mb-3 text-lg font-medium">Overall score</h2>
-            <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-              {[0, 50, 100].map((g) => {
-                const y = H - 20 - (g / 100) * (H - 40);
-                return (
-                  <g key={g}>
-                    <line x1="30" x2={W - 10} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" />
-                    <text x="0" y={y + 4} fontSize="10" fill="currentColor" opacity="0.5">{g}</text>
-                  </g>
-                );
-              })}
-              {pts.length > 1 && <polyline points={pts.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="currentColor" strokeWidth="2" />}
-              {pts.map((p) => (
-                <Link key={p.r.id} href={`/report/${p.r.sessionId}`}>
-                  <circle cx={p.x} cy={p.y} r="6" fill="currentColor" />
-                  <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize="11" fill="currentColor">{p.r.overall}</text>
-                </Link>
+            <div className="relative h-48 pl-8">
+              {[0, 50, 100].map((g) => (
+                <span key={g} className="absolute left-0 -translate-y-1/2 text-[11px] leading-none text-muted" style={{ top: `${((H - 20 - (g / 100) * (H - 40)) / H) * 100}%` }}>{g}</span>
               ))}
-            </svg>
+              <div className="relative h-full">
+                {/* Stretches to the box (non-scaling strokes stay crisp); dots and labels are HTML
+                    placed by percentage, so they stay readable and tappable at a phone's width. */}
+                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full" aria-hidden="true">
+                  {[0, 50, 100].map((g) => {
+                    const y = H - 20 - (g / 100) * (H - 40);
+                    return <line key={g} x1="0" x2={W} y1={y} y2={y} stroke="currentColor" strokeOpacity="0.12" vectorEffect="non-scaling-stroke" />;
+                  })}
+                  {pts.length > 1 && <polyline points={pts.map((p) => `${p.x},${p.y}`).join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />}
+                </svg>
+                {pts.map((p) => (
+                  <Link
+                    key={p.r.id}
+                    href={`/report/${p.r.sessionId}`}
+                    aria-label={`${byId(p.r.packId)?.title ?? "Interview"}, ${p.r.overall} out of 100, ${dateTime(p.r.createdAt)}`}
+                    className="group absolute grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center"
+                    style={{ left: `${(p.x / W) * 100}%`, top: `${(p.y / H) * 100}%` }}
+                  >
+                    <span className="absolute bottom-full text-xs font-semibold tabular-nums">{p.r.overall}</span>
+                    <span className="h-3 w-3 rounded-full bg-accent ring-2 ring-card transition group-hover:scale-125" />
+                  </Link>
+                ))}
+              </div>
+            </div>
           </Card>
 
           <Card>
@@ -81,7 +94,7 @@ export default function Progress() {
               {dimAvg.slice(0, 6).map((d) => (
                 <div key={d.name}>
                   <div className="mb-1 flex justify-between text-xs"><span>{d.name}</span><span>{d.avg.toFixed(1)}/10</span></div>
-                  <div className="h-2 rounded-full bg-soft"><div className="h-full rounded-full bg-accent" style={{ width: `${d.avg * 10}%` }} /></div>
+                  <div className="h-2 rounded-full bg-soft"><div className={`h-full rounded-full ${BAR[scoreTone(d.avg * 10)]}`} style={{ width: `${d.avg * 10}%` }} /></div>
                 </div>
               ))}
             </div>
@@ -95,19 +108,23 @@ export default function Progress() {
                 {[...new Set(reports.map((r) => r.packId))].map((id) => (<option key={id} value={id}>{byId(id)?.title ?? id}</option>))}
               </select>
             </div>
-            <ul className="grid gap-2">
+            <ul className="grid grid-cols-1 gap-2">
               {shown.length === 0 && <li className="rounded-2xl bg-soft p-4 text-sm text-muted">No sessions for this round.</li>}
               {shown.map((r) => (
                 <li key={r.id} className="flex items-center gap-2">
-                  <Link href={`/report/${r.sessionId}`} className="flex flex-1 items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:bg-soft">
+                  <Link href={`/report/${r.sessionId}`} className="flex min-w-0 flex-1 items-center gap-3 rounded-xl border border-line px-3 py-2.5 transition hover:bg-soft">
                     <ScoreBadge score={isScored(r) ? r.overall : null} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
-                      <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString()}</div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                        <span className="whitespace-nowrap">{dateTime(r.createdAt)}</span>
+                        {/* On phones the verdict sits under the title, leaving the title room. */}
+                        <span className="sm:hidden"><TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill></span>
+                      </div>
                     </div>
-                    <TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill>
+                    <span className="hidden sm:block"><TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill></span>
                   </Link>
-                  <button onClick={() => remove(r.sessionId, r.id)} aria-label="Delete session" className="grid h-10 w-10 place-items-center rounded-full text-muted hover:bg-soft hover:text-danger"><Trash2 size={16} /></button>
+                  <button onClick={() => remove(r.sessionId, r.id)} aria-label="Delete session" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-muted hover:bg-soft hover:text-danger"><Trash2 size={16} /></button>
                 </li>
               ))}
             </ul>

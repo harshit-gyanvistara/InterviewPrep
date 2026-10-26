@@ -50,7 +50,9 @@ Signed-out page request ──► proxy.ts ──► redirect /welcome   (API re
  └─ Google (web only; hidden in the app via isInApp()):
        /auth/google ──► Google ──► /auth/callback ──► session + consent ──► /
 
-Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/sign-out (no page reload).
+Shell guard: no server profile ──► /onboarding.
+Sign-out: avatar menu (or Settings → Data & AI, or "Not you?" on onboarding) ──► signOut() in lib/db.ts
+          ──► POST /api/auth/sign-out ──► resetSession() ──► /welcome   (no page reload)
 ```
 
 `proxy.ts` only refreshes the session and redirects pages; route handlers check the user themselves, and row-level security checks again in the database. With `AUTH_MODE=off` (local work, CI) everyone is the one `local` user.
@@ -68,13 +70,13 @@ Shell guard: no server profile ──► /onboarding.  Sign-out: POST /api/auth/
 
 ## 3b. Organisations (super-admin, M2-Org O.1)
 
-1. Someone listed in `SUPER_ADMIN_EMAILS` opens `/admin/orgs` (everyone else gets 404 from the API).
+1. Someone listed in `SUPER_ADMIN_EMAILS` opens `/admin/orgs` from "Admin console" in their avatar menu (everyone else gets 404 from the API, and `/api/auth/me` only sets `superAdmin: true` for that person).
 2. They create an org (name, address/slug, kind, optional owner email) and set its plan as `entitlements` rows (seats, mocks per period, any key) plus settings. Marketing does this; no SQL ([plans/m2-org.md](plans/m2-org.md)).
 3. An owner email that has an account becomes an owner straight away; otherwise it gets a one-time owner invite link (only its hash is stored).
 4. Every change is written to `audit_logs`. All of it runs on the server with the secret key.
 5. **Inviting (O.2):** an owner/admin opens `/org/<slug>` and creates email invites (one single-use link per address; pasting a CSV works) or a reusable join code like `K7QM4-XR2PD`. Links and codes are shown once; only their hashes are stored.
 6. **Joining:** `/join/<token or code>`. Signed out: the invite is kept in the browser, the person signs in, and comes straight back. Signed in: they see the org, choose what it may see (activity / scores / full), and join.
-7. **Changing or leaving (O.3):** Settings → Organisations lists the member's orgs. Changing the share level revokes the old `org_share` consent and records a new one, so it takes effect at once. Leaving sets the membership to `removed` and revokes sharing; their history stays theirs. The last owner can't leave.
+7. **Changing or leaving (O.3):** the avatar menu links to each of the member's orgs (`/org/<slug>`); Settings → Organisations lists them with their sharing. Changing the share level revokes the old `org_share` consent and records a new one, so it takes effect at once. Leaving sets the membership to `removed` and revokes sharing; their history stays theirs. The last owner can't leave.
 8. **Practising for an org (O.4):** a member picks "For <org>" in the top-bar switcher (or on /practice, which then shows only the org's allowed rounds). New sessions carry `config.orgId`. On the session's first AI call the server checks the membership and allowed rounds (`checkOrgPractice`), stamps `sessions.org_id`, and checks the org's `mocks` entitlement instead of the user's package. The report records usage with `org_id`, and saving the report copies `org_id`/`assignment_id` from its session. Solo practice is unchanged.
 9. **Cohorts and assignments (O.5):** on `/org/<slug>`, admins create cohorts and place members in them; coaches and admins set assignments (a built-in round, everyone or one cohort, optional due date, mocks each). Members see open ones first in the dashboard's next step and on the org page. Starting one opens `/practice?pack=…&assignment=…`, which practises for that org; on the first AI call the server checks the assignment and stamps `sessions.assignment_id`, and the report copies it. Admins see "n of m done" per assignment, counted from reports.
 10. **Admin dashboard (O.6):** `/org/<slug>` shows Overview (seats, mocks against the plan, assignment completion, who's been quiet 7+ days), Members (role changes, removal, sharing level, mocks, last practice, readiness where shared), Analytics by cohort, and the Audit log. Everything is read on the server from org-stamped reports and sessions, then cut to each member's share level (`lib/orgAnalytics.ts`). Opening a member (`/org/<slug>/members/<id>`, transcripts only at "full") and exporting the CSV are written to `audit_logs`. `join_org` (one database function) checks the invite, email or domain rule and seat limit with the org row locked, then adds the membership, the `org_share` consent and an audit entry.

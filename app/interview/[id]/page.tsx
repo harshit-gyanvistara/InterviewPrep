@@ -429,7 +429,7 @@ export default function InterviewRoom() {
                 onClick={() => openPanel({ filterLink: { type: "session", id: session.id, label: pack.title }, prefillBody: `"${m.text}"\n— ${m.role === "candidate" ? "you" : persona.name}` })}
                 aria-label="Save as note"
                 title="Save as note"
-                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full text-muted opacity-0 transition hover:bg-card focus-visible:opacity-100 group-hover:opacity-100"
+                className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full text-muted opacity-0 transition hover:bg-card focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <StickyNote size={13} />
               </button>

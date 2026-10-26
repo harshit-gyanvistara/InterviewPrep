@@ -14,6 +14,7 @@ import { ScoreBadge, TonePill } from "@/components/ScoreBadge";
 import { useNotesPanel } from "@/lib/notesContext";
 import { daysUntil, nextAssignment, recommendPack, sessionsThisWeek, streakDays, weakestDimension } from "@/lib/recommend";
 import { dueText } from "@/components/org/api";
+import { dateTime } from "@/lib/format";
 
 export default function Dashboard() {
   const { data: profile, loading } = useProfile();
@@ -155,7 +156,7 @@ export default function Dashboard() {
                     <ScoreBadge score={isScored(r) ? r.overall : null} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{byId(r.packId)?.title ?? r.packId}</div>
-                      <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</div>
+                      <div className="text-xs text-muted">{dateTime(r.createdAt)}</div>
                     </div>
                     <TonePill tone={verdictTone(r.verdict)}>{r.verdict}</TonePill>
                   </Link>

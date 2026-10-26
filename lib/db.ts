@@ -34,6 +34,8 @@ export interface AuthState {
   mode: "supabase" | "off";
   user: { id: string; email: string | null } | null;
   google: boolean;
+  /** In SUPER_ADMIN_EMAILS: the account menu links to the admin console. Only ever true for that person. */
+  superAdmin?: boolean;
   /** /api/auth/me failed (offline, server down); the Shell offers a retry instead of guessing. */
   error?: string;
 }
@@ -325,6 +327,12 @@ export function resetSession() {
   remoteProfile.reset();
   for (const c of LIST_COLLECTIONS) remote[c].reset();
   notify();
+}
+
+/** Ends this device's session (the server clears the cookies), then forgets it here. The caller sends the person to /welcome. */
+export async function signOut() {
+  await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
+  resetSession();
 }
 
 /**

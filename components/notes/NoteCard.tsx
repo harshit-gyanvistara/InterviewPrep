@@ -8,6 +8,7 @@ import { useConfirm } from "@/lib/dialogContext";
 import { NOTE_TYPE_LABEL, noteLinkHref } from "@/lib/notes";
 import { NoteEditor } from "./NoteEditor";
 import type { Note } from "@/lib/types";
+import { dateTime } from "@/lib/format";
 
 export function NoteCard({ note, onNavigate }: { note: Note; onNavigate?: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -60,7 +61,7 @@ export function NoteCard({ note, onNavigate }: { note: Note; onNavigate?: () => 
           ))}
         </div>
       )}
-      <p className="mt-2 text-[11px] text-muted">{new Date(note.updatedAt).toLocaleString()}</p>
+      <p className="mt-2 text-[11px] text-muted">{dateTime(note.updatedAt)}</p>
     </div>
   );
 }

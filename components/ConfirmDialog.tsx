@@ -49,7 +49,7 @@ function DialogBody({ pending, resolveConfirm, resolvePrompt }: { pending: Pendi
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center p-4">
       <button aria-label="Cancel" className="absolute inset-0 bg-black/40" onClick={cancel} />
-      <div role="alertdialog" aria-modal className="glass relative w-full max-w-sm rounded-[1.75rem] p-6 shadow-2xl">
+      <div role="alertdialog" aria-modal className="glass relative w-full max-w-sm rounded-[1.75rem] p-6">
         <div className="flex items-start gap-3">
           {danger && (
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-danger/15 text-danger">

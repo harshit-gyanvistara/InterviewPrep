@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Card, PageTitle } from "@/components/Shell";
 import { ProfileForm } from "@/components/ProfileForm";
 import { OrgsSettings } from "@/components/OrgsSettings";
-import { db, resetSession, saveSettings, useAuth, useProfile, useSettings } from "@/lib/db";
+import { db, resetSession, signOut, saveSettings, useAuth, useProfile, useSettings } from "@/lib/db";
 import { PERSONAS } from "@/lib/packs";
 import { getTheme, setTheme, type Theme } from "@/lib/theme";
 import { useConfirm } from "@/lib/dialogContext";
@@ -141,10 +141,9 @@ function AccountCard() {
   const [error, setError] = useState<string | null>(null);
   if (auth?.mode !== "supabase" || !auth.user) return null;
 
-  const signOut = async () => {
+  const handleSignOut = async () => {
     setBusy(true);
-    await fetch("/api/auth/sign-out", { method: "POST" }).catch(() => {});
-    resetSession();
+    await signOut();
     router.replace("/welcome");
   };
 
@@ -175,7 +174,7 @@ function AccountCard() {
       <h2 className="mb-1 text-lg font-medium">Account</h2>
       <p className="mb-4 text-sm text-muted">Signed in as <b className="text-ink">{auth.user.email ?? "unknown email"}</b>.</p>
       <div className="flex flex-wrap gap-3">
-        <button className="btn btn-ghost" onClick={signOut} disabled={busy}>Sign out</button>
+        <button className="btn btn-ghost" onClick={handleSignOut} disabled={busy}>Sign out</button>
         <button className="btn btn-danger" onClick={deleteAccount} disabled={busy}>Delete account</button>
       </div>
       {error && <p className="mt-3 text-sm text-danger">{error}</p>}

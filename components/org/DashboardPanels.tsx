@@ -9,6 +9,7 @@ import { SHARE_LEVEL_TEXT, type Permission } from "@/lib/permissions";
 import type { Dashboard, AuditEntry } from "@/lib/orgDashboard";
 import { MIN_GROUP } from "@/lib/orgAnalytics";
 import { orgApi, roleLabel } from "./api";
+import { dateTime, shortDate } from "@/lib/format";
 
 // The org admin dashboard (plans/m2-org.md O.6): overview, members, analytics and the audit log.
 // The server already cut every member's data to their share level; this only lays it out.
@@ -31,7 +32,7 @@ function useDashboard(slug: string) {
   return { data, error, load };
 }
 
-const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Never");
+const day = (ms: number | null) => (ms ? shortDate(ms) : "Never");
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -219,7 +220,7 @@ export function AuditPanel({ slug }: { slug: string }) {
               {a.action}
               {a.targetEmail && <span className="text-muted"> · {a.targetEmail}</span>}
             </span>
-            <span className="text-muted">{a.actorEmail ?? "system"} · {new Date(a.createdAt).toLocaleString()}</span>
+            <span className="text-muted">{a.actorEmail ?? "system"} · {dateTime(a.createdAt)}</span>
           </li>
         ))}
       </ul>

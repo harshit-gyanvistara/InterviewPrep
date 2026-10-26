@@ -8,7 +8,6 @@ import { Card, PageTitle } from "@/components/Shell";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { NoteEditor } from "@/components/notes/NoteEditor";
 import { useNoteList } from "@/lib/db";
-import { NOTE_TYPE_LABEL } from "@/lib/notes";
 
 export default function NotesPage() {
   const { data: notes = [], loading } = useNoteList();
@@ -62,7 +61,7 @@ export default function NotesPage() {
           <EmptyState
             icon={<StickyNote size={20} />}
             title="No notes yet"
-            text={`Press "n" anywhere, or add one from any ${Object.values(NOTE_TYPE_LABEL).join(", ").toLowerCase()} in the app.`}
+            text={`Press "n" anywhere to jot something down. You can also add notes from an interview, a report, your roadmap or a story.`}
           />
         ) : (
           <Card>

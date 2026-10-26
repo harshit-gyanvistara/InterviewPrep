@@ -9,6 +9,7 @@ import { orgApi, roleLabel } from "@/components/org/api";
 import { useAllPacks } from "@/lib/db";
 import type { MemberDetail } from "@/lib/orgDashboard";
 import { SHARE_LEVEL_ADMIN_TEXT, SHARE_LEVEL_TEXT } from "@/lib/permissions";
+import { shortDate } from "@/lib/format";
 
 // One member's practice for the organisation (plans/m2-org.md O.6), at the level they chose to
 // share. Opening this page is recorded in the org's audit log.
@@ -39,7 +40,7 @@ export default function OrgMember() {
       </div>
       <div className="grid grid-cols-3 gap-3">
         <Card className="!p-4"><div className="text-xs text-muted">Mocks for this organisation</div><div className="text-2xl font-semibold">{m.mocks}</div></Card>
-        <Card className="!p-4"><div className="text-xs text-muted">Last practice</div><div className="text-2xl font-semibold">{m.lastPracticeAt ? new Date(m.lastPracticeAt).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "Never"}</div></Card>
+        <Card className="!p-4"><div className="text-xs text-muted">Last practice</div><div className="text-2xl font-semibold">{m.lastPracticeAt ? shortDate(m.lastPracticeAt) : "Never"}</div></Card>
         <Card className="!p-4"><div className="text-xs text-muted">Readiness</div><div className="text-2xl font-semibold">{m.readiness ?? "–"}</div></Card>
       </div>
       <p className="text-xs text-muted">{SHARE_LEVEL_ADMIN_TEXT[m.shareLevel]} Viewing this page is recorded in the organisation&apos;s audit log.</p>
@@ -56,7 +57,7 @@ export default function OrgMember() {
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium">{byId(r.packId)?.title ?? r.packId}</span>
                   <span className="text-muted">
-                    {new Date(r.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                    {shortDate(r.createdAt)}
                     {r.verdict && ` · ${r.verdict === "Too short" ? "too short to score" : `${r.overall} · ${r.verdict}`}`}
                   </span>
                 </div>

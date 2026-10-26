@@ -178,11 +178,21 @@ describe("AI routes require a signed-in user", () => {
 describe("GET /api/auth/me", () => {
   it("reports the mode and the user", async () => {
     const { GET } = await import("../app/api/auth/me/route");
-    expect(await (await GET()).json()).toEqual({ mode: "off", user: LOCAL_USER, google: false });
+    expect(await (await GET()).json()).toEqual({ mode: "off", user: LOCAL_USER, google: false, superAdmin: false });
 
     accountsOn();
     signedInAs(undefined);
-    expect(await (await GET()).json()).toEqual({ mode: "supabase", user: null, google: false });
+    expect(await (await GET()).json()).toEqual({ mode: "supabase", user: null, google: false, superAdmin: false });
+  });
+
+  it("flags a super-admin only to themselves", async () => {
+    const { GET } = await import("../app/api/auth/me/route");
+    accountsOn();
+    signedInAs(USER_ID);
+    expect((await (await GET()).json()).superAdmin).toBe(false);
+
+    vi.stubEnv("SUPER_ADMIN_EMAILS", "asha@example.com");
+    expect((await (await GET()).json()).superAdmin).toBe(true);
   });
 });
 

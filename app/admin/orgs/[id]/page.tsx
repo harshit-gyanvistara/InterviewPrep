@@ -11,6 +11,7 @@ import { SHARE_LEVELS } from "@/lib/permissions";
 import { orgSettings } from "@/lib/orgSettings";
 import { ENTITLEMENT_PERIODS, type Entitlement } from "@/lib/schemas";
 import { KNOWN_KEYS, adminFetch } from "../shared";
+import { dateTime, fullDate } from "@/lib/format";
 
 // Super-admin: one organisation (plans/m2-org.md O.1). Its plan (entitlement rows), settings and
 // owners, plus who's in it and the org's audit log. Marketing sets plans here, never in SQL.
@@ -180,7 +181,7 @@ export default function AdminOrg() {
           <div className="text-sm">
             <div className="mb-1 font-medium">Pending invites</div>
             {org.pendingInvites.map((i) => (
-              <div key={i.id} className="text-muted">{i.email ?? "join code"} · {i.role}{i.expiresAt ? ` · expires ${new Date(i.expiresAt).toLocaleDateString()}` : ""}</div>
+              <div key={i.id} className="text-muted">{i.email ?? "join code"} · {i.role}{i.expiresAt ? ` · expires ${fullDate(i.expiresAt)}` : ""}</div>
             ))}
           </div>
         )}
@@ -209,7 +210,7 @@ export default function AdminOrg() {
             {org.audit.map((a, i) => (
               <li key={i} className="flex flex-wrap justify-between gap-2 border-b border-line py-1.5 last:border-0">
                 <span>{a.action}</span>
-                <span className="text-muted">{a.actorEmail ?? "system"} · {new Date(a.createdAt).toLocaleString()}</span>
+                <span className="text-muted">{a.actorEmail ?? "system"} · {dateTime(a.createdAt)}</span>
               </li>
             ))}
           </ul>

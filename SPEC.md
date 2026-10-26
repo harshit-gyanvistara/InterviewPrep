@@ -304,7 +304,7 @@ Response: `{ ok: boolean; hasKey: boolean; chat: { model, ok, ms, error? }; scor
 Response: `Catalog = { domains: DomainProfile[]; packs: Pack[] }` from `getCatalog()` (§8), with `Cache-Control: public, max-age=300`. Read by `useCatalog()`. Public: no sign-in, no rate limit.
 
 ### 5.8 `GET /api/auth/me`
-Response: `{ mode: "supabase" | "off"; user: { id; email } | null; google: boolean }`, `no-store`. `google` is true when `AUTH_GOOGLE=on` and accounts are on. 503 when auth is unusable (off in production, or `AUTH_MODE=supabase` without keys). Read by `getAuth()` (§2).
+Response: `{ mode: "supabase" | "off"; user: { id; email } | null; google: boolean; superAdmin: boolean }`, `no-store`. `google` is true when `AUTH_GOOGLE=on` and accounts are on. `superAdmin` is true only when accounts are on and the signed-in email is in `SUPER_ADMIN_EMAILS` (the account menu then links to `/admin/orgs`). 503 when auth is unusable (off in production, or `AUTH_MODE=supabase` without keys). Read by `getAuth()` (§2).
 
 ### 5.9 `POST /api/auth/otp` and `POST /api/auth/verify`
 Email one-time-code sign-in. `otp`: body `{ email }` (trimmed, lowercased, validated) → Supabase `signInWithOtp` (creates the account on first use; `emailRedirectTo` = `/auth/callback`, so the email's link also signs in, in the same browser) → `{ ok: true }`; Supabase's own rate limit → 429, other Supabase errors → 502. `verify`: body `{ email, code }` (`code` 6–10 digits) → `verifyOtp({ type: "email" })`, sets the session cookies, records a `terms` consent for `TERMS_VERSION` if missing → `{ ok: true }`; wrong or expired code → 400. Both: 404 when accounts are off, rate-limited per IP.

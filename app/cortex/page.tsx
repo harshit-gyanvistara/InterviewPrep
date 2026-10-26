@@ -20,6 +20,7 @@ import { db, uid, useBinders, useCortexPage, useCortexPages } from "@/lib/db";
 import { useConfirm, usePrompt } from "@/lib/dialogContext";
 import { BINDER_ICONS, PAGE_ICONS, createPage, ensureSeedBinders, htmlToText, wordCount } from "@/lib/cortex";
 import type { Binder, CortexPage } from "@/lib/types";
+import { dateTime, shortDate } from "@/lib/format";
 
 export default function CortexRoute() {
   return (
@@ -158,14 +159,15 @@ function BinderList({
           <Plus size={15} />
         </button>
       </div>
-      <div className="grid gap-1 overflow-y-auto">
+      <div className="grid grid-cols-1 gap-1 overflow-y-auto">
         {binders.map((b) => (
-          <div key={b.id} className={`group flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm ${selectedId === b.id ? "bg-accent text-accent-ink" : "hover:bg-soft"}`}>
-            <button onClick={() => onSelect(b.id)} className="flex flex-1 items-center gap-2 text-left">
+          <div key={b.id} className={`group relative flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm ${selectedId === b.id ? "bg-accent text-accent-ink" : "hover:bg-soft"}`}>
+            <button onClick={() => onSelect(b.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
               <span>{b.icon}</span>
               <span className="truncate">{b.name}</span>
             </button>
-            <span className={`flex shrink-0 opacity-0 group-hover:opacity-100`}>
+            {/* Overlaid on the row's end so they don't take width from the name; still focusable when hidden. */}
+            <span className={`absolute inset-y-0 right-1.5 flex items-center rounded-r-xl pl-1 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${selectedId === b.id ? "bg-accent" : "bg-soft"}`}>
               <button onClick={() => onRename(b)} aria-label={`Rename ${b.name}`} className={`grid h-6 w-6 place-items-center rounded-full ${selectedId === b.id ? "hover:bg-white/15" : "hover:bg-card"}`}>
                 <Pencil size={12} />
               </button>
@@ -225,7 +227,7 @@ function PageList({
           <input className="input py-2 pl-8 text-sm" placeholder="Search this binder…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
       )}
-      <div className="grid flex-1 content-start gap-1 overflow-y-auto">
+      <div className="grid flex-1 grid-cols-1 content-start gap-1 overflow-y-auto">
         {!binder ? (
           <p className="p-3 text-sm text-muted">Pick or create a binder to see its pages.</p>
         ) : shown.length === 0 ? (
@@ -237,14 +239,14 @@ function PageList({
                 <span>{p.icon}</span>
                 <span className="flex-1 truncate">
                   <span className="block truncate font-medium">{p.title || "Untitled"}</span>
-                  <span className={`block truncate text-xs ${selectedId === p.id ? "opacity-70" : "text-muted"}`}>{new Date(p.updatedAt).toLocaleDateString()}</span>
+                  <span className={`block truncate text-xs ${selectedId === p.id ? "opacity-70" : "text-muted"}`}>{shortDate(p.updatedAt)}</span>
                 </span>
                 {p.pinned && <Pin size={12} className="shrink-0" />}
               </button>
               <button
                 onClick={() => onDelete(p)}
                 aria-label={`Delete ${p.title}`}
-                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full opacity-0 group-hover:opacity-100 ${selectedId === p.id ? "hover:bg-white/15" : "hover:bg-card"}`}
+                className={`grid h-6 w-6 shrink-0 place-items-center rounded-full opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${selectedId === p.id ? "hover:bg-white/15" : "hover:bg-card"}`}
               >
                 <Trash2 size={12} />
               </button>
@@ -308,7 +310,7 @@ function PageEditorInner({ page, onBack, className }: { page: CortexPage; onBack
             {icon}
           </button>
           {showIcons && (
-            <div className="glass absolute left-0 top-11 z-20 grid grid-cols-8 gap-1 rounded-2xl p-2 shadow-xl">
+            <div className="glass absolute left-0 top-11 z-20 grid grid-cols-8 gap-1 rounded-2xl p-2">
               {PAGE_ICONS.map((e) => (
                 <button
                   key={e}
@@ -374,7 +376,7 @@ function PageEditorInner({ page, onBack, className }: { page: CortexPage; onBack
               <Check size={12} className="text-ok" /> Saved
             </>
           )}
-          {saveState === "idle" && <>{page.updatedAt !== page.createdAt ? `Edited ${new Date(page.updatedAt).toLocaleString()}` : "New page"}</>}
+          {saveState === "idle" && <>{page.updatedAt !== page.createdAt ? `Edited ${dateTime(page.updatedAt)}` : "New page"}</>}
         </span>
         <span className="flex items-center gap-1">
           <FileText size={12} /> {words} word{words === 1 ? "" : "s"}

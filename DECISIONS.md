@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-26 · Account menu on the avatar; component CSS in a Tailwind layer
+- **Decision:** The header avatar opens an account menu: name and email, Settings, each of the person's orgs, "Admin console" for super-admins, and Sign out (accounts on only). `/api/auth/me` returns `superAdmin`, true only for that person. `.btn`, `.input` and `.glass` now live in `@layer components` in `app/globals.css`.
+- **Why:** Sign-out was only at the bottom of Settings → Data & AI, orgs only in Settings, and `/admin/orgs` was linked nowhere. Unlayered component classes beat every Tailwind utility, so classes like `pl-9` on a search box were silently ignored (the icon sat on the placeholder) and code had piled up `!important` workarounds.
+- **Considered:** A plain Sign out button in the header (doesn't fix the org and admin gaps); keeping the admin console unlinked so it isn't advertised (the flag only reaches the super-admin, so nothing is advertised to anyone else).
+- **Revisit:** If the menu grows past account-level items, or the existing `!` overrides are cleaned up.
+
 ## 2026-10-24 · Onboarding docs for new team members live in docs/
 - **Decision:** `docs/` holds a short onboarding set: a start-here page with a first-week guide, a glossary and which docs are current, plus PROJECT_STRUCTURE, FEATURES, ROADMAP and TESTING. They summarise and link; FLOWS.md, DECISIONS.md, SPEC.md, implementationPlan.md and plans/ stay the source of truth, and win when the two disagree.
 - **Why:** New members need one place to start. The detail is spread over a dozen docs, and some (IMPLEMENTATION.md, implementationPlan.md Part 1.1) still describe the browser-only prototype.

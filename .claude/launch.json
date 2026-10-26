@@ -4,7 +4,7 @@
     {
       "name": "web-noauth",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-Command", "$env:AUTH_MODE='off'; npx next dev -p 3100"],
+      "runtimeArgs": ["-NoProfile", "-Command", "$env:AUTH_MODE='off'; $env:NEXT_DIST_DIR='.next-noauth'; npx next dev -p 3100"],
       "port": 3100
     },
     {
