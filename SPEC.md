@@ -136,6 +136,7 @@ interface Report {
   topFixes: string[];        // exactly 3, per prompt instruction
   answerReviews: AnswerReview[];  // up to 6, per prompt instruction
   signals: Signals;          // computed client-side, not by Gemini
+  noteSuggestions?: Record<string, "accepted" | "discarded">; // per suggested note (lib/noteSuggestions.ts); absent = none handled
 }
 ```
 `signals` is the one field not returned by the AI — it's computed by `lib/analysis.ts::computeSignals(messages)` after the API response arrives, then merged in before the report is saved.

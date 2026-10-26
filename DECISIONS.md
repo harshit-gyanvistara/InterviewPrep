@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-26 · Note suggestions come from rules over the report
+- **Decision:** The report page (and Notes, for the latest interview) suggests up to 7 notes built from the report: top fixes, the weakest answers with their stronger version, the weakest skill, filler words and the best answer to reuse. Accept saves a normal note linked to the interview and its round; Discard hides it. The choice is stored on the report (`noteSuggestions`). See [plans/note-suggestions.md](plans/note-suggestions.md).
+- **Why:** The report already holds the useful content, so rules give good notes with no AI cost or wait and work offline. Storing the choice on the report keeps it with the interview, syncs across devices when signed in, and needs no new table.
+- **Considered:** An AI call to write the notes (costs a call per report, adds a wait, and mostly restates the report); saving notes automatically (clutters Notes); recording only accepted ones on the note itself (discards would come back, and so would a suggestion whose note was deleted).
+- **Revisit:** If people discard most suggestions of one kind, or ask for notes that spot patterns across interviews.
+
 ## 2026-10-26 · On phones, /practice keeps the next step in a sticky bar
 - **Decision:** Below the lg breakpoint, the round list on /practice (both "Choose a round" and Quick Mock) ends with a sticky bar (`components/NextStepBar.tsx`) showing the current choice and a Next button that scrolls to the interviewer and settings. It sits on the notes button's line above the tab bar, stops short of that button, and parks under the list once the settings scroll into view. Desktop keeps the right-hand sidebar unchanged.
 - **Why:** At 375px the interviewer, settings and "Continue to lobby" were about 2,000px below the round cards, and nothing said what to do after tapping a round.

@@ -157,6 +157,8 @@ export interface Report {
   topFixes: string[];
   answerReviews: AnswerReview[];
   signals: Signals;
+  /** What the person did with each suggested note (lib/noteSuggestions.ts), by suggestion key. Absent = none handled yet. */
+  noteSuggestions?: Record<string, "accepted" | "discarded">;
 }
 
 export interface RoadmapItem {

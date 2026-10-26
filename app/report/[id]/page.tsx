@@ -7,6 +7,7 @@ import { ArrowRight, NotebookPen, Repeat, StickyNote } from "lucide-react";
 import { Card } from "@/components/Shell";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { NoteSuggestions } from "@/components/notes/NoteSuggestions";
 import { TonePill } from "@/components/ScoreBadge";
 import { db, practisingFor, uid, useAllPacks, useMyOrgs, useNotesFor, useProfile, useQuery, useReports, useSettings } from "@/lib/db";
 import { recommendPack } from "@/lib/recommend";
@@ -244,6 +245,7 @@ export default function ReportPage() {
       <Card>
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold"><StickyNote size={16} /> Notes on this interview</h2>
         <p className="mb-4 text-sm text-muted">Jot anything you want to remember, or hover a line in the transcript below to save it as a note.</p>
+        {sessionLink && <NoteSuggestions report={report} packTitle={sessionLink.label} title="Suggested from this interview" className="mb-4" />}
         <div className="mb-4 rounded-lg border border-line p-4">
           <NoteEditor initialLink={sessionLink} onDone={() => {}} autoFocus={false} />
         </div>

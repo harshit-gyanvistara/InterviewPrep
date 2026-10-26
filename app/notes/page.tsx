@@ -2,15 +2,23 @@
 
 import { EmptyState } from "@/components/EmptyState";
 import { PageSkeleton } from "@/components/Skeleton";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Plus, Search, StickyNote, X } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
 import { NoteCard } from "@/components/notes/NoteCard";
 import { NoteEditor } from "@/components/notes/NoteEditor";
-import { useNoteList } from "@/lib/db";
+import { NoteSuggestions } from "@/components/notes/NoteSuggestions";
+import { useAllPacks, useNoteList, useReports } from "@/lib/db";
+import { pendingSuggestions } from "@/lib/noteSuggestions";
 
 export default function NotesPage() {
   const { data: notes = [], loading } = useNoteList();
+  // Suggestions from the most recent interview; older ones stay on their own report pages.
+  const { data: reports = [] } = useReports();
+  const { byId } = useAllPacks();
+  const latest = reports[0];
+  const latestTitle = latest ? (byId(latest.packId)?.title ?? "Interview") : "";
   const [query, setQuery] = useState("");
   const [tag, setTag] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
@@ -48,6 +56,14 @@ export default function NotesPage() {
             <button key={t} onClick={() => setTag(t)} className={`rounded-full px-3 py-1 text-xs ${tag === t ? "bg-accent text-accent-ink" : "bg-card text-muted"}`}>{t}</button>
           ))}
         </div>
+      )}
+
+      {latest && pendingSuggestions(latest).length > 0 && (
+        <Card className="mb-5">
+          <NoteSuggestions report={latest} packTitle={latestTitle} title="Suggested from your last interview">
+            <Link href={`/report/${latest.sessionId}`} className="text-xs text-muted underline">{latestTitle} report →</Link>
+          </NoteSuggestions>
+        </Card>
       )}
 
       {showNew && (

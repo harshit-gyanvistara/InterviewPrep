@@ -90,7 +90,7 @@ Next steps: retry same round │ practice recommended round │ update roadmap �
 **Practice:** a role-agnostic built-in library (Behavioural, HR Screen, Ownership & Leadership, Case Study, Group Discussion, plus field rounds shown only for that field: two CS rounds for software, and Clinical Viva, MMI Ethics and PG/Residency Selection for medicine) and rounds generated from the user's own job description for any profession, 3 personas, duration, pressure mode, recommended badge.
 **Lobby:** briefing, per-round tips, mic/speaker/camera check, join.
 **Room:** AI interviewer (spoken + captions), voice or text answers, camera tile, timer, code editor (coding round), transcript, end-confirm, auto-end, retry on errors.
-**Report:** score, verdict, rubric with quoted evidence, top fixes, per-answer review with stronger answer, filler-word signals, next steps.
+**Report:** score, verdict, rubric with quoted evidence, top fixes, per-answer review with stronger answer, filler-word signals, next steps, suggested notes to accept or discard (also on Notes for the latest interview).
 **Progress:** trend, weakest areas, filter by round, delete sessions.
 **Prepare:** roadmap generator and checklist; Story Bank (STAR stories with tags).
 **Settings & Data:** see below.
