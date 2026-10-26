@@ -5,6 +5,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Clock, Loader2, Sparkles, Trash2, Zap } from "lucide-react";
 import { Card, PageTitle } from "@/components/Shell";
+import { NextStepBar } from "@/components/NextStepBar";
 import { NoteChip } from "@/components/NoteChip";
 import { QuickMockBuilder } from "@/components/QuickMock";
 import { db, practisingFor, uid, useAllPacks, useMyAssignments, useMyOrgs, useProfile, useReports, useSettings } from "@/lib/db";
@@ -161,66 +162,70 @@ function Practice() {
         <QuickMockBuilder packs={mixablePacks} settings={settings} orgId={forOrg?.id} />
       ) : (
       <div className="grid gap-5 lg:grid-cols-3">
-        <div className="grid gap-3 lg:col-span-2">
-          {packs.map((p) => {
-            const sel = packId === p.id;
-            const tried = reports.filter((r) => r.packId === p.id && isScored(r));
-            const best = tried.length ? Math.max(...tried.map((r) => r.overall)) : null;
-            const choose = () => {
-              setPackOverride(p.id);
-              setDurationOverride(null);
-            };
-            return (
-              // A div, not a button: it contains real nested buttons (the note chip, delete),
-              // which HTML doesn't allow inside a <button>.
-              <div
-                key={p.id}
-                role="button"
-                tabIndex={0}
-                onClick={choose}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    choose();
-                  }
-                }}
-                className={`cursor-pointer rounded-xl p-5 text-left transition ${sel ? "bg-accent text-accent-ink" : "bg-card hover:bg-soft"}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 text-lg font-medium">
-                      {p.title}
-                      {p.source && (
-                        <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-normal ${sel ? "bg-white/20" : "bg-hl"}`}><Sparkles size={11} /> {SOURCE_BADGE[p.source]}</span>
-                      )}
-                      {p.id === rec.pack.id && !p.source && (
-                        <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-normal ${sel ? "bg-white/20" : "bg-hl"}`}>Recommended</span>
-                      )}
+        {/* A block wrapper (not a grid) so the phone-only next-step bar can stick within it. */}
+        <div className="min-w-0 lg:col-span-2">
+          <div className="grid gap-3 lg:h-full">
+            {packs.map((p) => {
+              const sel = packId === p.id;
+              const tried = reports.filter((r) => r.packId === p.id && isScored(r));
+              const best = tried.length ? Math.max(...tried.map((r) => r.overall)) : null;
+              const choose = () => {
+                setPackOverride(p.id);
+                setDurationOverride(null);
+              };
+              return (
+                // A div, not a button: it contains real nested buttons (the note chip, delete),
+                // which HTML doesn't allow inside a <button>.
+                <div
+                  key={p.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={choose}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      choose();
+                    }
+                  }}
+                  className={`cursor-pointer rounded-xl p-5 text-left transition ${sel ? "bg-accent text-accent-ink" : "bg-card hover:bg-soft"}`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 text-lg font-medium">
+                        {p.title}
+                        {p.source && (
+                          <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-normal ${sel ? "bg-white/20" : "bg-hl"}`}><Sparkles size={11} /> {SOURCE_BADGE[p.source]}</span>
+                        )}
+                        {p.id === rec.pack.id && !p.source && (
+                          <span className={`flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-normal ${sel ? "bg-white/20" : "bg-hl"}`}>Recommended</span>
+                        )}
+                      </div>
+                      <div className={`text-sm ${sel ? "opacity-80" : "text-muted"}`}>{p.company} · {p.role}</div>
                     </div>
-                    <div className={`text-sm ${sel ? "opacity-80" : "text-muted"}`}>{p.company} · {p.role}</div>
+                    <span className="flex shrink-0 items-center gap-1">
+                      <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs ${sel ? "bg-white/15" : "bg-soft"}`}>
+                        <Clock size={12} /> {p.durationMin} min
+                      </span>
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <NoteChip link={{ type: "pack", id: p.id, label: p.title }} className={sel ? "!bg-white/15" : ""} />
+                      </span>
+                      {p.source && (
+                        <button onClick={(e) => deleteCustom(p.id, e)} aria-label="Delete this round" className={`grid h-7 w-7 place-items-center rounded-full ${sel ? "hover:bg-white/15" : "hover:bg-card"}`}>
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </span>
                   </div>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs ${sel ? "bg-white/15" : "bg-soft"}`}>
-                      <Clock size={12} /> {p.durationMin} min
-                    </span>
-                    <span onClick={(e) => e.stopPropagation()}>
-                      <NoteChip link={{ type: "pack", id: p.id, label: p.title }} className={sel ? "!bg-white/15" : ""} />
-                    </span>
-                    {p.source && (
-                      <button onClick={(e) => deleteCustom(p.id, e)} aria-label="Delete this round" className={`grid h-7 w-7 place-items-center rounded-full ${sel ? "hover:bg-white/15" : "hover:bg-card"}`}>
-                        <Trash2 size={13} />
-                      </button>
-                    )}
-                  </span>
+                  <p className={`mt-2 text-sm ${sel ? "opacity-80" : "text-muted"}`}>{p.description}</p>
+                  <p className={`mt-2 text-xs ${sel ? "opacity-70" : "text-muted"}`}>{tried.length ? `Tried ${tried.length}× · best ${best}` : "Not tried yet"}</p>
                 </div>
-                <p className={`mt-2 text-sm ${sel ? "opacity-80" : "text-muted"}`}>{p.description}</p>
-                <p className={`mt-2 text-xs ${sel ? "opacity-70" : "text-muted"}`}>{tried.length ? `Tried ${tried.length}× · best ${best}` : "Not tried yet"}</p>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <NextStepBar label={`Round · ${dur} min`} value={pack.title} targetId="practice-setup" />
         </div>
 
-        <div className="grid content-start gap-5">
+        <div id="practice-setup" className="grid scroll-mt-4 content-start gap-5">
           <Card>
             <h3 className="mb-3 font-medium">Interviewer</h3>
             <div className="grid gap-2">

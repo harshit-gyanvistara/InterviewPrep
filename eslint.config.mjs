@@ -11,6 +11,8 @@ const eslintConfig = defineConfig([
     ".next/**",
     // End-to-end build and reports (playwright.config.ts).
     ".next-e2e/**",
+    // No-auth dev build (the web-noauth launch config sets NEXT_DIST_DIR).
+    ".next-noauth/**",
     "test-results/**",
     "playwright-report/**",
     "out/**",

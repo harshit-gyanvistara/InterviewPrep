@@ -6,6 +6,12 @@ Add an entry in the same commit as the change it describes.
 
 ---
 
+## 2026-10-26 · On phones, /practice keeps the next step in a sticky bar
+- **Decision:** Below the lg breakpoint, the round list on /practice (both "Choose a round" and Quick Mock) ends with a sticky bar (`components/NextStepBar.tsx`) showing the current choice and a Next button that scrolls to the interviewer and settings. It sits on the notes button's line above the tab bar, stops short of that button, and parks under the list once the settings scroll into view. Desktop keeps the right-hand sidebar unchanged.
+- **Why:** At 375px the interviewer, settings and "Continue to lobby" were about 2,000px below the round cards, and nothing said what to do after tapping a round.
+- **Considered:** Moving interviewer and settings above the round list on phones (the start button would then sit above a long list, still off screen after choosing a round near the bottom); a bar that starts the session directly with default settings (skips choosing the interviewer and pressure); a bottom sheet with the settings (more code, a second scroll area on small screens).
+- **Revisit:** If the round list gets search or collapsing, or the settings move into the lobby.
+
 ## 2026-10-26 · Account menu on the avatar; component CSS in a Tailwind layer
 - **Decision:** The header avatar opens an account menu: name and email, Settings, each of the person's orgs, "Admin console" for super-admins, and Sign out (accounts on only). `/api/auth/me` returns `superAdmin`, true only for that person. `.btn`, `.input` and `.glass` now live in `@layer components` in `app/globals.css`.
 - **Why:** Sign-out was only at the bottom of Settings → Data & AI, orgs only in Settings, and `/admin/orgs` was linked nowhere. Unlayered component classes beat every Tailwind utility, so classes like `pl-9` on a search box were silently ignored (the icon sat on the placeholder) and code had piled up `!important` workarounds.

@@ -25,6 +25,7 @@ The dashboard's job is to always answer one question: *"What should I do next?"*
 /  Dashboard  ── next-best-action card ──► /practice?pack=…
    ▼
 /practice  Choose round → persona → duration → pressure   (settings defaults pre-filled)
+           phones: a bar above the tab bar shows the chosen round; Next jumps to interviewer + settings
    ▼
 /interview/[id]  LOBBY  (status: lobby)
    briefing "what to expect", tips for this round, device check, Join / Cancel

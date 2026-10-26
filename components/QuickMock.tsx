@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Circle, ListChecks, Loader2, Sparkles, Timer, Zap } from "lucide-react";
+import { NextStepBar } from "@/components/NextStepBar";
 import { Card } from "@/components/Shell";
 import { db, uid } from "@/lib/db";
 import { PERSONAS, buildMixedPack } from "@/lib/packs";
@@ -64,32 +65,35 @@ export function QuickMockBuilder({ packs, settings, orgId }: { packs: Pack[]; se
 
   return (
     <div className="grid gap-5 lg:grid-cols-3">
-      <Card className="lg:col-span-2">
-        <h3 className="mb-1 flex items-center gap-2 font-medium"><ListChecks size={16} /> Pick one or more rounds</h3>
-        <p className="mb-3 text-sm text-muted">Select just one for a shorter version of it, or several to mix them into one session that jumps between question styles.</p>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {packs.map((p) => {
-            const on = selected.has(p.id);
-            return (
-              <button
-                key={p.id}
-                onClick={() => toggle(p.id)}
-                aria-pressed={on}
-                className={`flex items-start gap-3 rounded-2xl p-3 text-left text-sm transition ${on ? "bg-accent text-accent-ink" : "bg-soft hover:opacity-80"}`}
-              >
-                {on ? <CheckCircle2 size={18} className="mt-0.5 shrink-0" /> : <Circle size={18} className="mt-0.5 shrink-0 opacity-40" />}
-                <span>
-                  <span className="font-medium">{p.title}</span>
-                  <span className={`mt-0.5 block text-xs ${on ? "opacity-80" : "text-muted"}`}>{p.company} · {p.role}</span>
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-xs text-muted">{selected.size} round{selected.size === 1 ? "" : "s"} selected.</p>
-      </Card>
+      <div className="min-w-0 lg:col-span-2">
+        <Card className="lg:h-full">
+          <h3 className="mb-1 flex items-center gap-2 font-medium"><ListChecks size={16} /> Pick one or more rounds</h3>
+          <p className="mb-3 text-sm text-muted">Select just one for a shorter version of it, or several to mix them into one session that jumps between question styles.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {packs.map((p) => {
+              const on = selected.has(p.id);
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggle(p.id)}
+                  aria-pressed={on}
+                  className={`flex items-start gap-3 rounded-2xl p-3 text-left text-sm transition ${on ? "bg-accent text-accent-ink" : "bg-soft hover:opacity-80"}`}
+                >
+                  {on ? <CheckCircle2 size={18} className="mt-0.5 shrink-0" /> : <Circle size={18} className="mt-0.5 shrink-0 opacity-40" />}
+                  <span>
+                    <span className="font-medium">{p.title}</span>
+                    <span className={`mt-0.5 block text-xs ${on ? "opacity-80" : "text-muted"}`}>{p.company} · {p.role}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-muted">{selected.size} round{selected.size === 1 ? "" : "s"} selected.</p>
+        </Card>
+        <NextStepBar label={`Quick Mock · ${minutes} min`} value={`${selected.size} round${selected.size === 1 ? "" : "s"} · ${questionCount} questions`} targetId="quick-mock-setup" />
+      </div>
 
-      <div className="grid content-start gap-5">
+      <div id="quick-mock-setup" className="grid scroll-mt-4 content-start gap-5">
         <Card>
           <h3 className="mb-3 flex items-center gap-2 font-medium"><Timer size={16} /> Length</h3>
           <label className="grid gap-1.5 text-sm">
